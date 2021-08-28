@@ -11,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import java.util.List;
@@ -25,7 +26,6 @@ import static pl.qprogramming.themplay.playlist.util.Utils.getThemeColor;
 
 /**
  * {@link RecyclerView.Adapter} that can display a {@link Playlist}.
- * TODO: Replace the implementation with code for your data type.
  */
 @Getter
 public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<PlaylistItemRecyclerViewAdapter.ViewHolder> {
@@ -51,22 +51,36 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     @Override
     public void onBindViewHolder(final ViewHolder holder, int position) {
-        val pItem = playlists.get(position);
-        holder.pItem = pItem;
-        holder.mPlaylistName.setText(pItem.getName());
-        holder.mCurrentFilename.setText(pItem.getCurrentFile());
-        if (pItem.isActive()) {
+        val playlist = playlists.get(position);
+        holder.playlist = playlist;
+        holder.mPlaylistName.setText(playlist.getName());
+        holder.mCurrentFilename.setText(playlist.getCurrentFile());
+        //render is active
+        if (playlist.isActive()) {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorSecondary));
             holder.mCurrentFilename.setVisibility(View.VISIBLE);
         } else {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorOnPrimary));
             holder.mCurrentFilename.setVisibility(View.INVISIBLE);
         }
+        //action menu
         holder.actionMenu.setOnClickListener(view -> {
-            Log.d(TAG, "Show menu");
-            view.getParent().showContextMenuForChild(view);
+            val popup = new PopupMenu(holder.mView.getContext(), holder.actionMenu);
+            popup.getMenuInflater().inflate(R.menu.playlist_menu, popup.getMenu());
+            popup.setOnMenuItemClickListener(item -> {
+                val itemId = item.getItemId();
+                if (itemId == R.id.editPlaylist) {
+                    Log.d(TAG, "Editing playlist " + playlist);
+                } else if (itemId == R.id.deletePlaylist) {
+                    Log.d(TAG, "Deleting playlist " + playlist);
+                } else {
+                    throw new IllegalStateException("Unexpected value: " + itemId);
+                }
+                return true;
+            });
+            popup.show();
         });
-        holder.mTextWrapper.setOnClickListener(contentView -> playlistService.setActive(pItem, holder.mView));
+        holder.mTextWrapper.setOnClickListener(contentView -> playlistService.setActive(playlist, holder.mView));
     }
 
 
@@ -82,7 +96,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         public final TextView mCurrentFilename;
         public final CardView mCardView;
         public final ImageView actionMenu;
-        public Playlist pItem;
+        public Playlist playlist;
 
         public ViewHolder(View view) {
             super(view);

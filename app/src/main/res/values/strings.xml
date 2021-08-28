@@ -91,5 +91,11 @@
     </string>
     <string name="item_menu">Item menu</string>
     <string name="song_name">Song name</string>
+    <string name="settings">Settings</string>
+    <string name="about">About</string>
+    <string name="toggle_night_mode">Toggle night mode</string>
     <string name="playlist_name">Playlist name</string>
+    <string name="playlist_add_new_playlist">Add new playlist</string>
+    <string name="playlist_edit_playlist">Edit playlist</string>
+    <string name="playlist_delete_playlist">Delete playlist</string>
 </resources>
