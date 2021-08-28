@@ -5,21 +5,23 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import androidx.cardview.widget.CardView;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.Getter;
 import lombok.val;
 import pl.qprogramming.themplay.R;
+
+import static pl.qprogramming.themplay.playlist.util.Utils.getThemeColor;
 
 /**
  * {@link RecyclerView.Adapter} that can display a {@link Playlist}.
@@ -28,7 +30,8 @@ import pl.qprogramming.themplay.R;
 @Getter
 public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<PlaylistItemRecyclerViewAdapter.ViewHolder> {
 
-    private List<Playlist> playlists = new ArrayList<>();
+    private static final String TAG = PlaylistItemRecyclerViewAdapter.class.getSimpleName();
+    private List<Playlist> playlists;
 
     private PlaylistService playlistService;
     private boolean serviceIsBound;
@@ -50,14 +53,22 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     public void onBindViewHolder(final ViewHolder holder, int position) {
         val pItem = playlists.get(position);
         holder.pItem = pItem;
-        holder.mContentView.setText(pItem.getName());
-        holder.mContentView.setOnClickListener(contentView -> playlistService.setActive(pItem, holder.mView));
+        holder.mPlaylistName.setText(pItem.getName());
+        holder.mCurrentFilename.setText(pItem.getCurrentFile());
         if (pItem.isActive()) {
-            holder.mCardView.setBackgroundColor(ContextCompat.getColor(holder.mCardView.getContext(), R.color.teal_200));
+            holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorSecondary));
+            holder.mCurrentFilename.setVisibility(View.VISIBLE);
         } else {
-            holder.mCardView.setBackgroundColor(ContextCompat.getColor(holder.mCardView.getContext(), R.color.design_default_color_background));
+            holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorOnPrimary));
+            holder.mCurrentFilename.setVisibility(View.INVISIBLE);
         }
+        holder.actionMenu.setOnClickListener(view -> {
+            Log.d(TAG, "Show menu");
+            view.getParent().showContextMenuForChild(view);
+        });
+        holder.mTextWrapper.setOnClickListener(contentView -> playlistService.setActive(pItem, holder.mView));
     }
+
 
     @Override
     public int getItemCount() {
@@ -66,7 +77,9 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     public class ViewHolder extends RecyclerView.ViewHolder {
         public final View mView;
-        public final TextView mContentView;
+        public final LinearLayout mTextWrapper;
+        public final TextView mPlaylistName;
+        public final TextView mCurrentFilename;
         public final CardView mCardView;
         public final ImageView actionMenu;
         public Playlist pItem;
@@ -74,14 +87,16 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         public ViewHolder(View view) {
             super(view);
             mView = view;
-            mContentView = (TextView) view.findViewById(R.id.content);
+            mPlaylistName = (TextView) view.findViewById(R.id.playlist_name);
+            mCurrentFilename = (TextView) view.findViewById(R.id.now_playing);
             mCardView = (CardView) view.findViewById(R.id.card_view);
             actionMenu = (ImageView) view.findViewById(R.id.item_menu);
+            mTextWrapper = (LinearLayout) view.findViewById(R.id.text_wrapper);
         }
 
         @Override
         public String toString() {
-            return super.toString() + " '" + mContentView.getText() + "'";
+            return super.toString() + " '" + mPlaylistName.getText() + "'";
         }
     }
 

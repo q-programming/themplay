@@ -29,8 +29,10 @@ public class PlaylistService extends Service {
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Binding service to " + intent);
         val context = getApplicationContext();
-        val playlist1 = Playlist.builder().name("Playlist 1").id(0).build();
-        val playlist2 = Playlist.builder().name("Playlist 2").id(1).build();
+        //TODO remove later on
+        val filename = "Some song";
+        val playlist1 = Playlist.builder().name("Playlist 1").id(0).currentFile(filename).build();
+        val playlist2 = Playlist.builder().name("Playlist 2").id(1).currentFile(filename).build();
         playlists.add(playlist1);
         playlists.add(playlist2);
         return mBinder;

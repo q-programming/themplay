@@ -10,6 +10,7 @@ import android.os.IBinder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import lombok.val;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
@@ -27,7 +28,15 @@ public class MainActivity extends AppCompatActivity {
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(view -> {
             val number = playlistService.getPlaylists().size() + 1;
-            playlistService.addPlaylist(Playlist.builder().name("Playlist " + number).id(number).build());
+            playlistService.addPlaylist(Playlist.builder().name("Playlist " + number).id(number).currentFile("song").build());
+        });
+        findViewById(R.id.menu).setOnClickListener(v -> {
+            val nightMode = AppCompatDelegate.getDefaultNightMode();
+            if (nightMode == AppCompatDelegate.MODE_NIGHT_YES) {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+            } else {
+                AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
+            }
         });
     }
 
