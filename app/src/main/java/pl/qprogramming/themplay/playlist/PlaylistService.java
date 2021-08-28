@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.View;
+
+import com.google.android.material.snackbar.Snackbar;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,8 +29,8 @@ public class PlaylistService extends Service {
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Binding service to " + intent);
         val context = getApplicationContext();
-        val playlist1 = Playlist.builder().name("Playlist 1").build();
-        val playlist2 = Playlist.builder().name("Playlist 2").build();
+        val playlist1 = Playlist.builder().name("Playlist 1").id(0).build();
+        val playlist2 = Playlist.builder().name("Playlist 2").id(1).build();
         playlists.add(playlist1);
         playlists.add(playlist2);
         return mBinder;
@@ -36,10 +39,29 @@ public class PlaylistService extends Service {
 
     public void addPlaylist(Playlist playlist) {
         Log.d(TAG, "Adding new playlist" + playlist);
+        playlists.add(playlist);
         Intent intent = new Intent(EventType.PLAYLIST_NOTIFICATION.getCode());
         sendBroadcast(intent);
-        playlists.add(playlist);
     }
+
+    public void setActive(Playlist item, View view) {
+        playlists.forEach(playlist -> {
+            if (playlist.getId() == item.getId()) {
+                if (!playlist.isActive()) {
+                    playlist.setActive(true);
+                    Log.d(TAG, "Playing now :" + playlist.getName());
+                    Intent intent = new Intent(EventType.PLAYLIST_PLAY_NOTIFICATION.getCode());
+                    sendBroadcast(intent);
+                    Snackbar.make(view, "Now playing " + playlist.getName(), Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
+                    // TODO play
+                }
+            } else {
+                playlist.setActive(false);
+            }
+        });
+    }
+
 
     public class LocalBinder extends Binder {
         public PlaylistService getService() {

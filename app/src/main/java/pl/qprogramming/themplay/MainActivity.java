@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
         FloatingActionButton fab = findViewById(R.id.fab);
         fab.setOnClickListener(view -> {
             val number = playlistService.getPlaylists().size() + 1;
-            playlistService.addPlaylist(Playlist.builder().name("Playlist " + number).build());
+            playlistService.addPlaylist(Playlist.builder().name("Playlist " + number).id(number).build());
         });
     }
 

@@ -95,7 +95,9 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        getActivity().registerReceiver(receiver, new IntentFilter(EventType.PLAYLIST_NOTIFICATION.getCode()));
+        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION.getCode());
+        filter.addAction(EventType.PLAYLIST_PLAY_NOTIFICATION.getCode());
+        getActivity().registerReceiver(receiver, filter);
     }
 
     private final ServiceConnection mConnection = new ServiceConnection() {
@@ -109,7 +111,9 @@ public class PlaylistFragment extends Fragment {
             playlistService = null;
         }
     };
-
+    /**
+     * Redraw recycler view on any action recived
+     */
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {

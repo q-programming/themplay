@@ -11,7 +11,8 @@ import lombok.Getter;
 @Getter
 public enum EventType {
     PLAYLIST_NOTIFICATION("q-programming.themplay.playlist"),
-    UNKNOWN("q-programming.mirror.n/a");
+    PLAYLIST_PLAY_NOTIFICATION("q-programming.themplay.playlist.play"),
+    UNKNOWN("q-programming.themplay.n/a");
 
     private static final Map<String, EventType> BY_CODE = new HashMap<>();
 

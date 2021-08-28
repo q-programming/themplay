@@ -10,9 +10,11 @@ import lombok.Setter;
 @Setter
 @Builder
 public class Playlist {
+    private int id;
     private String name;
     private List<String> files;
     private String currentFile;
     private int currentPosition;
+    private boolean active;
 
 }
