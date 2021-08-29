@@ -1,4 +1,4 @@
-package pl.qprogramming.themplay.playlist;
+package pl.qprogramming.themplay.views;
 
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -8,25 +8,26 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.view.ContextMenu;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.PlaylistService;
+
+import static pl.qprogramming.themplay.playlist.PlaylistService.POSITION;
 
 /**
  * A fragment representing a list of Items.
  */
 public class PlaylistFragment extends Fragment {
-
+    private static final String TAG = PlaylistFragment.class.getSimpleName();
     private PlaylistService playlistService;
     private boolean serviceIsBound;
     private RecyclerView recyclerView;
@@ -36,14 +37,6 @@ public class PlaylistFragment extends Fragment {
      * fragment (e.g. upon screen orientation changes).
      */
     public PlaylistFragment() {
-    }
-
-    // TODO: Customize parameter initialization
-    @SuppressWarnings("unused")
-    public static PlaylistFragment newInstance(int columnCount) {
-        PlaylistFragment fragment = new PlaylistFragment();
-        Bundle args = new Bundle();
-        return fragment;
     }
 
     @Override
@@ -67,14 +60,6 @@ public class PlaylistFragment extends Fragment {
     }
 
     @Override
-    public void onCreateContextMenu(@NonNull ContextMenu menu, @NonNull View v, @Nullable ContextMenu.ContextMenuInfo menuInfo) {
-        super.onCreateContextMenu(menu, v, menuInfo);
-        val content = (TextView) v.findViewById(R.id.playlist_name);
-        menu.setHeaderTitle(content.getText());
-        menu.add("Action");
-    }
-
-    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.playlist_item_list, container, false);
@@ -92,15 +77,18 @@ public class PlaylistFragment extends Fragment {
     public void onResume() {
         super.onResume();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION.getCode());
-        filter.addAction(EventType.PLAYLIST_PLAY_NOTIFICATION.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY.getCode());
         getActivity().registerReceiver(receiver, filter);
     }
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
-            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService.getPlaylists()));
+            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService));
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -113,8 +101,17 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            recyclerView.getAdapter().notifyDataSetChanged();
-
+            Log.d(TAG, "Received event within playlistFragment " + intent.getAction());
+            val event = EventType.getType(intent.getAction());
+            Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
+            if (args != null) {
+                val position = (int) args.getSerializable(POSITION);
+                if (event == EventType.PLAYLIST_NOTIFICATION_DELETE) {
+                    recyclerView.getAdapter().notifyItemRemoved(position);
+                } else {
+                    recyclerView.getAdapter().notifyDataSetChanged();
+                }
+            }
         }
     };
 }

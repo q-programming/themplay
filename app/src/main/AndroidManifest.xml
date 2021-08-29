@@ -4,10 +4,15 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_logo"
+        android:icon="@drawable/ic_logo_v2"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Themplay">
+        <meta-data android:name="AA_DB_NAME" android:value="themplay" />
+        <meta-data android:name="AA_DB_VERSION" android:value="1" />
+        <meta-data
+            android:name="AA_MODELS"
+            android:value="pl.qprogramming.themplay.playlist.Playlist" />
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
