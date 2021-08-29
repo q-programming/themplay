@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Themplay</string>
+    <string name="item_menu">Menu pozycji</string>
+    <string name="song_name">Nazwa piosenki</string>
+    <string name="settings">Ustawienia</string>
+    <string name="about">O aplikacji</string>
+    <string name="toggle_night_mode">Przełacz tryb nocny</string>
+    <string name="playlist_name">Nazwa playlisty</string>
+    <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
+    <string name="playlist_edit_playlist">Edytuj playlistę</string>
+    <string name="playlist_delete_playlist">Usuń playlistę</string>
+    <string name="playlist_active">Teraz odtwarzam \"{0}\"</string>
+    <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
+</resources>
