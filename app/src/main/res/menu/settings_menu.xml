@@ -1,0 +1,15 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/addPlaylist"
+        android:title="@string/playlist_add_new_playlist" />
+    <item
+        android:id="@+id/settings"
+        android:title="@string/settings" />
+    <item
+        android:id="@+id/nightToggle"
+        android:title="@string/toggle_night_mode" />
+
+    <item
+        android:id="@+id/about"
+        android:title="@string/about" />
+</menu>
