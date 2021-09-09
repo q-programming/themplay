@@ -22,9 +22,13 @@ import lombok.ToString;
 @ToString
 @Table(name = "song", database = ThemPlayDatabase.class)
 public class Song extends Model implements Serializable {
+    public static final String CURRENT_POSITION = "currentPosition";
+
     @PrimaryKey
     private Long id;
     @Column
     private String filename;
+    @Column(name = CURRENT_POSITION)
+    private int currentPosition;
 
 }

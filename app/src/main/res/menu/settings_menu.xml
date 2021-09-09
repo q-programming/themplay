@@ -6,10 +6,6 @@
         android:id="@+id/settings"
         android:title="@string/settings" />
     <item
-        android:id="@+id/nightToggle"
-        android:title="@string/toggle_night_mode" />
-
-    <item
         android:id="@+id/about"
         android:title="@string/about" />
 </menu>

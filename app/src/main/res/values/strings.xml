@@ -11,4 +11,10 @@
     <string name="playlist_delete_playlist">Delete playlist</string>
     <string name="playlist_active">Now playing \"{0}\"</string>
     <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
+    <!-- Preference Titles -->
+    <string name="theme">Theme</string>
+    <string name="dark_mode">Dark mode</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="goBack">goBack</string>
+    <string name="back_arrow">back arrow</string>
 </resources>

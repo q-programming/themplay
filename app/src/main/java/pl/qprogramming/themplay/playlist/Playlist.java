@@ -28,7 +28,7 @@ import lombok.ToString;
 @Table(name = "playlists", database = ThemPlayDatabase.class)
 public class Playlist extends Model implements Serializable {
     public static final String CURRENT_SONG = "currentSong";
-    public static final String CURRENT_POSITION = "currentPosition";
+
     public static final String ACTIVE = "active";
     public static final String CREATED_AT = "created_at";
     public static final String UPDATED_AT = "updated_at";
@@ -39,8 +39,7 @@ public class Playlist extends Model implements Serializable {
     private String name;
     @Column(name = CURRENT_SONG)
     private Song currentSong;
-    @Column(name = CURRENT_POSITION)
-    private int currentPosition;
+
     @Column(name = ACTIVE)
     private boolean active;
     @Column(name = CREATED_AT)

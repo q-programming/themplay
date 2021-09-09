@@ -15,12 +15,16 @@ import com.reactiveandroid.internal.database.DatabaseConfig;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.preference.PreferenceManager;
 import lombok.val;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
 import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.views.AboutFragment;
+import pl.qprogramming.themplay.views.PlaylistFragment;
+import pl.qprogramming.themplay.views.SettingsFragment;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -32,22 +36,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupDBConnection();
+        setupServices();
+        setContentView(R.layout.activity_main);
+        setPreferences();
+        setupMenu();
+        //load playlist fragment
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.activity_fragment_layout, new PlaylistFragment())
+                .addToBackStack("home")
+                .commit();
+    }
+
+    private void setupDBConnection() {
         DatabaseConfig appDatabase = new DatabaseConfig.Builder(ThemPlayDatabase.class)
                 .build();
-
         ReActiveAndroid.init(new ReActiveConfig.Builder(this)
                 .addDatabaseConfigs(appDatabase)
                 .build());
+    }
 
-        val intent = new Intent(this, PlaylistService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-        setContentView(R.layout.activity_main);
-        val darkMode = Boolean.parseBoolean(Property.getProperty(Property.DARK_MODE).getValue());
-        if (darkMode) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        }
-
-        //menu
+    private void setupMenu() {
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
@@ -59,12 +69,30 @@ public class MainActivity extends AppCompatActivity {
                     addPlaylist();
                     val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                     sendBroadcast(notify);
-                } else if (itemId == R.id.nightToggle) {
-                    toggleNighMode();
                 } else if (itemId == R.id.settings) {
-                    Log.d(TAG, "settings");
+                    getSupportFragmentManager()
+                            .beginTransaction()
+                            .setCustomAnimations(
+                                    R.anim.slide_in,
+                                    R.anim.fade_out,
+                                    R.anim.fade_in,
+                                    R.anim.slide_out
+                            )
+                            .replace(R.id.activity_fragment_layout, new SettingsFragment())
+                            .addToBackStack("settings")
+                            .commit();
                 } else {
-                    Log.d(TAG, "clicked about");
+                    getSupportFragmentManager()
+                            .beginTransaction()
+                            .setCustomAnimations(
+                                    R.anim.slide_in,
+                                    R.anim.fade_out,
+                                    R.anim.fade_in,
+                                    R.anim.slide_out
+                            )
+                            .replace(R.id.activity_fragment_layout, new AboutFragment())
+                            .addToBackStack("about")
+                            .commit();
                 }
                 return true;
             });
@@ -72,23 +100,22 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void setupServices() {
+        val intent = new Intent(this, PlaylistService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    }
+
+
+    private void setPreferences() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this);
+        val darkMode = sp.getBoolean(Property.DARK_MODE, false);
+        AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+    }
+
     private void addPlaylist() {
         val playlist = new Playlist();
         playlist.setName("Playlist");
         playlistService.addPlaylist(playlist);
-    }
-
-    private void toggleNighMode() {
-        val darkMode = Property.getProperty(Property.DARK_MODE);
-        val isDarkMode = Boolean.parseBoolean(darkMode.getValue());
-        if (isDarkMode) {
-            darkMode.setValue("false");
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        } else {
-            darkMode.setValue("true");
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        }
-        darkMode.save();
     }
 
     @Override
