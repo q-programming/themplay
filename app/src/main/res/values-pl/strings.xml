@@ -10,6 +10,7 @@
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
+    <string name="playlist_delete_playlist_confirm">Czy jesteś pewień, że chcesz usunąc playlistę \"{0}\"?</string>
     <string name="playlist_active">Teraz odtwarzam \"{0}\"</string>
     <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
     <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
@@ -21,4 +22,5 @@
     <string name="back_arrow">strzałka w tył</string>
     <string name="cancel">Anuluj</string>
     <string name="create">Stwórz</string>
+    <string name="delete">Usuń</string>
 </resources>
