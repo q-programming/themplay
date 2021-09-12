@@ -17,45 +17,32 @@ import androidx.fragment.app.Fragment;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Playlist;
+import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.Song;
 
 /**
  * A simple {@link Fragment} subclass.
- * Use the {@link PlaylistSettingsFragment#newInstance} factory method to
  * create an instance of this fragment.
  */
 public class PlaylistSettingsFragment extends Fragment {
 
+    PlaylistService playlistService;
     Playlist playlist;
     TextInputEditText playlistEditText;
     TextInputLayout playlistInputLayout;
-
-    private static final String ARG_PLAYLIST = "playlist";
-
 
     public PlaylistSettingsFragment() {
         // Required empty public constructor
     }
 
-    /**
-     * Use this factory method to create a new instance of
-     * this fragment using the provided parameters.
-     *
-     * @return A new instance of fragment PlaylistSettings.
-     */
-    public static PlaylistSettingsFragment newInstance(Playlist playlist) {
-        PlaylistSettingsFragment fragment = new PlaylistSettingsFragment();
-        Bundle args = new Bundle();
-        args.putSerializable(ARG_PLAYLIST, playlist);
-        fragment.setArguments(args);
-        return fragment;
+    public PlaylistSettingsFragment(PlaylistService playlistService, Playlist playlist) {
+        this.playlistService = playlistService;
+        this.playlist = playlist;
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            playlist = (Playlist) getArguments().getSerializable(ARG_PLAYLIST);
-        }
     }
 
     @Override
@@ -75,6 +62,11 @@ public class PlaylistSettingsFragment extends Fragment {
         textView.setOnClickListener(clicked -> getActivity()
                 .getSupportFragmentManager()
                 .popBackStack());
+        view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
+            val song = Song.builder().filename("Some new song").build();
+            song.save();
+            playlistService.addSongToPlaylist(playlist, song);
+        });
         //populate edit fields
         addNameEditField(view);
     }
@@ -85,10 +77,12 @@ public class PlaylistSettingsFragment extends Fragment {
         playlistEditText.setText(playlist.getName());
         playlistEditText.addTextChangedListener(new TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            }
 
             @Override
             public void afterTextChanged(Editable s) {

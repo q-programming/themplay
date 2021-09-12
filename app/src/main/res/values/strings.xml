@@ -6,11 +6,13 @@
     <string name="about">About</string>
     <string name="cancel">Cancel</string>
     <string name="create">Create</string>
+    <string name="delete">delete</string>
     <string name="toggle_night_mode">Toggle night mode</string>
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
+    <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
     <string name="playlist_active">Now playing \"{0}\"</string>
     <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
     <string name="playlist_name_atLeastOneChar">Please enter at least single character!</string>

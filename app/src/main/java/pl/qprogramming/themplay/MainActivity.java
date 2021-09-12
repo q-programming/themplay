@@ -117,7 +117,7 @@ public class MainActivity extends AppCompatActivity {
                         val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                         sendBroadcast(notify);
                         navigateToFragment(getSupportFragmentManager(),
-                                PlaylistSettingsFragment.newInstance(playlist),
+                                new PlaylistSettingsFragment(playlistService, playlist),
                                 playlist.getName() + playlist.getId());
                         val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
                         Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
