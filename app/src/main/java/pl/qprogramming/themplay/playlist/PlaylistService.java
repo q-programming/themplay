@@ -15,9 +15,9 @@ import com.reactiveandroid.query.Select;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
+import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
@@ -63,9 +63,7 @@ public class PlaylistService extends Service {
      * @return Optional of Playlist with potentially loaded songs
      */
     public Optional<Playlist> findById(long id) {
-        val opPlaylist = Optional.ofNullable(Select.from(Playlist.class).where("id = ?", id).fetchSingle());
-        opPlaylist.ifPresent(this::songsByPlaylist);
-        return opPlaylist;
+        return Optional.ofNullable(Select.from(Playlist.class).where("id = ?", id).fetchSingle());
     }
 
     /**
@@ -84,19 +82,25 @@ public class PlaylistService extends Service {
      * @param playlist playlist for which songs should be returned
      */
     @SuppressLint("CheckResult")
-    public void songsByPlaylist(Playlist playlist) {
+    public void loadSongsToPlaylist(Playlist playlist) {
         Select.from(PlaylistSongs.class)
                 .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
                 .fetchAsync()
+                .flatMapObservable(Observable::fromIterable)
+                .map(PlaylistSongs::getSong)
+                .toList()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(playlistSongs -> playlist.setSongs(playlistSongs.stream().map(PlaylistSongs::getSong).collect(Collectors.toList())));
+                .subscribe(playlist::setSongs);
     }
 
-    public Single<List<PlaylistSongs>> fetchSongsByPlaylistAsync(Playlist playlist) {
+    public Single<List<Song>> fetchSongsByPlaylistAsync(Playlist playlist) {
         return Select.from(PlaylistSongs.class)
                 .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
                 .fetchAsync()
+                .flatMapObservable(Observable::fromIterable)
+                .map(PlaylistSongs::getSong)
+                .toList()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }
@@ -146,7 +150,7 @@ public class PlaylistService extends Service {
     private void makeActiveAndNotify(Playlist playlist, int position, View view) {
         var currentSong = playlist.getCurrentSong();
         //load all songs ( might be needed for next song
-        songsByPlaylist(playlist);
+        loadSongsToPlaylist(playlist);
         if (currentSong == null && isEmpty(playlist.getSongs())) {
             val msg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
             Snackbar.make(view, msg, Snackbar.LENGTH_LONG)

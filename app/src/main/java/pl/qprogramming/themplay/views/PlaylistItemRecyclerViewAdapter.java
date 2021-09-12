@@ -12,7 +12,6 @@ import android.widget.TextView;
 
 import java.text.MessageFormat;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -24,7 +23,6 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
-import pl.qprogramming.themplay.playlist.PlaylistSongs;
 
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
@@ -43,24 +41,6 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     @SuppressLint("CheckResult")
     public PlaylistItemRecyclerViewAdapter(PlaylistService playlistService, FragmentActivity activity) {
         this.playlistService = playlistService;
-//        Select.from(Playlist.class).fetchAsync()
-//                .subscribeOn(Schedulers.io())
-//                .observeOn(AndroidSchedulers.mainThread())
-//                .subscribe(playlists -> {
-//                    this.playlists = playlists;
-//                    this.playlists.forEach(playlist -> {
-//                        Select.from(PlaylistSongs.class)
-//                                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
-//                                .fetchAsync()
-//                                .subscribeOn(Schedulers.io())
-//                                .observeOn(AndroidSchedulers.mainThread())
-//                                .subscribe(playlistSongs -> {
-//                                    playlist.setSongs(playlistSongs.stream().map(PlaylistSongs::getSong).collect(Collectors.toList()));
-//                                });
-//                    });
-//
-//                });
-//        playlists = this.playlistService.getAll();
         if (activity != null) {
             this.fmanager = activity.getSupportFragmentManager();
         }
@@ -83,7 +63,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         if (playlistService != null) {
             playlistService.fetchSongsByPlaylistAsync(playlist)
                     .subscribe(playlistSongs -> {
-                        playlist.setSongs(playlistSongs.stream().map(PlaylistSongs::getSong).collect(Collectors.toList()));
+                        playlist.setSongs(playlistSongs);
                         holder.mPlaylistName.setText(MessageFormat.format("{0} {1} ({2})", playlist.getId(), playlist.getName(), playlist.getSongs().size()));
                     });
         }
@@ -106,10 +86,15 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.editPlaylist) {
-                    navigateToFragment(
-                            fmanager,
-                            new PlaylistSettingsFragment(playlistService, playlist),
-                            playlist.getName() + playlist.getId());
+                    playlistService.fetchSongsByPlaylistAsync(playlist)
+                            .subscribe(songs -> {
+                                playlist.setSongs(songs);
+                                navigateToFragment(
+                                        fmanager,
+                                        new PlaylistSettingsFragment(playlistService, playlist),
+                                        playlist.getName() + playlist.getId());
+
+                            });
                     Log.d(TAG, "Editing playlist " + playlist);
                 } else if (itemId == R.id.deletePlaylist) {
                     val context = holder.mCardView.getContext();
@@ -144,7 +129,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     @Override
     public int getItemCount() {
-        if (playlistService != null ) {
+        if (playlistService != null) {
             playlists = playlistService.getAll();
         }
         return playlists.size();

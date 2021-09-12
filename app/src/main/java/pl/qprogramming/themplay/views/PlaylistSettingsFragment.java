@@ -2,6 +2,8 @@ package pl.qprogramming.themplay.views;
 
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.Html;
+import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,6 +21,8 @@ import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
+
+import static android.text.Html.FROM_HTML_MODE_COMPACT;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -67,6 +71,12 @@ public class PlaylistSettingsFragment extends Fragment {
             song.save();
             playlistService.addSongToPlaylist(playlist, song);
         });
+        val content = new SpannableStringBuilder();
+        playlist.getSongs().forEach(song ->
+                content.append("&#8226;")
+                        .append(song.getFilename())
+                        .append(" <br/>"));
+        ((TextView) view.findViewById(R.id.songs_list)).setText(Html.fromHtml(content.toString(), FROM_HTML_MODE_COMPACT));
         //populate edit fields
         addNameEditField(view);
     }
