@@ -12,8 +12,13 @@
     <string name="playlist_delete_playlist">Usuń playlistę</string>
     <string name="playlist_active">Teraz odtwarzam \"{0}\"</string>
     <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
+    <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
+    <string name="playlist_add_atLeastOneChar">Nazwa twojej playlisty musi mieć przynajmniej jeden znak</string>
+    <string name="playlist_add_created">Utworzono nową playlistę \"{0}\"</string>
     <string name="theme">Wygląd</string>
     <string name="dark_mode">Tryb ciemny</string>
     <string name="goBack">goBack</string>
     <string name="back_arrow">strzałka w tył</string>
+    <string name="cancel">Anuluj</string>
+    <string name="create">Stwórz</string>
 </resources>

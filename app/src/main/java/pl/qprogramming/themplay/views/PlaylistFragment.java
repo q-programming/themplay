@@ -83,7 +83,7 @@ public class PlaylistFragment extends Fragment {
             Log.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
-            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService));
+            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService, getActivity()));
         }
 
         public void onServiceDisconnected(ComponentName className) {

@@ -33,7 +33,7 @@ public class AboutFragment extends Fragment {
         val textView = (TextView) getView().findViewById(R.id.header_title);
         textView.setText(getString(R.string.about));
         getView()
-                .findViewById(R.id.header_title)
+                .findViewById(R.id.Header)
                 .setOnClickListener(clicked -> getActivity()
                         .getSupportFragmentManager()
                         .popBackStack());

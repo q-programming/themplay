@@ -14,6 +14,8 @@ import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
+import androidx.fragment.app.FragmentActivity;
+import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
@@ -21,7 +23,8 @@ import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 
-import static pl.qprogramming.themplay.playlist.util.Utils.getThemeColor;
+import static pl.qprogramming.themplay.util.Utils.getThemeColor;
+import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 /**
  * {@link RecyclerView.Adapter} that can display a {@link Playlist}.
@@ -32,10 +35,14 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     private List<Playlist> playlists;
 
     private final PlaylistService playlistService;
+    private FragmentManager fmanager;
 
-    public PlaylistItemRecyclerViewAdapter(PlaylistService playlistService) {
+    public PlaylistItemRecyclerViewAdapter(PlaylistService playlistService, FragmentActivity activity) {
         this.playlistService = playlistService;
         playlists = this.playlistService.getAll();
+        if (activity != null) {
+            this.fmanager = activity.getSupportFragmentManager();
+        }
     }
 
 
@@ -74,10 +81,14 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.editPlaylist) {
+                    navigateToFragment(
+                            fmanager,
+                            PlaylistSettingsFragment.newInstance(playlist),
+                            playlist.getName() + playlist.getId());
                     //TODO actually edit playlist
-                    val song = Song.builder().filename("some fancy song").build();
-                    song.save();
-                    addSongToPlaylist(playlist, song);
+//                    val song = Song.builder().filename("some fancy song").build();
+//                    song.save();
+//                    addSongToPlaylist(playlist, song);
                     Log.d(TAG, "Editing playlist " + playlist);
                 } else if (itemId == R.id.deletePlaylist) {
                     Log.d(TAG, "Deleting playlist " + playlist);

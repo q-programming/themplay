@@ -23,7 +23,7 @@ import lombok.var;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 
-import static pl.qprogramming.themplay.playlist.util.Utils.isEmpty;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlaylistService extends Service {
     private static final String TAG = PlaylistService.class.getSimpleName();
