@@ -13,4 +13,8 @@
     <item name="android:fontWeight">600</item>
   </style>
 
+  <style name="Header">
+    <item name="android:textSize">20dp</item>
+  </style>
+
 </resources>

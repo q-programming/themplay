@@ -6,21 +6,33 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
+import android.text.InputType;
+import android.widget.EditText;
 import android.widget.PopupMenu;
 
+import com.google.android.material.snackbar.Snackbar;
 import com.reactiveandroid.ReActiveAndroid;
 import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
 
+import java.text.MessageFormat;
+
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.preference.PreferenceManager;
 import lombok.val;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
 import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.views.AboutFragment;
+import pl.qprogramming.themplay.views.PlaylistFragment;
+import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
+import pl.qprogramming.themplay.views.SettingsFragment;
+
+import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -32,39 +44,40 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setupDBConnection();
+        setupServices();
+        setContentView(R.layout.activity_main);
+        setPreferences();
+        setupMenu();
+        //load playlist fragment
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.activity_fragment_layout, new PlaylistFragment())
+                .addToBackStack("home")
+                .commit();
+    }
+
+    private void setupDBConnection() {
         DatabaseConfig appDatabase = new DatabaseConfig.Builder(ThemPlayDatabase.class)
                 .build();
-
         ReActiveAndroid.init(new ReActiveConfig.Builder(this)
                 .addDatabaseConfigs(appDatabase)
                 .build());
+    }
 
-        val intent = new Intent(this, PlaylistService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-        setContentView(R.layout.activity_main);
-        val darkMode = Boolean.parseBoolean(Property.getProperty(Property.DARK_MODE).getValue());
-        if (darkMode) {
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        }
-
-        //menu
+    private void setupMenu() {
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
             popup.getMenuInflater().inflate(R.menu.settings_menu, popup.getMenu());
             popup.setOnMenuItemClickListener(item -> {
-                Log.d(TAG, "clicked item " + item);
                 val itemId = item.getItemId();
                 if (itemId == R.id.addPlaylist) {
                     addPlaylist();
-                    val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-                    sendBroadcast(notify);
-                } else if (itemId == R.id.nightToggle) {
-                    toggleNighMode();
                 } else if (itemId == R.id.settings) {
-                    Log.d(TAG, "settings");
+                    navigateToFragment(getSupportFragmentManager(), new SettingsFragment(), "settings");
                 } else {
-                    Log.d(TAG, "clicked about");
+                    navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }
                 return true;
             });
@@ -72,23 +85,47 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void addPlaylist() {
-        val playlist = new Playlist();
-        playlist.setName("Playlist");
-        playlistService.addPlaylist(playlist);
+    private void setupServices() {
+        val intent = new Intent(this, PlaylistService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
-    private void toggleNighMode() {
-        val darkMode = Property.getProperty(Property.DARK_MODE);
-        val isDarkMode = Boolean.parseBoolean(darkMode.getValue());
-        if (isDarkMode) {
-            darkMode.setValue("false");
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        } else {
-            darkMode.setValue("true");
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        }
-        darkMode.save();
+
+    private void setPreferences() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this);
+        val darkMode = sp.getBoolean(Property.DARK_MODE, false);
+        AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+    }
+
+    private void addPlaylist() {
+        val input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.playlist_name))
+                .setView(input)
+                .setPositiveButton(getString(R.string.create), (dialog, which) -> {
+                    val playlistName = input.getText().toString();
+                    if (playlistName.length() == 0) {
+                        val msg = getString(R.string.playlist_add_atLeastOneChar);
+                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
+                                .setAction("Action", null).show();
+                        input.setError(getString(R.string.playlist_name_atLeastOneChar));
+                    } else {
+                        input.setError(null);
+                        val playlist = Playlist.builder().name(playlistName).build();
+                        playlistService.addPlaylist(playlist);
+                        val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+                        sendBroadcast(notify);
+                        navigateToFragment(getSupportFragmentManager(),
+                                PlaylistSettingsFragment.newInstance(playlist),
+                                playlist.getName() + playlist.getId());
+                        val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
+                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
+                                .setAction("Action", null).show();
+                    }
+                })
+                .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
+                .show();
     }
 
     @Override

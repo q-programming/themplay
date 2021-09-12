@@ -40,13 +40,6 @@ public class PlaylistFragment extends Fragment {
     }
 
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        val intent = new Intent(getActivity(), PlaylistService.class);
-        getActivity().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-    }
-
-    @Override
     public void onStop() {
         doUnbindService();
         super.onStop();
@@ -69,6 +62,8 @@ public class PlaylistFragment extends Fragment {
             Context context = view.getContext();
             recyclerView = (RecyclerView) view;
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
+            val intent = new Intent(getActivity(), PlaylistService.class);
+            getActivity().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         }
         return view;
     }
@@ -88,7 +83,7 @@ public class PlaylistFragment extends Fragment {
             Log.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
-            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService));
+            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService, getActivity()));
         }
 
         public void onServiceDisconnected(ComponentName className) {
