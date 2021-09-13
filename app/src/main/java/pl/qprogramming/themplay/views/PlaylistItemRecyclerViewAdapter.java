@@ -61,6 +61,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         //it might happen service is not yet connected
         val playlist = playlists.get(position);
         if (playlistService != null) {
+            holder.mPlaylistName.setText(MessageFormat.format("{0} {1}", playlist.getId(), playlist.getName()));
             playlistService.fetchSongsByPlaylistAsync(playlist)
                     .subscribe(playlistSongs -> {
                         playlist.setSongs(playlistSongs);
@@ -80,6 +81,12 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             holder.mCurrentFilename.setVisibility(View.INVISIBLE);
         }
         //action menu
+        configureMenu(holder, position, playlist);
+        holder.mTextWrapper.setOnClickListener(contentView -> setActive(holder, position, playlist));
+    }
+
+    @SuppressLint("CheckResult")
+    private void configureMenu(@NonNull ViewHolder holder, int position, Playlist playlist) {
         holder.actionMenu.setOnClickListener(view -> {
             val popup = new PopupMenu(holder.mView.getContext(), holder.actionMenu);
             popup.getMenuInflater().inflate(R.menu.playlist_menu, popup.getMenu());
@@ -112,7 +119,6 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             });
             popup.show();
         });
-        holder.mTextWrapper.setOnClickListener(contentView -> setActive(holder, position, playlist));
     }
 
     private void setActive(@NonNull ViewHolder holder, int position, Playlist playlist) {

@@ -76,24 +76,6 @@ public class PlaylistService extends Service {
         return Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ?", true).fetchSingle());
     }
 
-    /**
-     * Load all songs belonging to passed playlist
-     *
-     * @param playlist playlist for which songs should be returned
-     */
-    @SuppressLint("CheckResult")
-    public void loadSongsToPlaylist(Playlist playlist) {
-        Select.from(PlaylistSongs.class)
-                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
-                .fetchAsync()
-                .flatMapObservable(Observable::fromIterable)
-                .map(PlaylistSongs::getSong)
-                .toList()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(playlist::setSongs);
-    }
-
     public Single<List<Song>> fetchSongsByPlaylistAsync(Playlist playlist) {
         return Select.from(PlaylistSongs.class)
                 .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
@@ -111,24 +93,35 @@ public class PlaylistService extends Service {
         playlist.saveAsync()
                 .subscribeOn(Schedulers.io())
                 .subscribe();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, getAll().size());
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
     }
 
     public void addSongToPlaylist(Playlist playlist, Song song) {
         Log.d(TAG, "Adding song to playlist ");
+        playlist.addSong(song);
         val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
         relation.saveAsync()
                 .subscribeOn(Schedulers.io())
                 .subscribe();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, getAll().size());
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
     }
 
 
+    @SuppressLint("CheckResult")
     public void removePlaylist(Playlist playlist, int position) {
+        fetchSongsByPlaylistAsync(playlist)
+                .subscribe(songs -> songs
+                        .forEach(song -> {
+                            song.deleteAsync()
+                                    .subscribeOn(Schedulers.io())
+                                    .subscribe();
+                        }));
         playlist.deleteAsync()
                 .subscribeOn(Schedulers.io())
                 .subscribe();
-        ;
         populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, position);
     }
 
@@ -147,26 +140,39 @@ public class PlaylistService extends Service {
         }
     }
 
+    @SuppressLint("CheckResult")
     private void makeActiveAndNotify(Playlist playlist, int position, View view) {
+        //load all songs ( might be needed for next song )
         var currentSong = playlist.getCurrentSong();
-        //load all songs ( might be needed for next song
-        loadSongsToPlaylist(playlist);
-        if (currentSong == null && isEmpty(playlist.getSongs())) {
-            val msg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
-            Snackbar.make(view, msg, Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
-        } else if (currentSong == null) {
-            currentSong = playlist.getSongs().get(0);
-            playlist.setCurrentSong(currentSong);
-        }
-        playlist.setActive(true);
-        playlist.save();
+        val msg = MessageFormat.format(getString(R.string.playlist_active), playlist.getName());
         if (currentSong != null) {
-            val msg = MessageFormat.format(getString(R.string.playlist_active), playlist.getName());
+            //just play it and then do fetch
             Snackbar.make(view, msg, Snackbar.LENGTH_LONG)
                     .setAction("Action", null).show();
+            playlist.setActive(true);
+            playlist.save();
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, position);
+        } else {
+            fetchSongsByPlaylistAsync(playlist).subscribe(songs -> {
+                playlist.setSongs(songs);
+                if (isEmpty(playlist.getSongs())) {
+                    val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
+                    Snackbar.make(view, notActiveMsg, Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
+                } else {
+                    val newCurrentSong = playlist.getSongs().get(0);
+                    playlist.setCurrentSong(newCurrentSong);
+                    Snackbar.make(view, msg, Snackbar.LENGTH_LONG)
+                            .setAction("Action", null).show();
+                }
+                playlist.setActive(true);
+                playlist.save();
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, position);
+
+            });
+
         }
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, position);
+
     }
 
 
@@ -174,6 +180,10 @@ public class PlaylistService extends Service {
         public PlaylistService getService() {
             return PlaylistService.this;
         }
+    }
+
+    private void populateAndSend(EventType type) {
+        populateAndSend(type, -1, null);
     }
 
     private void populateAndSend(EventType type, int position) {

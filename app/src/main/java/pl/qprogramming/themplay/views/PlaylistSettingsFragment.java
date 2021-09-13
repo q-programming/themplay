@@ -2,16 +2,18 @@ package pl.qprogramming.themplay.views;
 
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.Html;
-import android.text.SpannableStringBuilder;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+
+import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,8 +23,6 @@ import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
-
-import static android.text.Html.FROM_HTML_MODE_COMPACT;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -66,19 +66,25 @@ public class PlaylistSettingsFragment extends Fragment {
         textView.setOnClickListener(clicked -> getActivity()
                 .getSupportFragmentManager()
                 .popBackStack());
+        addSongsList(view);
+        addNameEditField(view);
+    }
+
+    private void addSongsList(@NonNull View view) {
+        val listView = (ListView) view.findViewById(R.id.songs_list);
+        //change to custom adapter
+        val adapter = new ArrayAdapter<>(view.getContext(),
+                android.R.layout.simple_list_item_1, playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
+        listView.setAdapter(adapter);
+
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
             val song = Song.builder().filename("Some new song").build();
             song.save();
             playlistService.addSongToPlaylist(playlist, song);
+            adapter.clear();
+            adapter.addAll(playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
+            adapter.notifyDataSetChanged();
         });
-        val content = new SpannableStringBuilder();
-        playlist.getSongs().forEach(song ->
-                content.append("&#8226;")
-                        .append(song.getFilename())
-                        .append(" <br/>"));
-        ((TextView) view.findViewById(R.id.songs_list)).setText(Html.fromHtml(content.toString(), FROM_HTML_MODE_COMPACT));
-        //populate edit fields
-        addNameEditField(view);
     }
 
     private void addNameEditField(@NonNull View view) {

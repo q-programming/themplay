@@ -53,7 +53,6 @@ public class MainActivity extends AppCompatActivity {
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.activity_fragment_layout, new PlaylistFragment())
-                .addToBackStack("home")
                 .commit();
     }
 
