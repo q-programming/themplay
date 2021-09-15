@@ -1,5 +1,6 @@
 package pl.qprogramming.themplay.views;
 
+import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -9,6 +10,7 @@ import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -68,15 +70,27 @@ public class PlaylistSettingsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         val textView = (TextView) view.findViewById(R.id.header_title);
-        view.findViewById(R.id.back_arrow).setOnClickListener(clicked -> getActivity()
-                .getSupportFragmentManager()
-                .popBackStack());
+        view.findViewById(R.id.back_arrow).setOnClickListener(clicked -> updateListAndGoBack());
         textView.setText(playlist.getName());
-        textView.setOnClickListener(clicked -> getActivity()
-                .getSupportFragmentManager()
-                .popBackStack());
+        textView.setOnClickListener(clicked -> updateListAndGoBack());
         addSongsList(view);
         addNameEditField(view);
+    }
+
+    private void updateListAndGoBack() {
+        if (playlistEditText != null) {
+            val name = playlistEditText.getText().toString();
+            if (!playlist.getName().equals(name)) {
+                playlist.setName(name);
+                playlistService.save(playlist);
+            }
+        }
+        //hide virtual keyboard if open
+        val imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+        getActivity()
+                .getSupportFragmentManager()
+                .popBackStack();
     }
 
     private void addSongsList(@NonNull View view) {
@@ -137,8 +151,8 @@ public class PlaylistSettingsFragment extends Fragment {
             }
 
             @Override
-            public void afterTextChanged(Editable s) {
-                if (s.length() == 0) {
+            public void afterTextChanged(Editable editable) {
+                if (editable.length() == 0) {
                     playlistInputLayout.setError(getString(R.string.playlist_name_atLeastOneChar));
                 } else {
                     playlistInputLayout.setError(null);

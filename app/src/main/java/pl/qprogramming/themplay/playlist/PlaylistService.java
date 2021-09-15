@@ -88,6 +88,12 @@ public class PlaylistService extends Service {
     }
     //functional methods
 
+    public void save(Playlist playlist) {
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+    }
+
     public void addPlaylist(Playlist playlist) {
         Log.d(TAG, "Adding new playlist" + playlist);
         playlist.saveAsync()
