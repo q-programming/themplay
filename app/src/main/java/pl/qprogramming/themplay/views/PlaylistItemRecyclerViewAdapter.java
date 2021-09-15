@@ -70,7 +70,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         }
         holder.playlist = playlist;
         if (playlist.getCurrentSong() != null) {
-            holder.mCurrentFilename.setText(MessageFormat.format("{0} - {1}", playlist.getCurrentSong().getFilename(), playlist.getCurrentSong().getId()));
+            holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
         }
         //render is active
         if (playlist.isActive()) {

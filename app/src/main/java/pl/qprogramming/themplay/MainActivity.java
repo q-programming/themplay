@@ -1,9 +1,11 @@
 package pl.qprogramming.themplay;
 
+import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
@@ -20,6 +22,8 @@ import java.text.MessageFormat;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.preference.PreferenceManager;
 import lombok.val;
 import pl.qprogramming.themplay.playlist.EventType;
@@ -48,7 +52,8 @@ public class MainActivity extends AppCompatActivity {
         setupServices();
         setContentView(R.layout.activity_main);
         setPreferences();
-        setupMenu();
+        setMenu();
+        checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
         //load playlist fragment
         getSupportFragmentManager()
                 .beginTransaction()
@@ -64,7 +69,7 @@ public class MainActivity extends AppCompatActivity {
                 .build());
     }
 
-    private void setupMenu() {
+    private void setMenu() {
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
@@ -152,4 +157,17 @@ public class MainActivity extends AppCompatActivity {
             playlistService = null;
         }
     };
+
+    private void checkPermission(String permission) {
+        int permissionCheck = ContextCompat.checkSelfPermission(
+                this, permission);
+        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+            requestPermission(permission, permission.length());
+        }
+    }
+
+    private void requestPermission(String permissionName, int permissionRequestCode) {
+        ActivityCompat.requestPermissions(this,
+                new String[]{permissionName}, permissionRequestCode);
+    }
 }

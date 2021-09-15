@@ -28,6 +28,8 @@ public class Song extends Model implements Serializable {
     private Long id;
     @Column
     private String filename;
+    @Column
+    private String filePath;
     @Column(name = CURRENT_POSITION)
     private int currentPosition;
 

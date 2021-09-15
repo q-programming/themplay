@@ -2,17 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="pl.qprogramming.themplay">
 
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <application
         android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_descriptor"
         android:icon="@drawable/ic_logo_v2"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Themplay">
-        <meta-data android:name="AA_DB_NAME" android:value="themplay" />
-        <meta-data android:name="AA_DB_VERSION" android:value="1" />
-        <meta-data
-            android:name="AA_MODELS"
-            android:value="pl.qprogramming.themplay.playlist.Playlist" />
+
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -20,6 +18,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <meta-data
+            android:name="AA_DB_VERSION"
+            android:value="1" />
+        <meta-data
+            android:name="AA_MODELS"
+            android:value="pl.qprogramming.themplay.playlist.Playlist" />
+
+        <meta-data
+            android:name="AA_DB_NAME"
+            android:value="themplay" />
         <service
             android:name=".playlist.PlaylistService"
             android:foregroundServiceType="dataSync" />

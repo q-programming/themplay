@@ -1,6 +1,9 @@
 package pl.qprogramming.themplay.views;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
@@ -13,8 +16,11 @@ import android.widget.TextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
+import java.io.File;
 import java.util.stream.Collectors;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -24,16 +30,19 @@ import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 
+import static android.app.Activity.RESULT_OK;
+
 /**
  * A simple {@link Fragment} subclass.
  * create an instance of this fragment.
  */
 public class PlaylistSettingsFragment extends Fragment {
-
+    private static final String TAG = PlaylistSettingsFragment.class.getSimpleName();
     PlaylistService playlistService;
     Playlist playlist;
     TextInputEditText playlistEditText;
     TextInputLayout playlistInputLayout;
+    ArrayAdapter<String> adapter;
 
     public PlaylistSettingsFragment() {
         // Required empty public constructor
@@ -73,18 +82,45 @@ public class PlaylistSettingsFragment extends Fragment {
     private void addSongsList(@NonNull View view) {
         val listView = (ListView) view.findViewById(R.id.songs_list);
         //change to custom adapter
-        val adapter = new ArrayAdapter<>(view.getContext(),
+        adapter = new ArrayAdapter<>(view.getContext(),
                 android.R.layout.simple_list_item_1, playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
         listView.setAdapter(adapter);
-
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
-            val song = Song.builder().filename("Some new song").build();
-            song.save();
-            playlistService.addSongToPlaylist(playlist, song);
-            adapter.clear();
-            adapter.addAll(playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
-            adapter.notifyDataSetChanged();
+            Intent intent = new Intent();
+            intent.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            intent.setAction(Intent.ACTION_GET_CONTENT);
+            startActivityForResult.launch(intent);
         });
+    }
+
+    private final ActivityResultLauncher<Intent> startActivityForResult = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == RESULT_OK) {
+                    val data = result.getData();
+                    if (data.getData() != null) {
+                        val uri = data.getData();
+                        songOutOfUri(uri);
+                    } else if (data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+                        val clipData = data.getClipData();
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            val uri = clipData.getItemAt(i).getUri();
+                            songOutOfUri(uri);
+                        }
+                    }
+                    adapter.clear();
+                    adapter.addAll(playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
+                    adapter.notifyDataSetChanged();
+                }
+            }
+    );
+
+    private void songOutOfUri(Uri uri) {
+        val file = new File(uri.getPath());
+        val song = Song.builder().filename(file.getName()).filePath(file.getPath()).build();
+        song.save();
+        playlistService.addSongToPlaylist(playlist, song);
     }
 
     private void addNameEditField(@NonNull View view) {
