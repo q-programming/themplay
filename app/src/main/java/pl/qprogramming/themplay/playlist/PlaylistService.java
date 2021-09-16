@@ -55,16 +55,6 @@ public class PlaylistService extends Service {
 
     }
 
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        if (mediaPlayer != null) {
-            mediaPlayer.release();
-        }
-        if (auxPlayer != null) {
-            auxPlayer.release();
-        }
-    }
 
     //repository methods
 
@@ -248,7 +238,6 @@ public class PlaylistService extends Service {
                     mediaPlayer.start();
                     fadeInOrOutAudio(mediaPlayer, false);
                 }
-
             } catch (IOException e) {
                 e.printStackTrace();
                 Log.d(TAG, e.getMessage());
@@ -259,7 +248,10 @@ public class PlaylistService extends Service {
     }
 
     public void pause() {
-        mediaPlayer.pause();
+        if (mediaPlayer.isPlaying()) {
+            mediaPlayer.pause();
+        }
+        mediaPlayer.start();
     }
 
     private void fadeInOrOutAudio(MediaPlayer mediaPlayer, boolean out) {
