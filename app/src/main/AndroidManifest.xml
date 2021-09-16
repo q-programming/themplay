@@ -3,6 +3,7 @@
     package="pl.qprogramming.themplay">
 
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.ACTION_OPEN_DOCUMENT" />
     <application
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_descriptor"

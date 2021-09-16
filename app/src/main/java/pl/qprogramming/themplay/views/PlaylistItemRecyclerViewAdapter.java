@@ -65,7 +65,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             playlistService.fetchSongsByPlaylistAsync(playlist)
                     .subscribe(playlistSongs -> {
                         playlist.setSongs(playlistSongs);
-                        holder.mPlaylistName.setText(MessageFormat.format("{0} {1} ({2})", playlist.getId(), playlist.getName(), playlist.getSongs().size()));
+                        holder.mPlaylistName.setText(MessageFormat.format("{0} ({1})", playlist.getName(), playlist.getSongs().size()));
                     });
         }
         holder.playlist = playlist;
@@ -82,7 +82,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         }
         //action menu
         configureMenu(holder, position, playlist);
-        holder.mTextWrapper.setOnClickListener(contentView -> setActive(holder, position, playlist));
+        holder.mTextWrapper.setOnClickListener(contentView -> setActive(position, playlist));
     }
 
     @SuppressLint("CheckResult")
@@ -121,9 +121,9 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         });
     }
 
-    private void setActive(@NonNull ViewHolder holder, int position, Playlist playlist) {
+    private void setActive(int position, Playlist playlist) {
         if (playlistService != null) {
-            playlistService.setActive(playlist, position, holder.mView);
+            playlistService.setActive(playlist, position);
         }
     }
 

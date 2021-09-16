@@ -11,11 +11,13 @@
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
     <string name="playlist_delete_playlist_confirm">Czy jesteś pewień, że chcesz usunąc playlistę \"{0}\"?</string>
-    <string name="playlist_active">Teraz odtwarzam \"{0}\"</string>
+    <string name="playlist_now_playing">Teraz odtwarzam \"{0}\"</string>
     <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
+    <string name="playlist_no_playlists">Nie masz jeszcze żadnych playlist. Dodaj najipierw jakąś</string>
     <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
     <string name="playlist_add_atLeastOneChar">Nazwa twojej playlisty musi mieć przynajmniej jeden znak</string>
     <string name="playlist_add_created">Utworzono nową playlistę \"{0}\"</string>
+    <string name="playlist_cant_play">Nie można odtworzyć piosenki \"{0}\"!</string>
     <string name="theme">Wygląd</string>
     <string name="dark_mode">Tryb ciemny</string>
     <string name="goBack">goBack</string>

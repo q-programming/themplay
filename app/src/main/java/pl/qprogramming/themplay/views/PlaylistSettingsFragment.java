@@ -100,10 +100,12 @@ public class PlaylistSettingsFragment extends Fragment {
                 android.R.layout.simple_list_item_1, playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
         listView.setAdapter(adapter);
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
-            Intent intent = new Intent();
-            intent.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            intent.setAction(Intent.ACTION_GET_CONTENT);
+            Intent intent = new Intent()
+                    .setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    .setAction(Intent.ACTION_OPEN_DOCUMENT )
+                    .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             startActivityForResult.launch(intent);
         });
     }
@@ -132,7 +134,7 @@ public class PlaylistSettingsFragment extends Fragment {
 
     private void songOutOfUri(Uri uri) {
         val file = new File(uri.getPath());
-        val song = Song.builder().filename(file.getName()).filePath(file.getPath()).build();
+        val song = Song.builder().filename(file.getName()).fileUri(uri.toString()).build();
         song.save();
         playlistService.addSongToPlaylist(playlist, song);
     }
