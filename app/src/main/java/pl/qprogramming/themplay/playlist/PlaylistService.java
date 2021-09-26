@@ -3,11 +3,12 @@ package pl.qprogramming.themplay.playlist;
 import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
-import android.media.VolumeShaper;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
@@ -24,12 +25,16 @@ import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.val;
 import lombok.var;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
+import pl.qprogramming.themplay.settings.Property;
 
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlaylistService extends Service {
@@ -39,20 +44,24 @@ public class PlaylistService extends Service {
     public static final String ARGS = "args";
     //TODO extract to vars
     public static final int DURATION_MILLIS = 4000;
+    @Getter
     private Playlist activePlaylist;
+    @Setter
     private int activePlaylistPosition;
-    private float volume = 1;
     private MediaPlayer mediaPlayer = new MediaPlayer();
-    private MediaPlayer auxPlayer = new MediaPlayer();
-
+    private MediaPlayer auxPlayer;
     private final IBinder mBinder = new LocalBinder();
 
+    @SuppressLint("CheckResult")
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Binding service to " + intent);
+        findActive().ifPresent(playlist -> {
+            fetchSongsByPlaylistAsync(playlist).subscribe(playlist::setSongs);
+            activePlaylist = playlist;
+        });
         return mBinder;
-
     }
 
 
@@ -114,6 +123,7 @@ public class PlaylistService extends Service {
     }
 
     public void addSongToPlaylist(Playlist playlist, Song song) {
+        //TODO reshuffle random playlist when adding ?
         Log.d(TAG, "Adding song to playlist ");
         playlist.addSong(song);
         val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
@@ -150,7 +160,7 @@ public class PlaylistService extends Service {
         if (!optionalActive.isPresent() || !optionalActive.get().getId().equals(playlist.getId())) {
             if (optionalActive.isPresent()) {
                 val active = optionalActive.get();
-                if (mediaPlayer.isPlaying()) {
+                if (isPlaying()) {
                     val currentSong = active.getCurrentSong();
                     currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
                     currentSong.save();
@@ -175,7 +185,6 @@ public class PlaylistService extends Service {
             activePlaylistPosition = position;
             activePlaylist = playlist;
             setSongsAndMakeActive(activePlaylist, songs);
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, position);
         });
     }
 
@@ -200,85 +209,184 @@ public class PlaylistService extends Service {
         playlist.save();
         val msg = MessageFormat.format(getString(R.string.playlist_now_playing), currentSong.getFilename());
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-        play();
+        fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, activePlaylistPosition);
     }
 
     /**
      * Plays current playlist
      */
     public void play() {
-        //might happen we just press play and active list is not yet selected
         if (activePlaylist == null) {
-            val playlists = getAll();
-            if (!playlists.isEmpty()) {
-                makeActiveAndNotify(playlists.get(0), 0);
-            } else {
-                Toast.makeText(this, getString(R.string.playlist_no_playlists), Toast.LENGTH_LONG).show();
-            }
+            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         } else {
             val currentSong = activePlaylist.getCurrentSong();
-            try {
-                if (mediaPlayer.isPlaying()) {
-                    auxPlayer = new MediaPlayer();
-                    auxPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
-                    auxPlayer.setLooping(true);
-                    auxPlayer.prepare();
-                    auxPlayer.seekTo(currentSong.getCurrentPosition());
-                    auxPlayer.start();
-                    fadeInOrOutAudio(mediaPlayer, true);
-                    fadeInOrOutAudio(auxPlayer, false);
-                    mediaPlayer = auxPlayer;
-                    auxPlayer = null;
-                } else {
-                    mediaPlayer.reset();
-                    mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
-                    mediaPlayer.setLooping(true);
-                    mediaPlayer.prepare();
-                    mediaPlayer.seekTo(currentSong.getCurrentPosition());
-                    mediaPlayer.start();
-                    fadeInOrOutAudio(mediaPlayer, false);
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                Log.d(TAG, e.getMessage());
-                val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), currentSong);
-                Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+            fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylistPosition);
+        }
+    }
+
+    private void fadeIntoNewSong(Song currentSong, int position) {
+        val sp = getDefaultSharedPreferences(this);
+        val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
+        try {
+            if (isPlaying()) {
+                auxPlayer = new MediaPlayer();
+                auxPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
+                auxPlayer.setLooping(repeat);
+                auxPlayer.prepare();
+                auxPlayer.seekTo(position);
+                auxPlayer.setVolume(0,0);
+                fadeOut(mediaPlayer);
+                fadeIn(auxPlayer);
+                auxPlayer.start();
+                mediaPlayer = auxPlayer;
+//                auxPlayer = null;
+            } else {
+                mediaPlayer = new MediaPlayer();
+                mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
+                mediaPlayer.setLooping(repeat);
+                mediaPlayer.prepare();
+                mediaPlayer.seekTo(position);
+                mediaPlayer.setVolume(0,0);
+                fadeIn(mediaPlayer);
+                mediaPlayer.start();
             }
+            val msg = MessageFormat.format(getString(R.string.playlist_now_playing), currentSong.getFilename());
+            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.d(TAG, e.getMessage());
+            val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), currentSong);
+            Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
         }
     }
 
     public void pause() {
-        if (mediaPlayer.isPlaying()) {
-            mediaPlayer.pause();
+        mediaPlayer.pause();
+        val currentSong = activePlaylist.getCurrentSong();
+        currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
+    }
+
+    public void stop() {
+        if (isPlaying()) {
+            val currentSong = activePlaylist.getCurrentSong();
+            currentSong.saveAsync();
+            mediaPlayer.reset();
+            mediaPlayer.release();
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_STOP, activePlaylistPosition);
         }
-        mediaPlayer.start();
     }
 
-    private void fadeInOrOutAudio(MediaPlayer mediaPlayer, boolean out) {
-        val config = out ? fadeOutConfig() : fadeInConfig();
-        val volumeShaper = mediaPlayer.createVolumeShaper(config);
-        volumeShaper.apply(VolumeShaper.Operation.PLAY);
+    public void next() {
+        if (activePlaylist == null) {
+            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+        } else {
+            //TODO change to random playlist
+            // val nextSong = new SecureRandom().nextInt(activePlaylist.getSongs().size());
+
+            // get current song index and increase ,
+            // if no song found it will be 0 as indexOf returns -1 in that case
+            var songIndex = activePlaylist.getSongs().indexOf(activePlaylist.getCurrentSong()) + 1;
+            if (songIndex > activePlaylist.getSongs().size() - 1) {
+                songIndex = 0;
+            }
+            val song = activePlaylist.getSongs().get(songIndex);
+            activePlaylist.setCurrentSong(song);
+            activePlaylist.save();
+            fadeIntoNewSong(song, 0);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylistPosition);
+        }
     }
 
-
-    private VolumeShaper.Configuration fadeOutConfig() {
-        val times = new float[]{0f, 1f};
-        val volumes = new float[]{1f, 0f};
-        return new VolumeShaper.Configuration.Builder()
-                .setDuration(DURATION_MILLIS)
-                .setCurve(times, volumes)
-                .setInterpolatorType(VolumeShaper.Configuration.INTERPOLATOR_TYPE_CUBIC)
-                .build();
+    public void previous() {
+        if (activePlaylist == null) {
+            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+        } else {
+            val songs = activePlaylist.getSongs();
+            val lastSongIndex = songs.size() - 1;
+            //if this was first song we will loop around to last song in playlist
+            var songIndex = songs.indexOf(activePlaylist.getCurrentSong()) - 1;
+            if (songIndex < 0) {
+                songIndex = lastSongIndex;
+            }
+            val song = songs.get(songIndex);
+            activePlaylist.setCurrentSong(song);
+            activePlaylist.save();
+            fadeIntoNewSong(song, 0);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylistPosition);
+        }
     }
 
-    private VolumeShaper.Configuration fadeInConfig() {
-        val times = new float[]{0f, 1f};
-        val volumes = new float[]{0f, 1f};
-        return new VolumeShaper.Configuration.Builder()
-                .setDuration(DURATION_MILLIS)
-                .setCurve(times, volumes)
-                .setInterpolatorType(VolumeShaper.Configuration.INTERPOLATOR_TYPE_CUBIC)
-                .build();
+    /**
+     * Check if there is activePlaylist and is mediaPlayer playing
+     * There might be IllegalState exception which means media player was not initialized or already released
+     *
+     * @return true if there is music playing
+     */
+    public boolean isPlaying() {
+        try {
+            return activePlaylist != null && mediaPlayer.isPlaying();
+        } catch (IllegalStateException e) {
+            Log.d(TAG, "media player is definitely not playing");
+            return false;
+        }
+    }
+
+    private void fadeOut(final MediaPlayer player) {
+        val deviceVolume = getDeviceVolume();
+        val h = new Handler();
+        h.postDelayed(new Runnable() {
+            private float time = DURATION_MILLIS;
+
+            @Override
+            public void run() {
+                try {
+                    time -= 100;
+                    float volume = (deviceVolume * time) / DURATION_MILLIS;
+                    player.setVolume(volume, volume);
+                    if (time > 0)
+                        h.postDelayed(this, 100);
+                    else {
+                        player.reset();
+                        player.release();
+                    }
+                } catch (IllegalStateException e) {
+                    player.reset();
+                    player.release();
+                }
+            }
+        }, 100);
+    }
+
+    private void fadeIn(final MediaPlayer player) {
+        val deviceVolume = getDeviceVolume();
+        val h = new Handler();
+        h.postDelayed(new Runnable() {
+            private float time = 0.0f;
+
+            @Override
+            public void run() {
+                try {
+                    time += 100;
+                    float volume = (deviceVolume * time) / DURATION_MILLIS;
+                    player.setVolume(volume, volume);
+                    if (time < DURATION_MILLIS)
+                        h.postDelayed(this, 100);
+                } catch (IllegalStateException e) {
+                    player.reset();
+                    player.release();
+                }
+            }
+        }, 100);
+
+    }
+
+    public float getDeviceVolume() {
+        AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        int volumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        return (float) volumeLevel / maxVolume;
     }
 
 
@@ -286,6 +394,7 @@ public class PlaylistService extends Service {
         public PlaylistService getService() {
             return PlaylistService.this;
         }
+
     }
 
     private void populateAndSend(EventType type) {

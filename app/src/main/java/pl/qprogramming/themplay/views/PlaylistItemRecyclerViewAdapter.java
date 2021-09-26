@@ -61,7 +61,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         //it might happen service is not yet connected
         val playlist = playlists.get(position);
         if (playlistService != null) {
-            holder.mPlaylistName.setText(MessageFormat.format("{0} {1}", playlist.getId(), playlist.getName()));
+            holder.mPlaylistName.setText(playlist.getName());
             playlistService.fetchSongsByPlaylistAsync(playlist)
                     .subscribe(playlistSongs -> {
                         playlist.setSongs(playlistSongs);
@@ -76,6 +76,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         if (playlist.isActive()) {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorSecondary));
             holder.mCurrentFilename.setVisibility(View.VISIBLE);
+            playlistService.setActivePlaylistPosition(position);
         } else {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorOnPrimary));
             holder.mCurrentFilename.setVisibility(View.INVISIBLE);

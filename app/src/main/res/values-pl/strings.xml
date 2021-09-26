@@ -25,4 +25,5 @@
     <string name="cancel">Anuluj</string>
     <string name="create">Stwórz</string>
     <string name="delete">Usuń</string>
+    <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna</string>
 </resources>

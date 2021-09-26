@@ -1,5 +1,6 @@
 package pl.qprogramming.themplay.util;
 
+import android.content.Context;
 import android.util.TypedValue;
 import android.view.View;
 
@@ -16,8 +17,13 @@ public class Utils {
     }
 
     public static int getThemeColor(View view, int color) {
+        return getThemeColor(view.getContext(), color);
+    }
+
+    public static int getThemeColor(Context context, int color) {
         val typedValue = new TypedValue();
-        view.getContext().getTheme().resolveAttribute(color, typedValue, true);
+        val theme = context.getTheme();
+        context.getTheme().resolveAttribute(color, typedValue, true);
         return typedValue.data;
     }
 

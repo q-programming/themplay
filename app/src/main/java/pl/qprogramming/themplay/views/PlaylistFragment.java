@@ -71,10 +71,10 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY.getCode());
+        val filter = new IntentFilter();
+        for (EventType eventType : EventType.values()) {
+            filter.addAction(eventType.getCode());
+        }
         getActivity().registerReceiver(receiver, filter);
     }
 
@@ -101,10 +101,17 @@ public class PlaylistFragment extends Fragment {
             Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
             if (args != null) {
                 val position = (int) args.getSerializable(POSITION);
-                if (event == EventType.PLAYLIST_NOTIFICATION_DELETE) {
-                    recyclerView.getAdapter().notifyItemRemoved(position);
-                } else {
-                    recyclerView.getAdapter().notifyDataSetChanged();
+                switch (event) {
+                    case PLAYLIST_NOTIFICATION_DELETE:
+                        recyclerView.getAdapter().notifyItemRemoved(position);
+                        break;
+                    case PLAYLIST_NOTIFICATION_PLAY:
+                    case PLAYLIST_NOTIFICATION_NEXT:
+                    case PLAYLIST_NOTIFICATION_PREV:
+                        recyclerView.getAdapter().notifyItemChanged(position);
+                        break;
+                    default:
+                        recyclerView.getAdapter().notifyDataSetChanged();
                 }
             }
         }
