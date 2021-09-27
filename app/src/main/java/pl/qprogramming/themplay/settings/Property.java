@@ -28,6 +28,7 @@ public class Property extends Model implements Serializable {
 
     public static final String DARK_MODE = "app.dark.mode";
     public static final String REPEAT_MODE = "app.repeat";
+    public static final String FADE_DURATION = "app.fade";
     public static final String LANGUAGE = "app.lang";
 
     @PrimaryKey

@@ -14,9 +14,9 @@ import android.text.InputType;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.Toast;
 
 import com.google.android.material.color.MaterialColors;
-import com.google.android.material.snackbar.Snackbar;
 import com.reactiveandroid.ReActiveAndroid;
 import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
@@ -54,13 +54,13 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
         setupDBConnection();
         setupServices();
-        setContentView(R.layout.activity_main);
         setActiveColor();
-        setPreferences();
-        setMenu();
-        setMediaControls();
+        setupPreferences();
+        setupMainMenu();
+        setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
         //load playlist fragment
         getSupportFragmentManager()
@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
                 .build());
     }
 
-    private void setMenu() {
+    private void setupMainMenu() {
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
@@ -109,44 +109,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void setPreferences() {
+    private void setupPreferences() {
         val sp = getDefaultSharedPreferences(this);
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
 
-    private void addPlaylist() {
-        val input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        new AlertDialog.Builder(this)
-                .setTitle(getString(R.string.playlist_name))
-                .setView(input)
-                .setPositiveButton(getString(R.string.create), (dialog, which) -> {
-                    val playlistName = input.getText().toString();
-                    if (playlistName.length() == 0) {
-                        val msg = getString(R.string.playlist_add_atLeastOneChar);
-                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
-                                .setAction("Action", null).show();
-                        input.setError(getString(R.string.playlist_name_atLeastOneChar));
-                    } else {
-                        input.setError(null);
-                        val playlist = Playlist.builder().name(playlistName).build();
-                        playlistService.addPlaylist(playlist);
-                        val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-                        sendBroadcast(notify);
-                        navigateToFragment(getSupportFragmentManager(),
-                                new PlaylistSettingsFragment(playlistService, playlist),
-                                playlist.getName() + playlist.getId());
-                        val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
-                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
-                                .setAction("Action", null).show();
-                    }
-                })
-                .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
-                .show();
-    }
 
-    private void setMediaControls() {
+    private void setupMediaControls() {
         val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
         val repeat_btn = (ImageView) findViewById(R.id.repeat);
         play_pause_btn.setOnClickListener(play -> {
@@ -158,8 +128,14 @@ public class MainActivity extends AppCompatActivity {
                 renderPauseButton();
             }
         });
-        findViewById(R.id.next).setOnClickListener(next -> playlistService.next());
-        findViewById(R.id.previous).setOnClickListener(prev -> playlistService.previous());
+        findViewById(R.id.next).setOnClickListener(next -> {
+            playlistService.next();
+            renderPauseButton();
+        });
+        findViewById(R.id.previous).setOnClickListener(prev -> {
+            playlistService.previous();
+            renderPauseButton();
+        });
         findViewById(R.id.stop).setOnClickListener(stop -> {
             playlistService.stop();
             play_pause_btn.setImageResource(R.drawable.ic_play_32);
@@ -197,6 +173,35 @@ public class MainActivity extends AppCompatActivity {
                 DrawableCompat.wrap(play_pause.getDrawable()),
                 activeColor
         );
+    }
+
+    private void addPlaylist() {
+        val input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.playlist_name))
+                .setView(input)
+                .setPositiveButton(getString(R.string.create), (dialog, which) -> {
+                    val playlistName = input.getText().toString();
+                    if (playlistName.length() == 0) {
+                        val msg = getString(R.string.playlist_add_atLeastOneChar);
+                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                        input.setError(getString(R.string.playlist_name_atLeastOneChar));
+                    } else {
+                        input.setError(null);
+                        val playlist = Playlist.builder().name(playlistName).build();
+                        playlistService.addPlaylist(playlist);
+                        val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+                        sendBroadcast(notify);
+                        navigateToFragment(getSupportFragmentManager(),
+                                new PlaylistSettingsFragment(playlistService, playlist),
+                                playlist.getName() + playlist.getId());
+                        val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
+                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
+                .show();
     }
 
 

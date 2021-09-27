@@ -26,4 +26,9 @@
     <string name="dark_mode">Dark mode</string>
     <string name="goBack">goBack</string>
     <string name="back_arrow">back arrow</string>
+    <string name="settings_darkmode">Dark mode</string>
+    <string name="settings_darkmode_summary">Should application use dark mode</string>
+    <string name="settings_fade">Fade between songs duration</string>
+    <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
+
 </resources>

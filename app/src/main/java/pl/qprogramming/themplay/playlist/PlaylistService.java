@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import androidx.annotation.Nullable;
+import androidx.preference.PreferenceManager;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -42,8 +43,6 @@ public class PlaylistService extends Service {
     public static final String POSITION = "position";
     public static final String PLAYLIST = "playlist";
     public static final String ARGS = "args";
-    //TODO extract to vars
-    public static final int DURATION_MILLIS = 4000;
     @Getter
     private Playlist activePlaylist;
     @Setter
@@ -62,6 +61,11 @@ public class PlaylistService extends Service {
             activePlaylist = playlist;
         });
         return mBinder;
+    }
+
+    private int getDuration() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        return Integer.parseInt(sp.getString(Property.FADE_DURATION, "4")) * 1000;
     }
 
 
@@ -236,7 +240,7 @@ public class PlaylistService extends Service {
                 auxPlayer.setLooping(repeat);
                 auxPlayer.prepare();
                 auxPlayer.seekTo(position);
-                auxPlayer.setVolume(0,0);
+                auxPlayer.setVolume(0, 0);
                 fadeOut(mediaPlayer);
                 fadeIn(auxPlayer);
                 auxPlayer.start();
@@ -248,7 +252,7 @@ public class PlaylistService extends Service {
                 mediaPlayer.setLooping(repeat);
                 mediaPlayer.prepare();
                 mediaPlayer.seekTo(position);
-                mediaPlayer.setVolume(0,0);
+                mediaPlayer.setVolume(0, 0);
                 fadeIn(mediaPlayer);
                 mediaPlayer.start();
             }
@@ -337,13 +341,14 @@ public class PlaylistService extends Service {
         val deviceVolume = getDeviceVolume();
         val h = new Handler();
         h.postDelayed(new Runnable() {
-            private float time = DURATION_MILLIS;
+            final int duration = getDuration();
+            private float time = duration;
 
             @Override
             public void run() {
                 try {
                     time -= 100;
-                    float volume = (deviceVolume * time) / DURATION_MILLIS;
+                    float volume = (deviceVolume * time) / duration;
                     player.setVolume(volume, volume);
                     if (time > 0)
                         h.postDelayed(this, 100);
@@ -364,14 +369,15 @@ public class PlaylistService extends Service {
         val h = new Handler();
         h.postDelayed(new Runnable() {
             private float time = 0.0f;
+            final int duration = getDuration();
 
             @Override
             public void run() {
                 try {
                     time += 100;
-                    float volume = (deviceVolume * time) / DURATION_MILLIS;
+                    float volume = (deviceVolume * time) / duration;
                     player.setVolume(volume, volume);
-                    if (time < DURATION_MILLIS)
+                    if (time < duration)
                         h.postDelayed(this, 100);
                 } catch (IllegalStateException e) {
                     player.reset();
