@@ -237,7 +237,8 @@ public class PlaylistService extends Service {
             if (isPlaying()) {
                 auxPlayer = new MediaPlayer();
                 auxPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
-                auxPlayer.setLooping(repeat);
+                //TODO this repeats current file only!
+//                auxPlayer.setLooping(repeat);
                 auxPlayer.prepare();
                 auxPlayer.seekTo(position);
                 auxPlayer.setVolume(0, 0);
@@ -245,16 +246,18 @@ public class PlaylistService extends Service {
                 fadeIn(auxPlayer);
                 auxPlayer.start();
                 mediaPlayer = auxPlayer;
-//                auxPlayer = null;
+                observeEnding(mediaPlayer);
             } else {
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
-                mediaPlayer.setLooping(repeat);
+                //TODO this repeats current file only!
+                //mediaPlayer.setLooping(repeat);
                 mediaPlayer.prepare();
                 mediaPlayer.seekTo(position);
                 mediaPlayer.setVolume(0, 0);
                 fadeIn(mediaPlayer);
                 mediaPlayer.start();
+                observeEnding(mediaPlayer);
             }
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), currentSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
@@ -386,6 +389,31 @@ public class PlaylistService extends Service {
             }
         }, 100);
 
+    }
+
+    void observeEnding(final MediaPlayer player) {
+        val h = new Handler();
+        h.postDelayed(new Runnable() {
+            final int duration = getDuration();
+
+            @Override
+            public void run() {
+                try {
+                    if(player.isPlaying()){
+                        val currentPosition = player.getCurrentPosition();
+                        val totalDuration = player.getDuration() - duration; //take total duration - fade
+                        if (currentPosition < totalDuration) {
+                            h.postDelayed(this, 100);
+                        } else {
+                            next();
+                        }
+                    }
+                } catch (IllegalStateException e) {
+                    Log.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
+                }
+
+            }
+        }, 100);
     }
 
     public float getDeviceVolume() {
