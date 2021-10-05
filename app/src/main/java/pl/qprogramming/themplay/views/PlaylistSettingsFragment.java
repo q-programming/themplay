@@ -1,18 +1,20 @@
 package pl.qprogramming.themplay.views;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.ArrayAdapter;
-import android.widget.ListView;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.google.android.material.textfield.TextInputEditText;
@@ -26,6 +28,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Playlist;
@@ -33,6 +36,8 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 
 import static android.app.Activity.RESULT_OK;
+import static android.content.Intent.ACTION_OPEN_DOCUMENT;
+import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -44,7 +49,8 @@ public class PlaylistSettingsFragment extends Fragment {
     Playlist playlist;
     TextInputEditText playlistEditText;
     TextInputLayout playlistInputLayout;
-    ArrayAdapter<String> adapter;
+    SongViewAdapter adapter;
+    Button removeBtn;
 
     public PlaylistSettingsFragment() {
         // Required empty public constructor
@@ -69,12 +75,24 @@ public class PlaylistSettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        removeBtn = view.findViewById(R.id.remove_selected_songs);
+        removeBtn.setVisibility(View.GONE);
+        removeBtn.setOnClickListener(clicked -> {
+            val songsToRemove = playlist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
+            playlistService.removeSongFromPlaylist(playlist, songsToRemove);
+            adapter.setMultiple(false);
+            adapter.setSongs(playlist.getSongs());
+            adapter.notifyDataSetChanged();
+            removeBtn.setVisibility(View.GONE);
+        });
         val textView = (TextView) view.findViewById(R.id.header_title);
         view.findViewById(R.id.back_arrow).setOnClickListener(clicked -> updateListAndGoBack());
         textView.setText(playlist.getName());
         textView.setOnClickListener(clicked -> updateListAndGoBack());
         addSongsList(view);
         addNameEditField(view);
+        val filter = new IntentFilter(MULTIPLE_SELECTED);
+        getActivity().registerReceiver(receiver, filter);
     }
 
     private void updateListAndGoBack() {
@@ -94,29 +112,44 @@ public class PlaylistSettingsFragment extends Fragment {
     }
 
     private void addSongsList(@NonNull View view) {
-        val listView = (ListView) view.findViewById(R.id.songs_list);
+        val recyclerView = (RecyclerView) view.findViewById(R.id.songs_list);
         //change to custom adapter
-        adapter = new ArrayAdapter<>(view.getContext(),
-                android.R.layout.simple_list_item_1, playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
-        listView.setAdapter(adapter);
+        adapter = new SongViewAdapter(playlist.getSongs());
+        recyclerView.setAdapter(adapter);
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
-            Intent intent = new Intent()
-                    .setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
-                    .setAction(Intent.ACTION_OPEN_DOCUMENT )
-                    .addFlags(Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivityForResult.launch(intent);
+            Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
+                    .setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+            startActivityForSelectedFIles.launch(intent);
         });
     }
 
-    private final ActivityResultLauncher<Intent> startActivityForResult = registerForActivityResult(
+//    public String getPath(Uri uri) {
+//        String path;
+//        String[] projection = {MediaStore.Files.FileColumns.DATA};
+//        try (Cursor cursor = requireActivity().getContentResolver().query(uri, projection, null, null, null)) {
+//            if (cursor == null) {
+//                path = uri.getPath();
+//            } else {
+//                cursor.moveToFirst();
+//                int column_index = cursor.getColumnIndexOrThrow(projection[0]);
+//                path = cursor.getString(column_index);
+//                cursor.close();
+//            }
+//            return ((path == null || path.isEmpty()) ? (uri.getPath()) : path);
+//        }
+//
+//    }
+
+
+    private final ActivityResultLauncher<Intent> startActivityForSelectedFIles = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
                     val data = result.getData();
                     if (data.getData() != null) {
                         val uri = data.getData();
+
                         songOutOfUri(uri);
                     } else if (data.getClipData() != null && data.getClipData().getItemCount() > 0) {
                         val clipData = data.getClipData();
@@ -125,16 +158,20 @@ public class PlaylistSettingsFragment extends Fragment {
                             songOutOfUri(uri);
                         }
                     }
-                    adapter.clear();
-                    adapter.addAll(playlist.getSongs().stream().map(Song::getFilename).collect(Collectors.toList()));
+                    adapter.setSongs(playlist.getSongs());
                     adapter.notifyDataSetChanged();
                 }
             }
     );
 
     private void songOutOfUri(Uri uri) {
+        getActivity().getApplicationContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         val file = new File(uri.getPath());
-        val song = Song.builder().filename(file.getName()).fileUri(uri.toString()).build();
+        val song = Song.builder()
+                .filename(file.getName())
+                .fileUri(uri.toString())
+                .filePath(file.getPath())
+                .build();
         song.save();
         playlistService.addSongToPlaylist(playlist, song);
     }
@@ -162,4 +199,12 @@ public class PlaylistSettingsFragment extends Fragment {
             }
         });
     }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Multiple selection started");
+            removeBtn.setVisibility(View.VISIBLE);
+        }
+    };
 }

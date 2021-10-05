@@ -11,36 +11,17 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
-        <ImageView
-            android:id="@+id/add_song"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:src="@drawable/ic_file_add_24"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.94"
-            app:layout_constraintStart_toEndOf="@+id/textView"
-            app:layout_constraintTop_toTopOf="@+id/textView" />
-
-        <ListView
+        <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/songs_list"
+            android:name="pl.qprogramming.themplay.views.SongFragment"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            app:layoutManager="LinearLayoutManager"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintEnd_toStartOf="@+id/add_song"
-            app:layout_constraintHorizontal_bias="0.5"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/textView" />
-
-        <TextView
-            android:id="@+id/textView"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Add new song"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/playlist_name_layout" />
+            app:layout_constraintTop_toBottomOf="@+id/add_song"
+            tools:context=".views.SongFragment"
+            tools:listitem="@layout/song" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/playlist_name_layout"
@@ -60,6 +41,22 @@
         <include
             android:id="@+id/include"
             layout="@layout/header" />
+
+        <Button
+            android:id="@+id/add_song"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/playlist_add_new_song"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/playlist_name_layout" />
+
+        <Button
+            android:id="@+id/remove_selected_songs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/playlist_remove_selected"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/playlist_name_layout" />
 
 
     </androidx.constraintlayout.widget.ConstraintLayout>

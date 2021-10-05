@@ -60,14 +60,8 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
         //it might happen service is not yet connected
         val playlist = playlists.get(position);
-        if (playlistService != null) {
-            holder.mPlaylistName.setText(playlist.getName());
-            playlistService.fetchSongsByPlaylistAsync(playlist)
-                    .subscribe(playlistSongs -> {
-                        playlist.setSongs(playlistSongs);
-                        holder.mPlaylistName.setText(MessageFormat.format("{0} ({1})", playlist.getName(), playlist.getSongs().size()));
-                    });
-        }
+        holder.mPlaylistName.setText(playlist.getName());
+        holder.mPlaylistName.setText(MessageFormat.format("{0} ({1})", playlist.getName(), playlist.getSongCount()));
         holder.playlist = playlist;
         if (playlist.getCurrentSong() != null) {
             holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
@@ -157,7 +151,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             mPlaylistName = view.findViewById(R.id.playlist_name);
             mCurrentFilename = view.findViewById(R.id.now_playing);
             mCardView = view.findViewById(R.id.card_view);
-            actionMenu = view.findViewById(R.id.item_menu);
+            actionMenu = view.findViewById(R.id.delete);
             mTextWrapper = view.findViewById(R.id.text_wrapper);
         }
 

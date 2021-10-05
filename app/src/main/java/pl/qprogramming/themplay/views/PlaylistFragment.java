@@ -47,7 +47,7 @@ public class PlaylistFragment extends Fragment {
 
     void doUnbindService() {
         if (serviceIsBound) {
-            getActivity().unbindService(mConnection);
+            requireActivity().getApplicationContext().unbindService(mConnection);
             serviceIsBound = false;
         }
     }
@@ -59,11 +59,11 @@ public class PlaylistFragment extends Fragment {
 
         // Set the adapter
         if (view instanceof RecyclerView) {
-            Context context = view.getContext();
+            val context = requireActivity().getApplicationContext();
             recyclerView = (RecyclerView) view;
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
-            val intent = new Intent(getActivity(), PlaylistService.class);
-            getActivity().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+            val intent = new Intent(context, PlaylistService.class);
+            context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         }
         return view;
     }
@@ -102,9 +102,6 @@ public class PlaylistFragment extends Fragment {
             if (args != null) {
                 val position = (int) args.getSerializable(POSITION);
                 switch (event) {
-                    case PLAYLIST_NOTIFICATION_DELETE:
-                        recyclerView.getAdapter().notifyItemRemoved(position);
-                        break;
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_PREV:

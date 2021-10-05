@@ -13,12 +13,14 @@ import android.os.IBinder;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.reactiveandroid.Model;
 import com.reactiveandroid.query.Select;
 
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
@@ -55,7 +57,7 @@ public class PlaylistService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent);
+        Log.d(TAG, "Binding service to " + intent + "this:" + this);
         findActive().ifPresent(playlist -> {
             fetchSongsByPlaylistAsync(playlist).subscribe(playlist::setSongs);
             activePlaylist = playlist;
@@ -110,6 +112,14 @@ public class PlaylistService extends Service {
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }
+
+    public List<Song> fetchSongsByPlaylistSync(Playlist playlist) {
+        return Select.from(PlaylistSongs.class)
+                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
+                .fetch().stream()
+                .map(PlaylistSongs::getSong)
+                .collect(Collectors.toList());
+    }
     //functional methods
 
     public void save(Playlist playlist) {
@@ -140,19 +150,35 @@ public class PlaylistService extends Service {
         populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
     }
 
+    public void removeSongFromPlaylist(Playlist playlist, List<Song> songs) {
+        playlist.getSongs().removeAll(songs);
+        playlist.setSongCount(playlist.getSongs().size());
+        for (Song song : songs) {
+            if (song.equals(playlist.getCurrentSong())) {
+                playlist.setCurrentSong(null);
+            }
+            song.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+        }
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE);
+        Toast.makeText(getApplicationContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
+    }
+
 
     @SuppressLint("CheckResult")
     public void removePlaylist(Playlist playlist, int position) {
-        fetchSongsByPlaylistAsync(playlist)
-                .subscribe(songs -> songs
-                        .forEach(song -> {
-                            song.deleteAsync()
-                                    .subscribeOn(Schedulers.io())
-                                    .subscribe();
-                        }));
-        playlist.deleteAsync()
-                .subscribeOn(Schedulers.io())
-                .subscribe();
+        val songs = fetchSongsByPlaylistSync(playlist);
+        if (activePlaylist.equals(playlist)) {
+            stop();
+            activePlaylist = null;
+        }
+        playlist.setCurrentSong(null);
+        playlist.delete();
+        songs.forEach(Model::delete);
         populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, position);
     }
 
@@ -167,10 +193,14 @@ public class PlaylistService extends Service {
                 if (isPlaying()) {
                     val currentSong = active.getCurrentSong();
                     currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
-                    currentSong.save();
+                    currentSong.saveAsync()
+                            .subscribeOn(Schedulers.io())
+                            .subscribe();
                 }
                 active.setActive(false);
-                active.save();
+                active.saveAsync()
+                        .subscribeOn(Schedulers.io())
+                        .subscribe();
             }
             makeActiveAndNotify(playlist, position);
         }
@@ -185,6 +215,7 @@ public class PlaylistService extends Service {
      */
     @SuppressLint("CheckResult")
     private void makeActiveAndNotify(Playlist playlist, int position) {
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, activePlaylistPosition);
         fetchSongsByPlaylistAsync(playlist).subscribe(songs -> {
             activePlaylistPosition = position;
             activePlaylist = playlist;
@@ -210,23 +241,36 @@ public class PlaylistService extends Service {
             playlist.setCurrentSong(currentSong);
         }
         playlist.setActive(true);
-        playlist.save();
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
         val msg = MessageFormat.format(getString(R.string.playlist_now_playing), currentSong.getFilename());
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, activePlaylistPosition);
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylistPosition);
     }
 
     /**
      * Plays current playlist
      */
     public void play() {
-        if (activePlaylist == null) {
-            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-        } else {
+        checkIfActivePlaylist();
+        if (activePlaylist != null) {
             val currentSong = activePlaylist.getCurrentSong();
             fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylistPosition);
+        }
+    }
+
+    private void checkIfActivePlaylist() {
+        if (activePlaylist == null) {
+            val playlists = getAll();
+            if (playlists.size() > 0) {
+                activePlaylist = getAll().stream().filter(Playlist::isActive).findFirst().orElseGet(() -> playlists.get(0));
+                activePlaylist.setSongs(fetchSongsByPlaylistSync(activePlaylist));
+            } else {
+                Toast.makeText(this, getString(R.string.playlist_no_playlists), Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -236,7 +280,11 @@ public class PlaylistService extends Service {
         try {
             if (isPlaying()) {
                 auxPlayer = new MediaPlayer();
-                auxPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
+                val uri = Uri.parse(currentSong.getFileUri());
+                final int takeFlags = (Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                val fileDescriptor = getContentResolver().openFileDescriptor(uri,"r");
+                auxPlayer.setDataSource(fileDescriptor.getFileDescriptor());
                 //TODO this repeats current file only!
 //                auxPlayer.setLooping(repeat);
                 auxPlayer.prepare();
@@ -246,25 +294,24 @@ public class PlaylistService extends Service {
                 fadeIn(auxPlayer);
                 auxPlayer.start();
                 mediaPlayer = auxPlayer;
-                observeEnding(mediaPlayer);
             } else {
                 mediaPlayer = new MediaPlayer();
-                mediaPlayer.setDataSource(getApplicationContext(), Uri.parse(currentSong.getFileUri()));
-                //TODO this repeats current file only!
-                //mediaPlayer.setLooping(repeat);
+                val uri = Uri.parse(currentSong.getFileUri());
+                val fileDescriptor = getContentResolver().openFileDescriptor(uri,"r");
+                mediaPlayer.setDataSource(fileDescriptor.getFileDescriptor());
                 mediaPlayer.prepare();
                 mediaPlayer.seekTo(position);
                 mediaPlayer.setVolume(0, 0);
                 fadeIn(mediaPlayer);
                 mediaPlayer.start();
-                observeEnding(mediaPlayer);
             }
+            observeEnding(mediaPlayer);
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), currentSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
             Log.d(TAG, e.getMessage());
-            val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), currentSong);
+            val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), currentSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
         }
     }
@@ -278,7 +325,9 @@ public class PlaylistService extends Service {
     public void stop() {
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
-            currentSong.saveAsync();
+            currentSong.saveAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
             mediaPlayer.reset();
             mediaPlayer.release();
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_STOP, activePlaylistPosition);
@@ -286,30 +335,30 @@ public class PlaylistService extends Service {
     }
 
     public void next() {
-        if (activePlaylist == null) {
-            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-        } else {
+        checkIfActivePlaylist();
+        if (activePlaylist != null) {
             //TODO change to random playlist
             // val nextSong = new SecureRandom().nextInt(activePlaylist.getSongs().size());
 
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getSongs().indexOf(activePlaylist.getCurrentSong()) + 1;
-            if (songIndex > activePlaylist.getSongs().size() - 1) {
+            if (songIndex > activePlaylist.getSongs().size() - 1 || songIndex < 0) {
                 songIndex = 0;
             }
             val song = activePlaylist.getSongs().get(songIndex);
             activePlaylist.setCurrentSong(song);
-            activePlaylist.save();
+            activePlaylist.saveAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylistPosition);
         }
     }
 
     public void previous() {
-        if (activePlaylist == null) {
-            Toast.makeText(this, getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-        } else {
+        checkIfActivePlaylist();
+        if (activePlaylist != null) {
             val songs = activePlaylist.getSongs();
             val lastSongIndex = songs.size() - 1;
             //if this was first song we will loop around to last song in playlist
@@ -319,7 +368,9 @@ public class PlaylistService extends Service {
             }
             val song = songs.get(songIndex);
             activePlaylist.setCurrentSong(song);
-            activePlaylist.save();
+            activePlaylist.saveAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylistPosition);
         }
@@ -342,7 +393,7 @@ public class PlaylistService extends Service {
 
     private void fadeOut(final MediaPlayer player) {
         val deviceVolume = getDeviceVolume();
-        val h = new Handler();
+        val h = new Handler(getMainLooper());
         h.postDelayed(new Runnable() {
             final int duration = getDuration();
             private float time = duration;
@@ -360,8 +411,7 @@ public class PlaylistService extends Service {
                         player.release();
                     }
                 } catch (IllegalStateException e) {
-                    player.reset();
-                    player.release();
+                    Log.d(TAG, "FadeOut stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -369,7 +419,7 @@ public class PlaylistService extends Service {
 
     private void fadeIn(final MediaPlayer player) {
         val deviceVolume = getDeviceVolume();
-        val h = new Handler();
+        val h = new Handler(getMainLooper());
         h.postDelayed(new Runnable() {
             private float time = 0.0f;
             final int duration = getDuration();
@@ -383,8 +433,7 @@ public class PlaylistService extends Service {
                     if (time < duration)
                         h.postDelayed(this, 100);
                 } catch (IllegalStateException e) {
-                    player.reset();
-                    player.release();
+                    Log.d(TAG, "FadeIn stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -392,18 +441,18 @@ public class PlaylistService extends Service {
     }
 
     void observeEnding(final MediaPlayer player) {
-        val h = new Handler();
+        val h = new Handler(getMainLooper());
         h.postDelayed(new Runnable() {
             final int duration = getDuration();
 
             @Override
             public void run() {
                 try {
-                    if(player.isPlaying()){
+                    if (player.isPlaying()) {
                         val currentPosition = player.getCurrentPosition();
                         val totalDuration = player.getDuration() - duration; //take total duration - fade
                         if (currentPosition < totalDuration) {
-                            h.postDelayed(this, 100);
+                            h.postDelayed(this, 500);
                         } else {
                             next();
                         }
@@ -413,7 +462,7 @@ public class PlaylistService extends Service {
                 }
 
             }
-        }, 100);
+        }, 500);
     }
 
     public float getDeviceVolume() {

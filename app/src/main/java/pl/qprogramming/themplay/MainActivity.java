@@ -45,8 +45,6 @@ import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    public static final String PL = "pl";
-    public static final String EN = "en-US";
     private PlaylistService playlistService;
     private boolean serviceIsBound;
     private int activeColor;
@@ -62,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
         setupMainMenu();
         setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+        checkPermission(Manifest.permission.INTERNET);
+        checkPermission(Manifest.permission.INTERNET);
         //load playlist fragment
         getSupportFragmentManager()
                 .beginTransaction()
@@ -104,8 +104,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupServices() {
-        val intent = new Intent(this, PlaylistService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        val context = getApplicationContext();
+        val intent = new Intent(context, PlaylistService.class);
+        context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
 
@@ -213,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
 
     void doUnbindService() {
         if (serviceIsBound) {
-            unbindService(mConnection);
+            getApplicationContext().unbindService(mConnection);
             serviceIsBound = false;
         }
     }

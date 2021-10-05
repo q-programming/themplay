@@ -31,8 +31,11 @@ public class Song extends Model implements Serializable {
     private String filename;
     @Column
     private String fileUri;
+    @Column
+    private String filePath;
     @Column(name = CURRENT_POSITION)
     private int currentPosition;
+    private boolean selected;
 
 
     @Override
