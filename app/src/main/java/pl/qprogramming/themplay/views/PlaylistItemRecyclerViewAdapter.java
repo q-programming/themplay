@@ -60,29 +60,24 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     public void onBindViewHolder(@NonNull final ViewHolder holder, int position) {
         //it might happen service is not yet connected
         val playlist = playlists.get(position);
-        if (playlistService != null) {
-            holder.mPlaylistName.setText(MessageFormat.format("{0} {1}", playlist.getId(), playlist.getName()));
-            playlistService.fetchSongsByPlaylistAsync(playlist)
-                    .subscribe(playlistSongs -> {
-                        playlist.setSongs(playlistSongs);
-                        holder.mPlaylistName.setText(MessageFormat.format("{0} {1} ({2})", playlist.getId(), playlist.getName(), playlist.getSongs().size()));
-                    });
-        }
+        holder.mPlaylistName.setText(playlist.getName());
+        holder.mPlaylistName.setText(MessageFormat.format("{0} ({1})", playlist.getName(), playlist.getSongCount()));
         holder.playlist = playlist;
         if (playlist.getCurrentSong() != null) {
-            holder.mCurrentFilename.setText(MessageFormat.format("{0} - {1}", playlist.getCurrentSong().getFilename(), playlist.getCurrentSong().getId()));
+            holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
         }
         //render is active
         if (playlist.isActive()) {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorSecondary));
             holder.mCurrentFilename.setVisibility(View.VISIBLE);
+            playlistService.setActivePlaylistPosition(position);
         } else {
             holder.mCardView.setBackgroundColor(getThemeColor(holder.mCardView, R.attr.colorOnPrimary));
             holder.mCurrentFilename.setVisibility(View.INVISIBLE);
         }
         //action menu
         configureMenu(holder, position, playlist);
-        holder.mTextWrapper.setOnClickListener(contentView -> setActive(holder, position, playlist));
+        holder.mTextWrapper.setOnClickListener(contentView -> setActive(position, playlist));
     }
 
     @SuppressLint("CheckResult")
@@ -121,9 +116,9 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         });
     }
 
-    private void setActive(@NonNull ViewHolder holder, int position, Playlist playlist) {
+    private void setActive(int position, Playlist playlist) {
         if (playlistService != null) {
-            playlistService.setActive(playlist, position, holder.mView);
+            playlistService.setActive(playlist, position);
         }
     }
 
@@ -156,7 +151,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             mPlaylistName = view.findViewById(R.id.playlist_name);
             mCurrentFilename = view.findViewById(R.id.now_playing);
             mCardView = view.findViewById(R.id.card_view);
-            actionMenu = view.findViewById(R.id.item_menu);
+            actionMenu = view.findViewById(R.id.delete);
             mTextWrapper = view.findViewById(R.id.text_wrapper);
         }
 

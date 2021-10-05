@@ -10,6 +10,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import lombok.val;
+import pl.qprogramming.themplay.BuildConfig;
 import pl.qprogramming.themplay.R;
 
 /**
@@ -24,7 +25,7 @@ public class AboutFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_about, container, false);
+        return inflater.inflate(R.layout.about, container, false);
     }
 
     @Override
@@ -37,5 +38,7 @@ public class AboutFragment extends Fragment {
                 .setOnClickListener(clicked -> getActivity()
                         .getSupportFragmentManager()
                         .popBackStack());
+        val versionTxt = (TextView) getView().findViewById(R.id.version);
+        versionTxt.setText(String.format("v%s", BuildConfig.VERSION_NAME));
     }
 }

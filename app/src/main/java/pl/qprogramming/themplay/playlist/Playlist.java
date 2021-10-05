@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import androidx.annotation.NonNull;
 import lombok.AllArgsConstructor;
@@ -74,4 +75,24 @@ public class Playlist extends Model implements Serializable {
         return super.save();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Playlist playlist = (Playlist) o;
+        return active == playlist.active &&
+                id.equals(playlist.id) &&
+                name.equals(playlist.name) &&
+                createdAt.equals(playlist.createdAt) &&
+                Objects.equals(updatedAt, playlist.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, active, createdAt, updatedAt);
+    }
 }

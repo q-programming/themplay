@@ -1,16 +1,22 @@
 package pl.qprogramming.themplay;
 
+import android.Manifest;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.Toast;
 
-import com.google.android.material.snackbar.Snackbar;
+import com.google.android.material.color.MaterialColors;
 import com.reactiveandroid.ReActiveAndroid;
 import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
@@ -20,8 +26,11 @@ import java.text.MessageFormat;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.preference.PreferenceManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
 import lombok.val;
+import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
@@ -32,28 +41,41 @@ import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
-    public static final String PL = "pl";
-    public static final String EN = "en-US";
     private PlaylistService playlistService;
+    private PlayerService playerService;
     private boolean serviceIsBound;
+    private boolean playerServiceIsBound;
+    private int activeColor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
         setupDBConnection();
         setupServices();
-        setContentView(R.layout.activity_main);
-        setPreferences();
-        setupMenu();
+        setActiveColor();
+        setupPreferences();
+        setupMainMenu();
+        setupMediaControls();
+        checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+        checkPermission(Manifest.permission.INTERNET);
+        checkPermission(Manifest.permission.INTERNET);
         //load playlist fragment
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.activity_fragment_layout, new PlaylistFragment())
                 .commit();
+        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        registerReceiver(receiver, filter);
+    }
+
+    private void setActiveColor() {
+        activeColor = MaterialColors.getColor(findViewById(R.id.bottomAppBar), R.attr.colorSecondary);
     }
 
     private void setupDBConnection() {
@@ -64,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
                 .build());
     }
 
-    private void setupMenu() {
+    private void setupMainMenu() {
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
@@ -85,15 +107,78 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupServices() {
-        val intent = new Intent(this, PlaylistService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        val context = getApplicationContext();
+        val intent = new Intent(context, PlaylistService.class);
+        val playerIntent = new Intent(context, PlayerService.class);
+        context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
     }
 
 
-    private void setPreferences() {
-        val sp = PreferenceManager.getDefaultSharedPreferences(this);
+    private void setupPreferences() {
+        val sp = getDefaultSharedPreferences(this);
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+    }
+
+
+    private void setupMediaControls() {
+        val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
+        val repeat_btn = (ImageView) findViewById(R.id.repeat);
+        play_pause_btn.setOnClickListener(play -> {
+            if (playerService.isPlaying()) {
+                playerService.pause();
+                play_pause_btn.setImageResource(R.drawable.ic_play_32);
+            } else {
+                playerService.play();
+                renderPauseButton();
+            }
+        });
+        findViewById(R.id.next).setOnClickListener(next -> {
+            playerService.next();
+            renderPauseButton();
+        });
+        findViewById(R.id.previous).setOnClickListener(prev -> {
+            playerService.previous();
+            renderPauseButton();
+        });
+        findViewById(R.id.stop).setOnClickListener(stop -> {
+            playerService.stop();
+            play_pause_btn.setImageResource(R.drawable.ic_play_32);
+        });
+
+        val sp = getDefaultSharedPreferences(this);
+        val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
+        renderRepeat(repeat);
+        repeat_btn.setOnClickListener(rep -> {
+            val newRepeat = !sp.getBoolean(Property.REPEAT_MODE, false);
+            val editor = sp.edit();
+            editor.putBoolean(Property.REPEAT_MODE, newRepeat);
+            editor.apply();
+            renderRepeat(newRepeat);
+        });
+
+    }
+
+    private void renderRepeat(boolean repeat) {
+        val repeat_btn = (ImageView) findViewById(R.id.repeat);
+        if (repeat) {
+            DrawableCompat.setTint(
+                    DrawableCompat.wrap(repeat_btn.getDrawable()),
+                    activeColor
+            );
+        } else {
+            repeat_btn.setImageResource(R.drawable.ic_repeat_32);
+        }
+    }
+
+    private void renderPauseButton() {
+        val play_pause = (ImageView) findViewById(R.id.play_pause);
+        play_pause.setImageResource(R.drawable.ic_pause_32);
+        DrawableCompat.setTint(
+                DrawableCompat.wrap(play_pause.getDrawable()),
+                activeColor
+        );
     }
 
     private void addPlaylist() {
@@ -106,8 +191,7 @@ public class MainActivity extends AppCompatActivity {
                     val playlistName = input.getText().toString();
                     if (playlistName.length() == 0) {
                         val msg = getString(R.string.playlist_add_atLeastOneChar);
-                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
-                                .setAction("Action", null).show();
+                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
@@ -119,13 +203,13 @@ public class MainActivity extends AppCompatActivity {
                                 new PlaylistSettingsFragment(playlistService, playlist),
                                 playlist.getName() + playlist.getId());
                         val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
-                        Snackbar.make(findViewById(R.id.container), msg, Snackbar.LENGTH_LONG)
-                                .setAction("Action", null).show();
+                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
                 .show();
     }
+
 
     @Override
     protected void onStop() {
@@ -134,12 +218,29 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void doUnbindService() {
+        val context = getApplicationContext();
         if (serviceIsBound) {
-            unbindService(mConnection);
+            context.unbindService(mConnection);
             serviceIsBound = false;
+        }
+        if (playerServiceIsBound) {
+            context.unbindService(playerConnection);
+            playerServiceIsBound = false;
         }
     }
 
+    private void checkPermission(String permission) {
+        int permissionCheck = ContextCompat.checkSelfPermission(
+                this, permission);
+        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+            requestPermission(permission, permission.length());
+        }
+    }
+
+    private void requestPermission(String permissionName, int permissionRequestCode) {
+        ActivityCompat.requestPermissions(this,
+                new String[]{permissionName}, permissionRequestCode);
+    }
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
@@ -152,4 +253,36 @@ public class MainActivity extends AppCompatActivity {
             playlistService = null;
         }
     };
+    private final ServiceConnection playerConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            val binder = (PlayerService.LocalBinder) service;
+            playerService = binder.getService();
+            playerServiceIsBound = true;
+            val playBtn = (ImageView) findViewById(R.id.play_pause);
+            if (playerService.isPlaying()) {
+                renderPauseButton();
+            } else {
+                playBtn.setImageResource(R.drawable.ic_play_32);
+            }
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            playerService = null;
+        }
+    };
+
+
+    /**
+     * If playlist was activated , toggle play_pause button properly
+     */
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            val event = EventType.getType(intent.getAction());
+            if (event.equals(EventType.PLAYLIST_NOTIFICATION_ACTIVE)) {
+                renderPauseButton();
+            }
+        }
+    };
+
 }

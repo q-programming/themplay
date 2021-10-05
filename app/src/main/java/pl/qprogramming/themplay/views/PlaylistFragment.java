@@ -13,6 +13,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.Optional;
+
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -47,7 +49,7 @@ public class PlaylistFragment extends Fragment {
 
     void doUnbindService() {
         if (serviceIsBound) {
-            getActivity().unbindService(mConnection);
+            requireActivity().getApplicationContext().unbindService(mConnection);
             serviceIsBound = false;
         }
     }
@@ -59,11 +61,11 @@ public class PlaylistFragment extends Fragment {
 
         // Set the adapter
         if (view instanceof RecyclerView) {
-            Context context = view.getContext();
+            val context = requireActivity().getApplicationContext();
             recyclerView = (RecyclerView) view;
             recyclerView.setLayoutManager(new LinearLayoutManager(context));
-            val intent = new Intent(getActivity(), PlaylistService.class);
-            getActivity().bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+            val intent = new Intent(context, PlaylistService.class);
+            context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         }
         return view;
     }
@@ -71,10 +73,10 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY.getCode());
+        val filter = new IntentFilter();
+        for (EventType eventType : EventType.values()) {
+            filter.addAction(eventType.getCode());
+        }
         getActivity().registerReceiver(receiver, filter);
     }
 
@@ -100,11 +102,16 @@ public class PlaylistFragment extends Fragment {
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
             if (args != null) {
-                val position = (int) args.getSerializable(POSITION);
-                if (event == EventType.PLAYLIST_NOTIFICATION_DELETE) {
-                    recyclerView.getAdapter().notifyItemRemoved(position);
-                } else {
-                    recyclerView.getAdapter().notifyDataSetChanged();
+                switch (event) {
+                    case PLAYLIST_NOTIFICATION_PLAY:
+                    case PLAYLIST_NOTIFICATION_NEXT:
+                    case PLAYLIST_NOTIFICATION_PREV:
+                        Optional.ofNullable(args.getSerializable(POSITION))
+                                .ifPresent(position -> recyclerView.getAdapter()
+                                        .notifyItemChanged((int) position));
+                        break;
+                    default:
+                        recyclerView.getAdapter().notifyDataSetChanged();
                 }
             }
         }

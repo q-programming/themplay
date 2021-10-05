@@ -13,14 +13,26 @@
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
-    <string name="playlist_active">Now playing \"{0}\"</string>
+    <string name="playlist_now_playing">Now playing \"{0}\"</string>
+    <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>
+    <string name="playlist_no_active_playlist">There are no active playlists, please select one first</string>
     <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
     <string name="playlist_name_atLeastOneChar">Please enter at least single character!</string>
     <string name="playlist_add_atLeastOneChar">Your playlist name must have at least single character!</string>
     <string name="playlist_add_created">New playlist \"{0}\" created</string>
+    <string name="playlist_cant_play">Cannot Play Song \"{0}\"!</string>
+    <string name="playlist_add_new_song">Add new song</string>
+    <string name="playlist_remove_selected">Remove selected songs</string>
+    <string name="playlist_removed_selected_songs">Selected songs removed</string>
     <!-- Preference Titles -->
     <string name="theme">Theme</string>
     <string name="dark_mode">Dark mode</string>
     <string name="goBack">goBack</string>
     <string name="back_arrow">back arrow</string>
+    <string name="settings_darkmode">Dark mode</string>
+    <string name="settings_darkmode_summary">Should application use dark mode</string>
+    <string name="settings_fade">Fade between songs duration</string>
+    <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
+    <string name="playlist_now_playing_notificatoin">Now playing</string>
+
 </resources>
