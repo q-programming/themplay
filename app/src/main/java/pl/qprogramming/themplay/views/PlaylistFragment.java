@@ -13,6 +13,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import java.util.Optional;
+
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -100,12 +102,13 @@ public class PlaylistFragment extends Fragment {
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
             if (args != null) {
-                val position = (int) args.getSerializable(POSITION);
                 switch (event) {
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_PREV:
-                        recyclerView.getAdapter().notifyItemChanged(position);
+                        Optional.ofNullable(args.getSerializable(POSITION))
+                                .ifPresent(position -> recyclerView.getAdapter()
+                                        .notifyItemChanged((int) position));
                         break;
                     default:
                         recyclerView.getAdapter().notifyDataSetChanged();

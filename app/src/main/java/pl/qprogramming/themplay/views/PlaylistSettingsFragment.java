@@ -31,12 +31,15 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 
 import static android.app.Activity.RESULT_OK;
 import static android.content.Intent.ACTION_OPEN_DOCUMENT;
+import static pl.qprogramming.themplay.playlist.PlaylistService.ARGS;
+import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
 import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
 
 /**
@@ -120,29 +123,12 @@ public class PlaylistSettingsFragment extends Fragment {
             Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
                     .setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
                     .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            startActivityForSelectedFIles.launch(intent);
+            startActivityForSelectedFiles.launch(intent);
         });
     }
 
-//    public String getPath(Uri uri) {
-//        String path;
-//        String[] projection = {MediaStore.Files.FileColumns.DATA};
-//        try (Cursor cursor = requireActivity().getContentResolver().query(uri, projection, null, null, null)) {
-//            if (cursor == null) {
-//                path = uri.getPath();
-//            } else {
-//                cursor.moveToFirst();
-//                int column_index = cursor.getColumnIndexOrThrow(projection[0]);
-//                path = cursor.getString(column_index);
-//                cursor.close();
-//            }
-//            return ((path == null || path.isEmpty()) ? (uri.getPath()) : path);
-//        }
-//
-//    }
 
-
-    private final ActivityResultLauncher<Intent> startActivityForSelectedFIles = registerForActivityResult(
+    private final ActivityResultLauncher<Intent> startActivityForSelectedFiles = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
@@ -158,6 +144,11 @@ public class PlaylistSettingsFragment extends Fragment {
                             songOutOfUri(uri);
                         }
                     }
+                    Intent intent = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+                    val args = new Bundle();
+                    args.putSerializable(PLAYLIST, playlist);
+                    intent.putExtra(ARGS, args);
+                    getActivity().getApplicationContext().sendBroadcast(intent);
                     adapter.setSongs(playlist.getSongs());
                     adapter.notifyDataSetChanged();
                 }

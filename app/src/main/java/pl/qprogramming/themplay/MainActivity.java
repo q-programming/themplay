@@ -30,6 +30,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import lombok.val;
+import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
@@ -46,7 +47,9 @@ import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private PlaylistService playlistService;
+    private PlayerService playerService;
     private boolean serviceIsBound;
+    private boolean playerServiceIsBound;
     private int activeColor;
 
     @Override
@@ -106,7 +109,9 @@ public class MainActivity extends AppCompatActivity {
     private void setupServices() {
         val context = getApplicationContext();
         val intent = new Intent(context, PlaylistService.class);
+        val playerIntent = new Intent(context, PlayerService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
     }
 
 
@@ -121,24 +126,24 @@ public class MainActivity extends AppCompatActivity {
         val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
         val repeat_btn = (ImageView) findViewById(R.id.repeat);
         play_pause_btn.setOnClickListener(play -> {
-            if (playlistService.isPlaying()) {
-                playlistService.pause();
+            if (playerService.isPlaying()) {
+                playerService.pause();
                 play_pause_btn.setImageResource(R.drawable.ic_play_32);
             } else {
-                playlistService.play();
+                playerService.play();
                 renderPauseButton();
             }
         });
         findViewById(R.id.next).setOnClickListener(next -> {
-            playlistService.next();
+            playerService.next();
             renderPauseButton();
         });
         findViewById(R.id.previous).setOnClickListener(prev -> {
-            playlistService.previous();
+            playerService.previous();
             renderPauseButton();
         });
         findViewById(R.id.stop).setOnClickListener(stop -> {
-            playlistService.stop();
+            playerService.stop();
             play_pause_btn.setImageResource(R.drawable.ic_play_32);
         });
 
@@ -213,9 +218,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     void doUnbindService() {
+        val context = getApplicationContext();
         if (serviceIsBound) {
-            getApplicationContext().unbindService(mConnection);
+            context.unbindService(mConnection);
             serviceIsBound = false;
+        }
+        if (playerServiceIsBound) {
+            context.unbindService(playerConnection);
+            playerServiceIsBound = false;
         }
     }
 
@@ -237,8 +247,19 @@ public class MainActivity extends AppCompatActivity {
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
             serviceIsBound = true;
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            playlistService = null;
+        }
+    };
+    private final ServiceConnection playerConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            val binder = (PlayerService.LocalBinder) service;
+            playerService = binder.getService();
+            playerServiceIsBound = true;
             val playBtn = (ImageView) findViewById(R.id.play_pause);
-            if (playlistService.isPlaying()) {
+            if (playerService.isPlaying()) {
                 renderPauseButton();
             } else {
                 playBtn.setImageResource(R.drawable.ic_play_32);
@@ -246,7 +267,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            playlistService = null;
+            playerService = null;
         }
     };
 
