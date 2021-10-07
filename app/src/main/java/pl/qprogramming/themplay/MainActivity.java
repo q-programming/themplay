@@ -14,6 +14,7 @@ import android.text.InputType;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import com.google.android.material.color.MaterialColors;
@@ -22,6 +23,7 @@ import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
 
 import java.text.MessageFormat;
+import java.util.Optional;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -42,6 +44,7 @@ import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
@@ -71,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
                 .replace(R.id.activity_fragment_layout, new PlaylistFragment())
                 .commit();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         registerReceiver(receiver, filter);
     }
 
@@ -181,6 +185,11 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    private void renderPlayButton() {
+        val play_pause = (ImageView) findViewById(R.id.play_pause);
+        play_pause.setImageResource(R.drawable.ic_play_32);
+    }
+
     private void addPlaylist() {
         val input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT);
@@ -259,6 +268,8 @@ public class MainActivity extends AppCompatActivity {
             playerService = binder.getService();
             playerServiceIsBound = true;
             val playBtn = (ImageView) findViewById(R.id.play_pause);
+            val progressBar = (ProgressBar) findViewById(R.id.progressBar);
+            playerService.setProgressBar(progressBar);
             if (playerService.isPlaying()) {
                 renderPauseButton();
             } else {
@@ -279,8 +290,16 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
-            if (event.equals(EventType.PLAYLIST_NOTIFICATION_ACTIVE)) {
+            if (EventType.PLAYLIST_NOTIFICATION_ACTIVE.equals(event)) {
                 renderPauseButton();
+            } else if (EventType.PLAYLIST_NOTIFICATION_DELETE.equals(event)) {
+                Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
+                Optional.ofNullable(args.getSerializable(PLAYLIST))
+                        .ifPresent((playlist -> {
+                            if (playerService.isActivePlaylist((Playlist) playlist)) {
+                                renderPlayButton();
+                            }
+                        }));
             }
         }
     };

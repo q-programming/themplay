@@ -12,7 +12,9 @@ import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
+import android.widget.ProgressBar;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import androidx.annotation.Nullable;
 import androidx.preference.PreferenceManager;
 import io.reactivex.schedulers.Schedulers;
+import lombok.Setter;
 import lombok.val;
 import lombok.var;
 import pl.qprogramming.themplay.R;
@@ -44,6 +47,9 @@ public class PlayerService extends Service {
 
     private Playlist activePlaylist;
     private int playlistPosition;
+    @Setter
+    private ProgressBar progressBar;
+    private final Handler progressHandler = new Handler(Looper.getMainLooper());
 
 
     private final IBinder mBinder = new PlayerService.LocalBinder();
@@ -68,7 +74,7 @@ public class PlayerService extends Service {
         Log.d(TAG, "Binding service to " + intent + "this:" + this);
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
         getApplicationContext().registerReceiver(receiver, filter);
         return mBinder;
@@ -118,6 +124,7 @@ public class PlayerService extends Service {
         mediaPlayer.pause();
         val currentSong = activePlaylist.getCurrentSong();
         currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
+        progressHandler.removeCallbacks(updateProgressTask);
     }
 
     public void stop() {
@@ -128,6 +135,7 @@ public class PlayerService extends Service {
                     .subscribe();
             mediaPlayer.reset();
             mediaPlayer.release();
+            progressHandler.removeCallbacks(updateProgressTask);
         }
     }
 
@@ -139,7 +147,7 @@ public class PlayerService extends Service {
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getSongs().indexOf(activePlaylist.getCurrentSong()) + 1;
-            if (songIndex > activePlaylist.getSongs().size() - 1 || songIndex < 0) {
+            if (songIndex > activePlaylist.getSongs().size() - 1) {
                 songIndex = 0;
             }
             val song = activePlaylist.getSongs().get(songIndex);
@@ -182,6 +190,7 @@ public class PlayerService extends Service {
      * @param songPosition from where next song should pickup
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
+        Log.d(TAG, "Fading into song from " + this);
         val sp = getDefaultSharedPreferences(this);
         val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
         try {
@@ -209,6 +218,8 @@ public class PlayerService extends Service {
                 mediaPlayer.start();
             }
             observeEnding(mediaPlayer);
+            progressBar.setProgress(songPosition);
+            updateProgressBar();
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
@@ -217,6 +228,10 @@ public class PlayerService extends Service {
             val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
         }
+    }
+
+    public boolean isActivePlaylist(Playlist playlist) {
+        return playlist.equals(activePlaylist);
     }
 
 
@@ -260,6 +275,22 @@ public class PlayerService extends Service {
             }
         }, 100);
     }
+
+    private void updateProgressBar() {
+        progressHandler.postDelayed(updateProgressTask, 100);
+    }
+
+
+    private final Runnable updateProgressTask = new Runnable() {
+        public void run() {
+            val totalDuration = mediaPlayer.getDuration();
+            val currentDuration = mediaPlayer.getCurrentPosition();
+            val progress = getProgressPercentage(currentDuration, totalDuration);
+            progressBar.setProgress(progress);
+            progressHandler.postDelayed(this, 100);
+        }
+    };
+
 
     private void fadeIn(final MediaPlayer player) {
         val deviceVolume = getDeviceVolume();
@@ -309,7 +340,14 @@ public class PlayerService extends Service {
         }, 500);
     }
 
-    public float getDeviceVolume() {
+    public int getProgressPercentage(long currentDuration, long totalDuration) {
+        val currentSeconds = (int) (currentDuration / 1000);
+        val totalSeconds = (int) (totalDuration / 1000);
+        return (int) ((((double) currentSeconds) / totalSeconds) * 100);
+    }
+
+
+    private float getDeviceVolume() {
         AudioManager audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         int volumeLevel = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
         int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
