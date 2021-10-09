@@ -12,7 +12,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -26,26 +25,43 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
-import pl.qprogramming.themplay.settings.Property;
 
-import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.PlaylistService.POSITION;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 /**
- * A fragment representing a list of Items.
+ * A simple {@link Fragment} subclass.
  */
-public class PlaylistFragment extends Fragment {
-    private static final String TAG = PlaylistFragment.class.getSimpleName();
+public class PlaylistContainerFragment extends Fragment {
+
+    private static final String TAG = PlaylistContainerFragment.class.getSimpleName();
     private PlaylistService playlistService;
     private boolean serviceIsBound;
     private RecyclerView recyclerView;
 
-    /**
-     * Mandatory empty constructor for the fragment manager to instantiate the
-     * fragment (e.g. upon screen orientation changes).
-     */
-    public PlaylistFragment() {
+    public PlaylistContainerFragment() {
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                             Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.playlist_container, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        bindRecyclerViewAndService(view);
+        view.findViewById(R.id.preset_name)
+                .setOnClickListener(click ->
+                        navigateToFragment(requireActivity()
+                                .getSupportFragmentManager(), new PresetsFragment(), "presets"));
+
     }
 
     @Override
@@ -61,25 +77,6 @@ public class PlaylistFragment extends Fragment {
         }
     }
 
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.playlist_container, container, false);
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        bindRecyclerViewAndService(view);
-        val sp = getDefaultSharedPreferences(requireContext());
-        val currentPresetName = sp.getString(Property.CURRENT_PRESET, getString(R.string.presets_click_to_create));
-        val presetName = (TextView) view.findViewById(R.id.preset_name);
-        presetName.setText(currentPresetName);
-        presetName.setOnClickListener(click ->
-                navigateToFragment(requireActivity()
-                        .getSupportFragmentManager(), new PresetsFragment(), "presets"));
-
-    }
 
     private void bindRecyclerViewAndService(@NonNull View view) {
         val context = requireActivity().getApplicationContext();
@@ -126,7 +123,7 @@ public class PlaylistFragment extends Fragment {
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_PREV:
-                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
+                        Log.d(TAG, "Processing event within PlaylistContainerFragment " + intent.getAction());
                         Optional.ofNullable(args.getSerializable(POSITION))
                                 .ifPresent(position -> Objects.requireNonNull(recyclerView.getAdapter())
                                         .notifyItemChanged((int) position));

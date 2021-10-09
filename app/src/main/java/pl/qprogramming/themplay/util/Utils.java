@@ -55,6 +55,10 @@ public class Utils {
         return (coll == null || coll.isEmpty());
     }
 
+    public static boolean isEmpty(String string) {
+        return (string == null || string.isEmpty());
+    }
+
     /**
      * Navigate to fragment using animations and adding name to stack
      *

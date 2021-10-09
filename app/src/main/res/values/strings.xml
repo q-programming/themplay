@@ -8,6 +8,12 @@
     <string name="create">Create</string>
     <string name="delete">delete</string>
     <string name="toggle_night_mode">Toggle night mode</string>
+    <string name="presets">Presets</string>
+    <string name="presets_click_to_create">Click here to create presets</string>
+    <string name="presets_add">Add new preset</string>
+    <string name="presets_name">Preset name</string>
+    <string name="presets_add_atLeastOneChar">Your preset name must have at least single character!</string>
+    <string name="presets_create_first">Please create preset before creating playlist</string>
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_edit_playlist">Edit playlist</string>

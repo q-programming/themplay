@@ -21,6 +21,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -38,6 +39,7 @@ import pl.qprogramming.themplay.playlist.Song;
 
 import static android.app.Activity.RESULT_OK;
 import static android.content.Intent.ACTION_OPEN_DOCUMENT;
+import static android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
 import static pl.qprogramming.themplay.playlist.PlaylistService.ARGS;
 import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
 import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
@@ -89,27 +91,27 @@ public class PlaylistSettingsFragment extends Fragment {
             removeBtn.setVisibility(View.GONE);
         });
         val textView = (TextView) view.findViewById(R.id.header_title);
-        view.findViewById(R.id.back_arrow).setOnClickListener(clicked -> updateListAndGoBack());
+        view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
         textView.setText(playlist.getName());
         textView.setOnClickListener(clicked -> updateListAndGoBack());
         addSongsList(view);
         addNameEditField(view);
         val filter = new IntentFilter(MULTIPLE_SELECTED);
-        getActivity().registerReceiver(receiver, filter);
+        requireActivity().registerReceiver(receiver, filter);
     }
 
     private void updateListAndGoBack() {
         if (playlistEditText != null) {
-            val name = playlistEditText.getText().toString();
+            val name = Objects.requireNonNull(playlistEditText.getText()).toString();
             if (!playlist.getName().equals(name)) {
                 playlist.setName(name);
                 playlistService.save(playlist);
             }
         }
         //hide virtual keyboard if open
-        val imm = (InputMethodManager) getActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-        imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
-        getActivity()
+        val imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(requireView().getWindowToken(), 0);
+        requireActivity()
                 .getSupportFragmentManager()
                 .popBackStack();
     }
@@ -122,6 +124,7 @@ public class PlaylistSettingsFragment extends Fragment {
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
             Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
                     .setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                    .setFlags(FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                     .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             startActivityForSelectedFiles.launch(intent);
         });
@@ -133,11 +136,11 @@ public class PlaylistSettingsFragment extends Fragment {
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
                     val data = result.getData();
-                    if (data.getData() != null) {
+                    if (data!=null && data.getData() != null) {
                         val uri = data.getData();
 
                         songOutOfUri(uri);
-                    } else if (data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+                    } else if (data!=null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
                         val clipData = data.getClipData();
                         for (int i = 0; i < clipData.getItemCount(); i++) {
                             val uri = clipData.getItemAt(i).getUri();
@@ -148,7 +151,7 @@ public class PlaylistSettingsFragment extends Fragment {
                     val args = new Bundle();
                     args.putSerializable(PLAYLIST, playlist);
                     intent.putExtra(ARGS, args);
-                    getActivity().getApplicationContext().sendBroadcast(intent);
+                    requireActivity().getApplicationContext().sendBroadcast(intent);
                     adapter.setSongs(playlist.getSongs());
                     adapter.notifyDataSetChanged();
                 }
@@ -156,7 +159,7 @@ public class PlaylistSettingsFragment extends Fragment {
     );
 
     private void songOutOfUri(Uri uri) {
-        getActivity().getApplicationContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        requireActivity().getApplicationContext().getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         val file = new File(uri.getPath());
         val song = Song.builder()
                 .filename(file.getName())

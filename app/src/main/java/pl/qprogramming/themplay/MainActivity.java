@@ -41,11 +41,13 @@ import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
+import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.player.PlayerService.ARGS;
 import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
@@ -102,6 +104,8 @@ public class MainActivity extends AppCompatActivity {
                     addPlaylist();
                 } else if (itemId == R.id.settings) {
                     navigateToFragment(getSupportFragmentManager(), new SettingsFragment(), "settings");
+                } else if (itemId == R.id.preset) {
+                    navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
                 } else {
                     navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }
@@ -196,32 +200,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addPlaylist() {
-        val input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        new AlertDialog.Builder(this)
-                .setTitle(getString(R.string.playlist_name))
-                .setView(input)
-                .setPositiveButton(getString(R.string.create), (dialog, which) -> {
-                    val playlistName = input.getText().toString();
-                    if (playlistName.length() == 0) {
-                        val msg = getString(R.string.playlist_add_atLeastOneChar);
-                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-                        input.setError(getString(R.string.playlist_name_atLeastOneChar));
-                    } else {
-                        input.setError(null);
-                        val playlist = Playlist.builder().name(playlistName).build();
-                        playlistService.addPlaylist(playlist);
-                        val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-                        sendBroadcast(notify);
-                        navigateToFragment(getSupportFragmentManager(),
-                                new PlaylistSettingsFragment(playlistService, playlist),
-                                playlist.getName() + playlist.getId());
-                        val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
-                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
-                    }
-                })
-                .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
-                .show();
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        if (isEmpty(currentPresetName)) {
+            val msg = getString(R.string.presets_create_first);
+            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+        } else {
+            val input = new EditText(this);
+            input.setInputType(InputType.TYPE_CLASS_TEXT);
+            new AlertDialog.Builder(this)
+                    .setTitle(getString(R.string.playlist_name))
+                    .setView(input)
+                    .setPositiveButton(getString(R.string.create), (dialog, which) -> {
+                        val playlistName = input.getText().toString();
+                        if (playlistName.length() == 0) {
+                            val msg = getString(R.string.playlist_add_atLeastOneChar);
+                            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                            input.setError(getString(R.string.playlist_name_atLeastOneChar));
+                        } else {
+                            input.setError(null);
+                            val playlist = Playlist.builder().name(playlistName).build();
+                            playlistService.addPlaylist(playlist);
+                            val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+                            sendBroadcast(notify);
+                            navigateToFragment(getSupportFragmentManager(),
+                                    new PlaylistSettingsFragment(playlistService, playlist),
+                                    playlist.getName() + playlist.getId());
+                            val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
+                            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                        }
+                    })
+                    .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
+                    .show();
+        }
     }
 
 
