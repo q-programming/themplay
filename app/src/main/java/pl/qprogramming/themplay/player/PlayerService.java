@@ -198,16 +198,12 @@ public class PlayerService extends Service {
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
         Log.d(TAG, "Fading into song from " + this);
-        val sp = getDefaultSharedPreferences(this);
-        val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
         try {
             val uri = Uri.parse(nextSong.getFileUri());
             val fileDescriptor = getContentResolver().openFileDescriptor(uri, "r");
             if (isPlaying()) {
                 auxPlayer = new MediaPlayer();
                 auxPlayer.setDataSource(fileDescriptor.getFileDescriptor());
-                //TODO this repeats current file only!
-//                auxPlayer.setLooping(repeat);
                 auxPlayer.prepare();
                 auxPlayer.seekTo(songPosition);
                 auxPlayer.setVolume(0, 0);

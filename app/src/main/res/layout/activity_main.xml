@@ -24,21 +24,12 @@
 
 
         <ImageView
-            android:id="@+id/repeat"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_alignParentTop="true"
-            android:layout_marginStart="10dp"
-            android:layout_marginEnd="10dp"
-            android:src="@drawable/ic_repeat_32" />
-
-        <ImageView
             android:id="@+id/shuffle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginEnd="10dp"
-            android:layout_toEndOf="@id/repeat"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
             android:src="@drawable/ic_shuffle_32" />
 
         <ImageView

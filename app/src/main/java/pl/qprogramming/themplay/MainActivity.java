@@ -129,7 +129,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupMediaControls() {
         val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
-        val repeat_btn = (ImageView) findViewById(R.id.repeat);
         val shuffle_btn = (ImageView) findViewById(R.id.shuffle);
         play_pause_btn.setOnClickListener(play -> {
             if (playerService.isPlaying()) {
@@ -154,17 +153,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         val sp = getDefaultSharedPreferences(this);
-        val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
         val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-        renderRepeat(repeat);
         renderShuffle(shuffle);
-        repeat_btn.setOnClickListener(rep -> {
-            val newRepeat = !sp.getBoolean(Property.REPEAT_MODE, false);
-            val editor = sp.edit();
-            editor.putBoolean(Property.REPEAT_MODE, newRepeat);
-            editor.apply();
-            renderRepeat(newRepeat);
-        });
         shuffle_btn.setOnClickListener(rand -> {
             val newRandom = !sp.getBoolean(Property.SHUFFLE_MODE, false);
             val editor = sp.edit();
@@ -177,18 +167,6 @@ public class MainActivity extends AppCompatActivity {
             sendBroadcast(notify);
         });
 
-    }
-
-    private void renderRepeat(boolean repeat) {
-        val repeat_btn = (ImageView) findViewById(R.id.repeat);
-        if (repeat) {
-            DrawableCompat.setTint(
-                    DrawableCompat.wrap(repeat_btn.getDrawable()),
-                    activeColor
-            );
-        } else {
-            repeat_btn.setImageResource(R.drawable.ic_repeat_32);
-        }
     }
 
     private void renderShuffle(boolean shuffle) {
