@@ -39,6 +39,8 @@ public class AboutFragment extends Fragment {
                         .getSupportFragmentManager()
                         .popBackStack());
         val versionTxt = (TextView) getView().findViewById(R.id.version);
+        val buildNoTxt = (TextView) getView().findViewById(R.id.buildNo);
         versionTxt.setText(String.format("v%s", BuildConfig.VERSION_NAME));
+        buildNoTxt.setText(String.format("build no. %s", BuildConfig.VERSION_CODE));
     }
 }

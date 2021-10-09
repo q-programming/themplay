@@ -4,12 +4,17 @@ import android.content.Context;
 import android.util.TypedValue;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Random;
 
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import lombok.val;
+import lombok.var;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.Playlist;
+import pl.qprogramming.themplay.playlist.Song;
 
 public class Utils {
 
@@ -68,5 +73,30 @@ public class Utils {
                 .replace(R.id.activity_fragment_layout, fragment)
                 .addToBackStack(name)
                 .commit();
+    }
+
+    /**
+     * Shuffles all songs from playlist into random order. Then takes current playlist song and moves it to the end
+     *
+     * @param playlist playlists which songs should be shuffled
+     */
+    public static void createPlaylist(Playlist playlist, boolean shuffle) {
+        val list = new ArrayList<>(playlist.getSongs());
+        if (shuffle) {
+            val shuffledPlaylist = new ArrayList<Song>();
+            while (list.size() > 0) {
+                var index = list.size() - 1;
+                if (index > 0) {
+                    index = new Random().nextInt(list.size() - 1);
+                }
+                shuffledPlaylist.add(list.get(index));
+                list.remove(index);
+            }
+            shuffledPlaylist.remove(playlist.getCurrentSong());
+            shuffledPlaylist.add(playlist.getCurrentSong());
+            playlist.setPlaylist(shuffledPlaylist);
+        } else {
+            playlist.setPlaylist(list);
+        }
     }
 }

@@ -44,6 +44,7 @@ import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.player.PlayerService.ARGS;
 import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -129,6 +130,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupMediaControls() {
         val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
         val repeat_btn = (ImageView) findViewById(R.id.repeat);
+        val shuffle_btn = (ImageView) findViewById(R.id.shuffle);
         play_pause_btn.setOnClickListener(play -> {
             if (playerService.isPlaying()) {
                 playerService.pause();
@@ -153,13 +155,26 @@ public class MainActivity extends AppCompatActivity {
 
         val sp = getDefaultSharedPreferences(this);
         val repeat = sp.getBoolean(Property.REPEAT_MODE, true);
+        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
         renderRepeat(repeat);
+        renderShuffle(shuffle);
         repeat_btn.setOnClickListener(rep -> {
             val newRepeat = !sp.getBoolean(Property.REPEAT_MODE, false);
             val editor = sp.edit();
             editor.putBoolean(Property.REPEAT_MODE, newRepeat);
             editor.apply();
             renderRepeat(newRepeat);
+        });
+        shuffle_btn.setOnClickListener(rand -> {
+            val newRandom = !sp.getBoolean(Property.SHUFFLE_MODE, false);
+            val editor = sp.edit();
+            editor.putBoolean(Property.SHUFFLE_MODE, newRandom);
+            editor.apply();
+            renderShuffle(newRandom);
+            val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+            val args = new Bundle();
+            notify.putExtra(ARGS, args);
+            sendBroadcast(notify);
         });
 
     }
@@ -173,6 +188,18 @@ public class MainActivity extends AppCompatActivity {
             );
         } else {
             repeat_btn.setImageResource(R.drawable.ic_repeat_32);
+        }
+    }
+
+    private void renderShuffle(boolean shuffle) {
+        val shuffle_btn = (ImageView) findViewById(R.id.shuffle);
+        if (shuffle) {
+            DrawableCompat.setTint(
+                    DrawableCompat.wrap(shuffle_btn.getDrawable()),
+                    activeColor
+            );
+        } else {
+            shuffle_btn.setImageResource(R.drawable.ic_shuffle_32);
         }
     }
 

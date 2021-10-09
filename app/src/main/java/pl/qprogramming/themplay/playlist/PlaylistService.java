@@ -18,7 +18,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
-import androidx.preference.PreferenceManager;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
@@ -31,6 +30,8 @@ import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.settings.Property;
 
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlaylistService extends Service {
@@ -53,12 +54,6 @@ public class PlaylistService extends Service {
                         .subscribe(songs -> setSongsAndMakeActive(playlist, songs, false)));
         return mBinder;
     }
-
-    private int getDuration() {
-        val sp = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        return Integer.parseInt(sp.getString(Property.FADE_DURATION, "4")) * 1000;
-    }
-
 
     //repository methods
 
@@ -207,13 +202,16 @@ public class PlaylistService extends Service {
      */
     private void setSongsAndMakeActive(Playlist playlist, List<Song> songs, boolean play) {
         playlist.setSongs(songs);
+        val sp = getDefaultSharedPreferences(this);
+        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+        createPlaylist(playlist, shuffle);
         var currentSong = playlist.getCurrentSong();
         if (currentSong == null && isEmpty(playlist.getSongs())) {
             val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
             Toast.makeText(getApplicationContext(), notActiveMsg, Toast.LENGTH_LONG).show();
             return;
         } else if (currentSong == null && !isEmpty(playlist.getSongs())) {
-            currentSong = playlist.getSongs().get(0);
+            currentSong = playlist.getPlaylist().get(0);
             playlist.setCurrentSong(currentSong);
         }
         playlist.setActive(true);

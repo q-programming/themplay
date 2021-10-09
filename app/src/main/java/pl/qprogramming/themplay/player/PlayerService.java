@@ -36,6 +36,7 @@ import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 
 public class PlayerService extends Service {
 
@@ -76,6 +77,7 @@ public class PlayerService extends Service {
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         getApplicationContext().registerReceiver(receiver, filter);
         return mBinder;
     }
@@ -141,16 +143,20 @@ public class PlayerService extends Service {
 
     public void next() {
         if (activePlaylist != null) {
-            //TODO change to random playlist
-            // val nextSong = new SecureRandom().nextInt(activePlaylist.getSongs().size());
-
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
-            var songIndex = activePlaylist.getSongs().indexOf(activePlaylist.getCurrentSong()) + 1;
-            if (songIndex > activePlaylist.getSongs().size() - 1) {
+            var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
+            if (songIndex > activePlaylist.getPlaylist().size() - 1) {
+                Log.d(TAG, "Creating new playlist");
+                val sp = getDefaultSharedPreferences(this);
+                val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+                createPlaylist(activePlaylist, shuffle);
+                activePlaylist.saveAsync()
+                        .subscribeOn(Schedulers.io())
+                        .subscribe();
                 songIndex = 0;
             }
-            val song = activePlaylist.getSongs().get(songIndex);
+            val song = activePlaylist.getPlaylist().get(songIndex);
             activePlaylist.setCurrentSong(song);
             activePlaylist.saveAsync()
                     .subscribeOn(Schedulers.io())
@@ -164,7 +170,7 @@ public class PlayerService extends Service {
 
     public void previous() {
         if (activePlaylist != null) {
-            val songs = activePlaylist.getSongs();
+            val songs = activePlaylist.getPlaylist();
             val lastSongIndex = songs.size() - 1;
             //if this was first song we will loop around to last song in playlist
             var songIndex = songs.indexOf(activePlaylist.getCurrentSong()) - 1;
@@ -182,6 +188,7 @@ public class PlayerService extends Service {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         }
     }
+
 
     /**
      * Fades into new song
@@ -387,10 +394,15 @@ public class PlayerService extends Service {
                         Optional.ofNullable(args.getSerializable(PLAYLIST))
                                 .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
                         break;
+                    case PLAYLIST_NOTIFICATION_RECREATE_LIST:
+                        val sp = getDefaultSharedPreferences(context);
+                        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+                        createPlaylist(activePlaylist, shuffle);
+                        break;
                     case PLAYLIST_NOTIFICATION_DELETE:
                         Optional.ofNullable(args.getSerializable(PLAYLIST))
                                 .ifPresent(playlist -> {
-                                    if (((Playlist) playlist).equals(activePlaylist)) {
+                                    if (playlist.equals(activePlaylist)) {
                                         stop();
                                         activePlaylist = null;
                                     }

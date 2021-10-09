@@ -53,6 +53,8 @@ public class Playlist extends Model implements Serializable {
 
     private List<Song> songs;
 
+    private List<Song> playlist;
+
     public List<Song> getSongs() {
         if (songs == null) {
             songs = new ArrayList<>();

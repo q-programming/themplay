@@ -98,7 +98,6 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Received event within playlistFragment " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
             if (args != null) {
@@ -106,6 +105,7 @@ public class PlaylistFragment extends Fragment {
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_PREV:
+                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
                         Optional.ofNullable(args.getSerializable(POSITION))
                                 .ifPresent(position -> recyclerView.getAdapter()
                                         .notifyItemChanged((int) position));

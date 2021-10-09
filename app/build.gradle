@@ -10,7 +10,7 @@ android {
         applicationId "pl.qprogramming.themplay"
         minSdkVersion 27
         targetSdkVersion 30
-        versionCode 1
+        versionCode 9102021
         versionName "1.0-alpha"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
