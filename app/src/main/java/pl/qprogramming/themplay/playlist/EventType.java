@@ -22,6 +22,7 @@ public enum EventType {
     PLAYLIST_NOTIFICATION_PREV("q-programming.themplay.playlist.prev"),
     PLAYLIST_NOTIFICATION_STOP("q-programming.themplay.playlist.stop"),
     PRESET_ACTIVATED("q-programming.themplay.preset.activated"),
+    PRESET_REMOVED("q-programming.themplay.preset.removed"),
     UNKNOWN("q-programming.themplay.n/a");
 
     private static final Map<String, EventType> BY_CODE = new HashMap<>();

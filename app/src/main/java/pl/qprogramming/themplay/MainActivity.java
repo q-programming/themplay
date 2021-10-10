@@ -37,6 +37,7 @@ import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
+import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
@@ -45,8 +46,9 @@ import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
-import static pl.qprogramming.themplay.player.PlayerService.ARGS;
-import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.PRESET;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(EventType.PRESET_ACTIVATED.getCode());
+        filter.addAction(EventType.PRESET_REMOVED.getCode());
         registerReceiver(receiver, filter);
     }
 
@@ -307,18 +310,28 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
-            if (EventType.PLAYLIST_NOTIFICATION_ACTIVE.equals(event)) {
-                renderPauseButton();
-            } else if (EventType.PLAYLIST_NOTIFICATION_DELETE.equals(event)) {
-                Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
-                Optional.ofNullable(args.getSerializable(PLAYLIST))
-                        .ifPresent((playlist -> {
-                            if (playerService.isActivePlaylist((Playlist) playlist)) {
-                                renderPlayButton();
-                            }
-                        }));
-            } else if (EventType.PRESET_ACTIVATED.equals(event)) {
-                playlistService.resetActiveFromPreset();
+            Bundle args = intent.getBundleExtra(ARGS);
+            switch (event) {
+                case PRESET_ACTIVATED:
+                    playlistService.resetActiveFromPreset();
+                    break;
+                case PRESET_REMOVED:
+                    Optional.ofNullable(args.getSerializable(PRESET)).ifPresent(serializedPreset -> {
+                        val preset = (Preset) serializedPreset;
+                        playlistService.removePlaylistsFromPreset(preset.getName());
+                    });
+                    break;
+                case PLAYLIST_NOTIFICATION_ACTIVE:
+                    renderPauseButton();
+                    break;
+                case PLAYLIST_NOTIFICATION_DELETE:
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> {
+                                if (playerService.isActivePlaylist((Playlist) playlist)) {
+                                    renderPlayButton();
+                                }
+                            }));
+                    break;
             }
         }
     };

@@ -1,5 +1,6 @@
 package pl.qprogramming.themplay.views;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -12,6 +13,9 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.LinearLayout;
+
+import com.reactiveandroid.query.Select;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -21,12 +25,17 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.settings.Property;
 
-import static pl.qprogramming.themplay.playlist.PlaylistService.POSITION;
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 /**
@@ -38,6 +47,7 @@ public class PlaylistContainerFragment extends Fragment {
     private PlaylistService playlistService;
     private boolean serviceIsBound;
     private RecyclerView recyclerView;
+    private LinearLayout encourage;
 
     public PlaylistContainerFragment() {
     }
@@ -56,6 +66,7 @@ public class PlaylistContainerFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        recyclerView = (RecyclerView) view.findViewById(R.id.playlist_item_list);
         bindRecyclerViewAndService(view);
         view.findViewById(R.id.preset_name)
                 .setOnClickListener(click ->
@@ -78,14 +89,22 @@ public class PlaylistContainerFragment extends Fragment {
     }
 
 
+    @SuppressLint("CheckResult")
     private void bindRecyclerViewAndService(@NonNull View view) {
         val context = requireActivity().getApplicationContext();
-        recyclerView = (RecyclerView) view.findViewById(R.id.playlist_item_list);
+        encourage = (LinearLayout) view.findViewById(R.id.encourage_menu_click);
         //change to custom adapter
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-
+        val sp = getDefaultSharedPreferences(view.getContext());
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        Select.from(Playlist.class).where(Playlist.PRESET + " =?", currentPresetName).fetchAsync().subscribeOn(AndroidSchedulers.mainThread())
+                .subscribe((playlists) -> {
+                    if (playlists.size() == 0) {
+                        encourage.setVisibility(View.VISIBLE);
+                    }
+                });
     }
 
     @Override
@@ -117,7 +136,7 @@ public class PlaylistContainerFragment extends Fragment {
         @Override
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
-            Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
+            Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 switch (event) {
                     case PLAYLIST_NOTIFICATION_PLAY:

@@ -40,8 +40,8 @@ import pl.qprogramming.themplay.playlist.Song;
 import static android.app.Activity.RESULT_OK;
 import static android.content.Intent.ACTION_OPEN_DOCUMENT;
 import static android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
-import static pl.qprogramming.themplay.playlist.PlaylistService.ARGS;
-import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
 
 /**

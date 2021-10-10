@@ -31,14 +31,14 @@ import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlaylistService extends Service {
     private static final String TAG = PlaylistService.class.getSimpleName();
-    public static final String POSITION = "position";
-    public static final String PLAYLIST = "playlist";
-    public static final String ARGS = "args";
 
     @Setter
     private int activePlaylistPosition;
@@ -65,7 +65,17 @@ public class PlaylistService extends Service {
     public List<Playlist> getAll() {
         val sp = getDefaultSharedPreferences(this);
         val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", currentPresetName).fetch();
+        return getAll(currentPresetName);
+    }
+
+    public List<Playlist> getAll(String presetName) {
+        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", presetName).fetch();
+    }
+
+    public Single<List<Playlist>> getAllAsync() {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", currentPresetName).fetchAsync();
     }
 
     /**
@@ -153,6 +163,19 @@ public class PlaylistService extends Service {
                 .subscribe();
         populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE);
         Toast.makeText(getApplicationContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
+    }
+
+    public void removePlaylistsFromPreset(String presetName) {
+        getAll(presetName).forEach(playlist -> {
+            val songs = fetchSongsByPlaylistSync(playlist);
+            playlist.setCurrentSong(null);
+            playlist.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+            songs.forEach(song -> song.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe());
+        });
     }
 
 

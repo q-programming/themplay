@@ -27,10 +27,17 @@ import androidx.recyclerview.widget.RecyclerView;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import lombok.val;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_REMOVED;
+import static pl.qprogramming.themplay.settings.Property.CURRENT_PRESET;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.POSITION;
+import static pl.qprogramming.themplay.util.Utils.PRESET;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -107,6 +114,7 @@ public class PresetsFragment extends Fragment {
     public void onResume() {
         super.onResume();
         val filter = new IntentFilter(PRESET_ACTIVATED.getCode());
+        filter.addAction(PRESET_REMOVED.getCode());
         requireActivity().registerReceiver(receiver, filter);
     }
 
@@ -132,7 +140,26 @@ public class PresetsFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            adapter.notifyDataSetChanged();
+            val event = EventType.getType(intent.getAction());
+            switch (event) {
+                case PRESET_REMOVED:
+                    val args = intent.getBundleExtra(ARGS);
+                    int position = (int) args.getSerializable(POSITION);
+                    val preset = (Preset) args.getSerializable(PRESET);
+                    val sp = getDefaultSharedPreferences(context);
+                    val currentPreset = sp.getString(CURRENT_PRESET, null);
+                    if (preset.getName().equals(currentPreset)) {
+                        sp.edit().putString(CURRENT_PRESET, null).apply();
+                        val newIntent = new Intent(PRESET_ACTIVATED.getCode());
+                        context.sendBroadcast(newIntent);
+                    }
+                    adapter.getPresets().remove(position);
+                    adapter.notifyItemRemoved(position);
+                    break;
+                case PRESET_ACTIVATED:
+                    adapter.notifyDataSetChanged();
+                    break;
+            }
         }
     };
 

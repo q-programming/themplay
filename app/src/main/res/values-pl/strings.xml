@@ -7,18 +7,23 @@
     <string name="about">O aplikacji</string>
     <string name="toggle_night_mode">Przełacz tryb nocny</string>
     <string name="presets">Zestawy</string>
-    <string name="presets_click_to_create">Kliknij tutaj aby stworzyć zestaw</string>
+    <string name="presets_add">Dodaj nowy zestaw</string>
+    <string name="presets_name">Unikalna nazwa zestawu</string>
+    <string name="presets_click_to_create">Kliknij tutaj aby stworzyć lub wybrać zestaw</string>
     <string name="presets_add_atLeastOneChar">Nazwa twojego zestawu musi mieć przynajmniej jeden znak!</string>
-    <string name="presets_create_first">Przed stworzeniem playlisty nalezy stworzyć zestaw</string>
+    <string name="presets_create_first">Przed stworzeniem playlisty nalezy aktywować zestaw</string>
     <string name="presets_created">Zestaw \"{0}\" utworzony</string>
     <string name="presets_already_exists">Zestaw o nazwie \"{0}\" juz istnieje, a musi być unikalny</string>
     <string name="preset_make_active">Aktywuj</string>
     <string name="presets_activated">Zestaw \"{0}\" jest teraz aktywny</string>
+    <string name="preset_delete">Usuń zestaw</string>
+    <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte\n.Tej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
+    <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
-    <string name="playlist_delete_playlist_confirm">Czy jesteś pewień, że chcesz usunąc playlistę \"{0}\"?</string>
+    <string name="playlist_delete_playlist_confirm">Czy na pewno chcesz usunąc playlistę \"{0}\"?</string>
     <string name="playlist_now_playing">Teraz odtwarzam \"{0}\"</string>
     <string name="playlist_now_playing_notificatoin">Teraz odtwarzam</string>
     <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
@@ -42,6 +47,5 @@
     <string name="settings_darkmode_summary">Czy aplikacja powinna używać trybu ciemnego</string>
     <string name="settings_fade">Czas przejścia między utworami</string>
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
-    <string name="presets_add">Dodaj nowy zestaw</string>
-    <string name="presets_name">Nazwa zestawu</string>
+
 </resources>

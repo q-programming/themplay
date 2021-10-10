@@ -18,6 +18,12 @@ import pl.qprogramming.themplay.playlist.Song;
 
 public class Utils {
 
+    public static final String POSITION = "position";
+    public static final String PLAYLIST = "playlist";
+    public static final String PRESET = "preset";
+    public static final String ARGS = "args";
+
+
     private Utils() {
     }
 

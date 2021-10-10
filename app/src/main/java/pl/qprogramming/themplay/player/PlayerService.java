@@ -30,20 +30,19 @@ import lombok.var;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
-import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.util.Utils;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
-import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 
 public class PlayerService extends Service {
 
     private static final String TAG = PlayerService.class.getSimpleName();
-    public static final String POSITION = "position";
-    public static final String ARGS = "args";
     private static final int NOTIFICATION_ID = 7;
     private static final String CHANNEL_ID = "themplay_player";
 
@@ -363,7 +362,7 @@ public class PlayerService extends Service {
     private void populateAndSend(EventType type, int position) {
         Intent intent = new Intent(type.getCode());
         val args = new Bundle();
-        args.putSerializable(POSITION, position);
+        args.putSerializable(Utils.POSITION, position);
         intent.putExtra(ARGS, args);
         sendBroadcast(intent);
     }
@@ -377,9 +376,9 @@ public class PlayerService extends Service {
                 stop();
                 return;
             }
-            Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
+            Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
-                Optional.ofNullable(args.getSerializable(POSITION)).ifPresent(position -> playlistPosition = (int) position);
+                Optional.ofNullable(args.getSerializable(Utils.POSITION)).ifPresent(position -> playlistPosition = (int) position);
                 switch (event) {
                     case PLAYLIST_NOTIFICATION_ADD:
                         Optional.ofNullable(args.getSerializable(PLAYLIST))

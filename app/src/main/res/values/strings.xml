@@ -9,17 +9,21 @@
     <string name="delete">delete</string>
     <string name="toggle_night_mode">Toggle night mode</string>
     <string name="presets">Presets</string>
-    <string name="presets_click_to_create">Click here to create presets</string>
+    <string name="presets_click_to_create">Click here to create or select presets</string>
     <string name="presets_add">Add new preset</string>
-    <string name="presets_name">Preset name</string>
+    <string name="presets_name">Unique preset name</string>
     <string name="presets_add_atLeastOneChar">Your preset name must have at least single character!</string>
-    <string name="presets_create_first">Please create preset before creating playlist</string>
+    <string name="presets_create_first">Please activate preset before creating playlist</string>
     <string name="presets_created">Preset \"{0}\" created</string>
     <string name="presets_activated">Preset \"{0}\" is now active</string>
     <string name="presets_already_exists">Preset with name \"{0}\" already exists and it must be unique</string>
     <string name="preset_make_active">Make active</string>
+    <string name="preset_delete">Delete preset</string>
+    <string name="preset_delete_confirm">Are you sure you want to delete preset \"{0}\"? \nAll it\'s playlists will be also deleted.\nThis operation cannot be undone</string>
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
+    <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
+
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
