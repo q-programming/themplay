@@ -372,8 +372,9 @@ public class PlayerService extends Service {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
-            if(event.equals(PRESET_ACTIVATED)){
+            if (event.equals(PRESET_ACTIVATED)) {
                 stop();
+                activePlaylist = null;
                 return;
             }
             Bundle args = intent.getBundleExtra(ARGS);

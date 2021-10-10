@@ -214,6 +214,7 @@ public class PlaylistService extends Service {
      */
     @SuppressLint("CheckResult")
     private void makeActiveAndNotify(Playlist playlist, int position) {
+        sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
         fetchSongsByPlaylistAsync(playlist).subscribe(songs -> {
             activePlaylistPosition = position;
             setSongsAndMakeActive(playlist, songs, true);
@@ -250,6 +251,7 @@ public class PlaylistService extends Service {
         } else {
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE, activePlaylistPosition, playlist);
         }
+        sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
     }
 
     public void resetActiveFromPreset() {

@@ -1,6 +1,7 @@
 package pl.qprogramming.themplay.views;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,6 +22,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 
@@ -88,8 +90,10 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.editPlaylist) {
+                    holder.mView.getContext().sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
                     playlistService.fetchSongsByPlaylistAsync(playlist)
                             .subscribe(songs -> {
+                                holder.mView.getContext().sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
                                 playlist.setSongs(songs);
                                 navigateToFragment(
                                         fmanager,

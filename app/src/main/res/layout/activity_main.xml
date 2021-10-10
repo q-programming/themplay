@@ -4,11 +4,23 @@
     android:layout_height="match_parent"
     android:textAlignment="center">
 
+    <ProgressBar
+        android:id="@+id/operation_in_progress"
+        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="-6dp"
+        android:layout_marginBottom="-10dp"
+        android:indeterminate="true"
+        android:visibility="gone"
+        android:progressBackgroundTint="@color/qprograming_blue" />
+
     <FrameLayout
         android:id="@+id/activity_fragment_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/progressBar"
+        android:layout_below="@id/operation_in_progress"
         android:layout_marginTop="0dp"
         android:layout_marginBottom="0dp">
 
@@ -24,14 +36,16 @@
         android:progressBackgroundTint="@color/qprograming_blue" />
 
     <RelativeLayout
+        android:background="?android:colorBackground"
         android:id="@+id/bottomAppBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
-        android:layout_marginStart="10dp"
-        android:layout_marginTop="10dp"
-        android:layout_marginEnd="10dp"
-        android:layout_marginBottom="10dp"
+        android:padding="10dp"
+        android:layout_marginStart="0dp"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:layout_marginBottom="0dp"
         android:gravity="center">
 
 

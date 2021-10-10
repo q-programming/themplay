@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".views.PlaylistContainerFragment">
+    tools:context=".views.PlaylistFragment">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -23,10 +23,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
-
-
-
-        <androidx.recyclerview.widget.RecyclerView
+         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/playlist_item_list"
             android:name="pl.qprogramming.themplay.views.PlaylistFragment"
             android:layout_width="match_parent"
@@ -36,38 +33,7 @@
             app:layout_constraintTop_toBottomOf="@+id/preset_name"
             tools:listitem="@layout/playlist_item" />
 
-        <LinearLayout
-            android:visibility="gone"
-            android:id="@+id/encourage_menu_click"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:layout_constraintBottom_toBottomOf="parent"
-            android:layout_marginEnd="24dp"
-            app:layout_constraintHorizontal_weight="0.5"
-            app:layout_constraintStart_toStartOf="parent"
-            tools:ignore="UseCompoundDrawables">
 
-            <TextView
-                android:id="@+id/textView"
-                style="@style/Header"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="@string/playlist_encourage_add_new_playlist"
-                android:textAlignment="textEnd"
-                android:layout_weight="1"
-                />
-            <ImageView
-                android:id="@+id/imageView2"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/ic_arrow_left_24"
-                android:layout_marginTop="10dp"
-                android:rotation="-90"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-        </LinearLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </FrameLayout>

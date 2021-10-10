@@ -13,7 +13,6 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import java.util.Objects;
@@ -24,7 +23,6 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import io.reactivex.android.schedulers.AndroidSchedulers;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
@@ -32,9 +30,19 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEXT;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_PAUSE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_PLAY;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_PREV;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_STOP;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
-import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 /**
@@ -45,7 +53,6 @@ public class PlaylistFragment extends Fragment {
     private PlaylistService playlistService;
     private boolean serviceIsBound;
     private RecyclerView recyclerView;
-    private LinearLayout encourage;
 
     /**
      * Mandatory empty constructor for the fragment manager to instantiate the
@@ -90,8 +97,6 @@ public class PlaylistFragment extends Fragment {
     private void bindRecyclerViewAndService(@NonNull View view) {
         val context = requireActivity().getApplicationContext();
         recyclerView = (RecyclerView) view.findViewById(R.id.playlist_item_list);
-        encourage = (LinearLayout) view.findViewById(R.id.encourage_menu_click);
-        //change to custom adapter
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
@@ -100,10 +105,17 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        val filter = new IntentFilter();
-        for (EventType eventType : EventType.values()) {
-            filter.addAction(eventType.getCode());
-        }
+        val filter = new IntentFilter(PLAYLIST_NOTIFICATION.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_PLAY.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_PAUSE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_NEXT.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_PREV.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_STOP.getCode());
         requireActivity().registerReceiver(receiver, filter);
     }
 
@@ -114,14 +126,6 @@ public class PlaylistFragment extends Fragment {
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
             recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService, getActivity()));
-            playlistService.getAllAsync().subscribeOn(AndroidSchedulers.mainThread())
-                    .subscribe((playlists) -> {
-                        val sp = getDefaultSharedPreferences(playlistService);
-                        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-                        if (playlists.size() == 0 && !isEmpty(currentPresetName)) {
-                            encourage.setVisibility(View.VISIBLE);
-                        }
-                    });
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -140,6 +144,7 @@ public class PlaylistFragment extends Fragment {
                 switch (event) {
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
+                    case PLAYLIST_NOTIFICATION_STOP:
                     case PLAYLIST_NOTIFICATION_PREV:
                         Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
                         Optional.ofNullable(args.getSerializable(POSITION))
@@ -147,6 +152,7 @@ public class PlaylistFragment extends Fragment {
                                         .notifyItemChanged((int) position));
                         break;
                     default:
+                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
                         Objects.requireNonNull(recyclerView.getAdapter()).notifyDataSetChanged();
                 }
             }

@@ -26,6 +26,7 @@
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
+            android:background="?android:colorBackground"
             android:id="@+id/preset_list"
             android:name="pl.qprogramming.themplay.views.PresetsFragment"
             android:layout_width="match_parent"
