@@ -34,6 +34,7 @@ public class Playlist extends Model implements Serializable {
     public static final String CREATED_AT = "created_at";
     public static final String UPDATED_AT = "updated_at";
     public static final String SONG_COUNT = "songs_count";
+    public static final String PRESET = "preset";
     public static final String NAME = "name";
     @PrimaryKey
     private Long id;
@@ -50,6 +51,9 @@ public class Playlist extends Model implements Serializable {
     private Date updatedAt;
     @Column(name = SONG_COUNT)
     private int songCount;
+    @Column(name = PRESET)
+    private String preset;
+
 
     private List<Song> songs;
 

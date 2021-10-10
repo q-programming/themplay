@@ -10,6 +10,10 @@
     <string name="presets_click_to_create">Kliknij tutaj aby stworzyć zestaw</string>
     <string name="presets_add_atLeastOneChar">Nazwa twojego zestawu musi mieć przynajmniej jeden znak!</string>
     <string name="presets_create_first">Przed stworzeniem playlisty nalezy stworzyć zestaw</string>
+    <string name="presets_created">Zestaw \"{0}\" utworzony</string>
+    <string name="presets_already_exists">Zestaw o nazwie \"{0}\" juz istnieje, a musi być unikalny</string>
+    <string name="preset_make_active">Aktywuj</string>
+    <string name="presets_activated">Zestaw \"{0}\" jest teraz aktywny</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>

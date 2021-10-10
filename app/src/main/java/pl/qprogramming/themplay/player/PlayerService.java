@@ -35,6 +35,7 @@ import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 
@@ -78,6 +79,7 @@ public class PlayerService extends Service {
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PRESET_ACTIVATED.getCode());
         getApplicationContext().registerReceiver(receiver, filter);
         return mBinder;
     }
@@ -130,6 +132,7 @@ public class PlayerService extends Service {
     }
 
     public void stop() {
+        Log.d(TAG, "Stop media player");
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
             currentSong.saveAsync()
@@ -370,6 +373,10 @@ public class PlayerService extends Service {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            if(event.equals(PRESET_ACTIVATED)){
+                stop();
+                return;
+            }
             Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
             if (args != null) {
                 Optional.ofNullable(args.getSerializable(POSITION)).ifPresent(position -> playlistPosition = (int) position);

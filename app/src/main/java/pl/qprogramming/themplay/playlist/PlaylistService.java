@@ -63,7 +63,9 @@ public class PlaylistService extends Service {
      * @return List of all Playlists
      */
     public List<Playlist> getAll() {
-        return Select.from(Playlist.class).fetch();
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", currentPresetName).fetch();
     }
 
     /**
@@ -83,7 +85,9 @@ public class PlaylistService extends Service {
      */
 
     public Optional<Playlist> findActive() {
-        return Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ?", true).fetchSingle());
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ? and " + Playlist.PRESET + "= ?", true, currentPresetName).fetchSingle());
     }
 
     public Single<List<Song>> fetchSongsByPlaylistAsync(Playlist playlist) {
@@ -223,6 +227,15 @@ public class PlaylistService extends Service {
         } else {
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE, activePlaylistPosition, playlist);
         }
+    }
+
+    public void resetActiveFromPreset() {
+        findActive().ifPresent(playlist -> {
+            playlist.setActive(false);
+            playlist.saveAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+        });
     }
 
 

@@ -78,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(EventType.PRESET_ACTIVATED.getCode());
         registerReceiver(receiver, filter);
     }
 
@@ -219,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
                             input.setError(getString(R.string.playlist_name_atLeastOneChar));
                         } else {
                             input.setError(null);
-                            val playlist = Playlist.builder().name(playlistName).build();
+                            val playlist = Playlist.builder().name(playlistName).preset(currentPresetName).build();
                             playlistService.addPlaylist(playlist);
                             val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                             sendBroadcast(notify);
@@ -316,6 +317,8 @@ public class MainActivity extends AppCompatActivity {
                                 renderPlayButton();
                             }
                         }));
+            } else if (EventType.PRESET_ACTIVATED.equals(event)) {
+                playlistService.resetActiveFromPreset();
             }
         }
     };

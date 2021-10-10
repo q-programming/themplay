@@ -1,5 +1,10 @@
 package pl.qprogramming.themplay.views;
 
+import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.LayoutInflater;
@@ -9,22 +14,31 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.reactiveandroid.query.Select;
+
 import java.text.MessageFormat;
+import java.util.Optional;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.RecyclerView;
+import io.reactivex.android.schedulers.AndroidSchedulers;
 import lombok.val;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.preset.Preset;
+import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 
-import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 
 /**
  * A simple {@link Fragment} subclass.
  */
 public class PresetsFragment extends Fragment {
+    private static final String TAG = PresetsFragment.class.getSimpleName();
+
+    PresetViewAdapter adapter;
 
     public PresetsFragment() {
     }
@@ -51,7 +65,16 @@ public class PresetsFragment extends Fragment {
                         .getSupportFragmentManager()
                         .popBackStack());
         view.findViewById(R.id.add_preset).setOnClickListener(click -> addPreset());
+        renderPresetList(view);
     }
+
+    private void renderPresetList(@NonNull View view) {
+        val recyclerView = (RecyclerView) view.findViewById(R.id.preset_list);
+        val presetsList = Select.from(Preset.class).fetch();
+        adapter = new PresetViewAdapter(presetsList);
+        recyclerView.setAdapter(adapter);
+    }
+
 
     private void addPreset() {
         val input = new EditText(requireContext());
@@ -68,16 +91,49 @@ public class PresetsFragment extends Fragment {
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
-                        val spEdit = getDefaultSharedPreferences(requireContext()).edit();
-                        spEdit.putString(Property.CURRENT_PRESET, presetName);
-                        spEdit.apply();
-                        //TODO do magic of creation
-                        val msg = MessageFormat.format(getString(R.string.playlist_add_created), presetName);
-                        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                        try {
+                            createPreset(presetName);
+                        } catch (PresetAlreadyExistsException e) {
+                            val msg = MessageFormat.format(getString(R.string.presets_already_exists), presetName);
+                            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                        }
                     }
                 })
                 .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
                 .show();
     }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        val filter = new IntentFilter(PRESET_ACTIVATED.getCode());
+        requireActivity().registerReceiver(receiver, filter);
+    }
+
+
+    @SuppressLint("CheckResult")
+    private void createPreset(String presetName) throws PresetAlreadyExistsException {
+        Optional.ofNullable(Select.from(Preset.class).where("name = ?", presetName).fetchSingle())
+                .ifPresent(preset -> {
+                    throw new PresetAlreadyExistsException();
+                });
+        val preset = Preset.builder().name(presetName).build();
+        preset.save();
+        val msg = MessageFormat.format(getString(R.string.presets_created), presetName);
+        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+        Select.from(Preset.class).fetchAsync()
+                .subscribeOn(AndroidSchedulers.mainThread())
+                .subscribe((presets) -> {
+                    adapter.setPresets(presets);
+                    adapter.notifyDataSetChanged();
+                });
+    }
+
+    private final BroadcastReceiver receiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            adapter.notifyDataSetChanged();
+        }
+    };
 
 }

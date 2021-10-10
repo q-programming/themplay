@@ -80,6 +80,9 @@ public class PlaylistSettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        renderSongList(view);
+        renderNameEditField(view);
+
         removeBtn = view.findViewById(R.id.remove_selected_songs);
         removeBtn.setVisibility(View.GONE);
         removeBtn.setOnClickListener(clicked -> {
@@ -94,8 +97,6 @@ public class PlaylistSettingsFragment extends Fragment {
         view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
         textView.setText(playlist.getName());
         textView.setOnClickListener(clicked -> updateListAndGoBack());
-        addSongsList(view);
-        addNameEditField(view);
         val filter = new IntentFilter(MULTIPLE_SELECTED);
         requireActivity().registerReceiver(receiver, filter);
     }
@@ -116,7 +117,7 @@ public class PlaylistSettingsFragment extends Fragment {
                 .popBackStack();
     }
 
-    private void addSongsList(@NonNull View view) {
+    private void renderSongList(@NonNull View view) {
         val recyclerView = (RecyclerView) view.findViewById(R.id.songs_list);
         //change to custom adapter
         adapter = new SongViewAdapter(playlist.getSongs());
@@ -170,7 +171,7 @@ public class PlaylistSettingsFragment extends Fragment {
         playlistService.addSongToPlaylist(playlist, song);
     }
 
-    private void addNameEditField(@NonNull View view) {
+    private void renderNameEditField(@NonNull View view) {
         playlistEditText = view.findViewById(R.id.playlist_name_input);
         playlistInputLayout = view.findViewById(R.id.playlist_name_layout);
         playlistEditText.setText(playlist.getName());

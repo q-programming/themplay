@@ -25,17 +25,18 @@
                 android:text="@string/presets_add" />
         </LinearLayout>
 
-<!--        <androidx.recyclerview.widget.RecyclerView-->
-<!--            android:id="@+id/songs_list"-->
-<!--            android:name="pl.qprogramming.themplay.views.SongFragment"-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_marginEnd="16dp"-->
-<!--            app:layoutManager="LinearLayoutManager"-->
-<!--            app:layout_constraintEnd_toEndOf="parent"-->
-<!--            app:layout_constraintTop_toBottomOf="@+id/button_layout"-->
-<!--            tools:context=".views.SongFragment"-->
-<!--            tools:listitem="@layout/song" />-->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/preset_list"
+            android:name="pl.qprogramming.themplay.views.PresetsFragment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_marginStart="8dp"
+            app:layoutManager="LinearLayoutManager"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/button_layout"
+            tools:context=".views.SongFragment"
+            tools:listitem="@layout/preset_item" />
 
         <include layout="@layout/header" android:id="@+id/include" />
 
