@@ -47,6 +47,9 @@
     <string name="settings_darkmode_summary">Should application use dark mode</string>
     <string name="settings_fade">Fade between songs duration</string>
     <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
+    <string name="settings_keep_screen">Don\'t turn off screen</string>
+    <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
+
     <string name="playlist_now_playing_notificatoin">Now playing</string>
 
 </resources>

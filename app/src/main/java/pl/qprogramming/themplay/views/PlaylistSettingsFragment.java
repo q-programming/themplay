@@ -80,25 +80,31 @@ public class PlaylistSettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        renderSongList(view);
-        renderNameEditField(view);
+        // coming back from other fragment and playlist was not properly initialized,
+        // skip this and pop back once more
+        if (playlist == null) {
+            requireActivity().getSupportFragmentManager().popBackStack();
+        } else {
+            renderSongList(view);
+            renderNameEditField(view);
 
-        removeBtn = view.findViewById(R.id.remove_selected_songs);
-        removeBtn.setVisibility(View.GONE);
-        removeBtn.setOnClickListener(clicked -> {
-            val songsToRemove = playlist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
-            playlistService.removeSongFromPlaylist(playlist, songsToRemove);
-            adapter.setMultiple(false);
-            adapter.setSongs(playlist.getSongs());
-            adapter.notifyDataSetChanged();
+            removeBtn = view.findViewById(R.id.remove_selected_songs);
             removeBtn.setVisibility(View.GONE);
-        });
-        val textView = (TextView) view.findViewById(R.id.header_title);
-        view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
-        textView.setText(playlist.getName());
-        textView.setOnClickListener(clicked -> updateListAndGoBack());
-        val filter = new IntentFilter(MULTIPLE_SELECTED);
-        requireActivity().registerReceiver(receiver, filter);
+            removeBtn.setOnClickListener(clicked -> {
+                val songsToRemove = playlist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
+                playlistService.removeSongFromPlaylist(playlist, songsToRemove);
+                adapter.setMultiple(false);
+                adapter.setSongs(playlist.getSongs());
+                adapter.notifyDataSetChanged();
+                removeBtn.setVisibility(View.GONE);
+            });
+            val textView = (TextView) view.findViewById(R.id.header_title);
+            view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
+            textView.setText(playlist.getName());
+            textView.setOnClickListener(clicked -> updateListAndGoBack());
+            val filter = new IntentFilter(MULTIPLE_SELECTED);
+            requireActivity().registerReceiver(receiver, filter);
+        }
     }
 
     private void updateListAndGoBack() {
@@ -122,6 +128,7 @@ public class PlaylistSettingsFragment extends Fragment {
         //change to custom adapter
         adapter = new SongViewAdapter(playlist.getSongs());
         recyclerView.setAdapter(adapter);
+        //add song listener
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
             Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
                     .setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
@@ -137,11 +144,10 @@ public class PlaylistSettingsFragment extends Fragment {
             result -> {
                 if (result.getResultCode() == RESULT_OK) {
                     val data = result.getData();
-                    if (data!=null && data.getData() != null) {
+                    if (data != null && data.getData() != null) {
                         val uri = data.getData();
-
                         songOutOfUri(uri);
-                    } else if (data!=null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
+                    } else if (data != null && data.getClipData() != null && data.getClipData().getItemCount() > 0) {
                         val clipData = data.getClipData();
                         for (int i = 0; i < clipData.getItemCount(); i++) {
                             val uri = clipData.getItemAt(i).getUri();

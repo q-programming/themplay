@@ -47,5 +47,8 @@
     <string name="settings_darkmode_summary">Czy aplikacja powinna używać trybu ciemnego</string>
     <string name="settings_fade">Czas przejścia między utworami</string>
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
+    <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
+    <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
+
 
 </resources>

@@ -75,6 +75,8 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         //dark mode
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+        val keepScreenOn = sp.getBoolean(Property.KEEP_SCREEN_ON, true);
+        requireActivity().findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
     }
 
 }

@@ -140,6 +140,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupPreferences() {
         val sp = getDefaultSharedPreferences(this);
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
+        val keepScreenOn = sp.getBoolean(Property.KEEP_SCREEN_ON, true);
+        findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
 
