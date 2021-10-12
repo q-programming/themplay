@@ -4,11 +4,52 @@
     <string name="song_name">Song name</string>
     <string name="settings">Settings</string>
     <string name="about">About</string>
+    <string name="cancel">Cancel</string>
+    <string name="create">Create</string>
+    <string name="delete">delete</string>
     <string name="toggle_night_mode">Toggle night mode</string>
+    <string name="presets">Presets</string>
+    <string name="presets_click_to_create">Click here to create or select presets</string>
+    <string name="presets_add">Add new preset</string>
+    <string name="presets_name">Unique preset name</string>
+    <string name="presets_add_atLeastOneChar">Your preset name must have at least single character!</string>
+    <string name="presets_create_first">Please activate preset before creating playlist</string>
+    <string name="presets_created">Preset \"{0}\" created</string>
+    <string name="presets_activated">Preset \"{0}\" is now active</string>
+    <string name="presets_already_exists">Preset with name \"{0}\" already exists and it must be unique</string>
+    <string name="preset_make_active">Make active</string>
+    <string name="preset_delete">Delete preset</string>
+    <string name="preset_delete_confirm">Are you sure you want to delete preset \"{0}\"? \nAll it\'s playlists will be also deleted.\nThis operation cannot be undone</string>
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
+    <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
+
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
-    <string name="playlist_active">Now playing \"{0}\"</string>
+    <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
+    <string name="playlist_now_playing">Now playing \"{0}\"</string>
+    <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>
+    <string name="playlist_no_active_playlist">There are no active playlists, please select one first</string>
     <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
+    <string name="playlist_name_atLeastOneChar">Please enter at least single character!</string>
+    <string name="playlist_add_atLeastOneChar">Your playlist name must have at least single character!</string>
+    <string name="playlist_add_created">New playlist \"{0}\" created</string>
+    <string name="playlist_cant_play">Cannot Play Song \"{0}\"!</string>
+    <string name="playlist_add_new_song">Add new song</string>
+    <string name="playlist_remove_selected">Remove selected songs</string>
+    <string name="playlist_removed_selected_songs">Selected songs removed</string>
+    <!-- Preference Titles -->
+    <string name="theme">Theme</string>
+    <string name="dark_mode">Dark mode</string>
+    <string name="goBack">goBack</string>
+    <string name="back_arrow">back arrow</string>
+    <string name="settings_darkmode">Dark mode</string>
+    <string name="settings_darkmode_summary">Should application use dark mode</string>
+    <string name="settings_fade">Fade between songs duration</string>
+    <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
+    <string name="settings_keep_screen">Don\'t turn off screen</string>
+    <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
+
+    <string name="playlist_now_playing_notificatoin">Now playing</string>
+
 </resources>

@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import androidx.annotation.NonNull;
 import lombok.AllArgsConstructor;
@@ -28,10 +29,12 @@ import lombok.ToString;
 @Table(name = "playlists", database = ThemPlayDatabase.class)
 public class Playlist extends Model implements Serializable {
     public static final String CURRENT_SONG = "currentSong";
-    public static final String CURRENT_POSITION = "currentPosition";
+
     public static final String ACTIVE = "active";
     public static final String CREATED_AT = "created_at";
     public static final String UPDATED_AT = "updated_at";
+    public static final String SONG_COUNT = "songs_count";
+    public static final String PRESET = "preset";
     public static final String NAME = "name";
     @PrimaryKey
     private Long id;
@@ -39,22 +42,33 @@ public class Playlist extends Model implements Serializable {
     private String name;
     @Column(name = CURRENT_SONG)
     private Song currentSong;
-    @Column(name = CURRENT_POSITION)
-    private int currentPosition;
+
     @Column(name = ACTIVE)
     private boolean active;
     @Column(name = CREATED_AT)
     private Date createdAt;
     @Column(name = UPDATED_AT)
     private Date updatedAt;
+    @Column(name = SONG_COUNT)
+    private int songCount;
+    @Column(name = PRESET)
+    private String preset;
+
 
     private List<Song> songs;
+
+    private List<Song> playlist;
 
     public List<Song> getSongs() {
         if (songs == null) {
             songs = new ArrayList<>();
         }
         return songs;
+    }
+
+    public void addSong(Song song) {
+        getSongs().add(song);
+        songCount = getSongs().size();
     }
 
     @NonNull
@@ -67,4 +81,24 @@ public class Playlist extends Model implements Serializable {
         return super.save();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Playlist playlist = (Playlist) o;
+        return active == playlist.active &&
+                id.equals(playlist.id) &&
+                name.equals(playlist.name) &&
+                createdAt.equals(playlist.createdAt) &&
+                Objects.equals(updatedAt, playlist.updatedAt);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name, active, createdAt, updatedAt);
+    }
 }

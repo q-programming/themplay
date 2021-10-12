@@ -1,14 +1,15 @@
 package pl.qprogramming.themplay.playlist;
 
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-import android.view.View;
+import android.widget.Toast;
 
-import com.google.android.material.snackbar.Snackbar;
+import com.reactiveandroid.Model;
 import com.reactiveandroid.query.Select;
 
 import java.text.MessageFormat;
@@ -17,28 +18,41 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
+import io.reactivex.Observable;
+import io.reactivex.Single;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.schedulers.Schedulers;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.val;
 import lombok.var;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
+import pl.qprogramming.themplay.settings.Property;
 
-import static pl.qprogramming.themplay.playlist.util.Utils.isEmpty;
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.POSITION;
+import static pl.qprogramming.themplay.util.Utils.createPlaylist;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlaylistService extends Service {
     private static final String TAG = PlaylistService.class.getSimpleName();
-    public static final String POSITION = "position";
-    public static final String PLAYLIST = "playlist";
-    public static final String ARGS = "args";
 
+    @Setter
+    private int activePlaylistPosition;
     private final IBinder mBinder = new LocalBinder();
 
+    @SuppressLint("CheckResult")
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent);
+        Log.d(TAG, "Binding service to " + intent + "this:" + this);
+        findActive()
+                .ifPresent(playlist -> fetchSongsByPlaylistAsync(playlist)
+                        .subscribe(songs -> setSongsAndMakeActive(playlist, songs, false)));
         return mBinder;
-
     }
 
     //repository methods
@@ -49,10 +63,19 @@ public class PlaylistService extends Service {
      * @return List of all Playlists
      */
     public List<Playlist> getAll() {
-        return Select.from(Playlist.class).fetch()
-                .stream()
-                .peek(this::songsByPlaylist)
-                .collect(Collectors.toList());
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return getAll(currentPresetName);
+    }
+
+    public List<Playlist> getAll(String presetName) {
+        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", presetName).fetch();
+    }
+
+    public Single<List<Playlist>> getAllAsync() {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", currentPresetName).fetchAsync();
     }
 
     /**
@@ -62,9 +85,7 @@ public class PlaylistService extends Service {
      * @return Optional of Playlist with potentially loaded songs
      */
     public Optional<Playlist> findById(long id) {
-        val opPlaylist = Optional.ofNullable(Select.from(Playlist.class).where("id = ?", id).fetchSingle());
-        opPlaylist.ifPresent(this::songsByPlaylist);
-        return opPlaylist;
+        return Optional.ofNullable(Select.from(Playlist.class).where("id = ?", id).fetchSingle());
     }
 
     /**
@@ -74,47 +95,101 @@ public class PlaylistService extends Service {
      */
 
     public Optional<Playlist> findActive() {
-        val opPlaylist = Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ?", true).fetchSingle());
-        opPlaylist.ifPresent(this::songsByPlaylist);
-        return opPlaylist;
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ? and " + Playlist.PRESET + "= ?", true, currentPresetName).fetchSingle());
     }
 
-    /**
-     * Load all songs belonging to passed playlist
-     *
-     * @param playlist playlist for which songs should be returned
-     */
-    public void songsByPlaylist(Playlist playlist) {
-        val songs = Select
-                .from(PlaylistSongs.class)
+    public Single<List<Song>> fetchSongsByPlaylistAsync(Playlist playlist) {
+        return Select.from(PlaylistSongs.class)
                 .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
-                .fetch().stream().map(PlaylistSongs::getSong)
+                .fetchAsync()
+                .flatMapObservable(Observable::fromIterable)
+                .map(PlaylistSongs::getSong)
+                .toList()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+    }
+
+    public List<Song> fetchSongsByPlaylistSync(Playlist playlist) {
+        return Select.from(PlaylistSongs.class)
+                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
+                .fetch().stream()
+                .map(PlaylistSongs::getSong)
                 .collect(Collectors.toList());
-        playlist.setSongs(songs);
     }
     //functional methods
 
+    public void save(Playlist playlist) {
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+    }
+
     public void addPlaylist(Playlist playlist) {
         Log.d(TAG, "Adding new playlist" + playlist);
-        playlist.save();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, getAll().size());
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
     }
 
     public void addSongToPlaylist(Playlist playlist, Song song) {
-        val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
-        relation.save();
+        //TODO reshuffle random playlist when adding ?
         Log.d(TAG, "Adding song to playlist ");
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, getAll().size());
+        playlist.addSong(song);
+        val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
+        relation.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+    }
+
+    public void removeSongFromPlaylist(Playlist playlist, List<Song> songs) {
+        playlist.getSongs().removeAll(songs);
+        playlist.setSongCount(playlist.getSongs().size());
+        for (Song song : songs) {
+            if (song.equals(playlist.getCurrentSong())) {
+                playlist.setCurrentSong(null);
+            }
+            song.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+        }
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE);
+        Toast.makeText(getApplicationContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
+    }
+
+    public void removePlaylistsFromPreset(String presetName) {
+        getAll(presetName).forEach(playlist -> {
+            val songs = fetchSongsByPlaylistSync(playlist);
+            playlist.setCurrentSong(null);
+            playlist.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+            songs.forEach(song -> song.deleteAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe());
+        });
     }
 
 
+    @SuppressLint("CheckResult")
     public void removePlaylist(Playlist playlist, int position) {
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, position, playlist);
+        val songs = fetchSongsByPlaylistSync(playlist);
+        playlist.setCurrentSong(null);
         playlist.delete();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, position);
+        songs.forEach(Model::delete);
     }
 
     @SneakyThrows
-    public void setActive(Playlist item, int position, View view) {
+    public void setActive(Playlist item, int position) {
         val optionalActive = findActive();
         val optionalPlaylist = findById(item.getId());
         val playlist = optionalPlaylist.orElseThrow(PlaylistNotFoundException::new);
@@ -122,30 +197,70 @@ public class PlaylistService extends Service {
             if (optionalActive.isPresent()) {
                 val active = optionalActive.get();
                 active.setActive(false);
-                active.save();
+                active.saveAsync()
+                        .subscribeOn(Schedulers.io())
+                        .subscribe();
             }
-            makeActiveAndNotify(playlist, position, view);
+            makeActiveAndNotify(playlist, position);
         }
     }
 
-    private void makeActiveAndNotify(Playlist playlist, int position, View view) {
+    /**
+     * Loads all songs for selected playlist, once fetch is completed make all actions required to
+     * activate and play that playlist
+     *
+     * @param playlist playlist to be made active
+     * @param position where in reculed list that position is ( for any potential notification )
+     */
+    @SuppressLint("CheckResult")
+    private void makeActiveAndNotify(Playlist playlist, int position) {
+        sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
+        fetchSongsByPlaylistAsync(playlist).subscribe(songs -> {
+            activePlaylistPosition = position;
+            setSongsAndMakeActive(playlist, songs, true);
+        });
+    }
+
+    /**
+     * Sets songs into playlist, and search for current song within. If none present, set first from list
+     *
+     * @param playlist playlist to be made active and played
+     * @param songs    songs fetched from DB
+     * @param play     true if playback should be started ( it will publish other event )
+     */
+    private void setSongsAndMakeActive(Playlist playlist, List<Song> songs, boolean play) {
+        playlist.setSongs(songs);
+        val sp = getDefaultSharedPreferences(this);
+        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+        createPlaylist(playlist, shuffle);
         var currentSong = playlist.getCurrentSong();
         if (currentSong == null && isEmpty(playlist.getSongs())) {
-            val msg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
-            Snackbar.make(view, msg, Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
-        } else if (currentSong == null) {
-            currentSong = playlist.getSongs().get(0);
+            val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
+            Toast.makeText(getApplicationContext(), notActiveMsg, Toast.LENGTH_LONG).show();
+            return;
+        } else if (currentSong == null && !isEmpty(playlist.getSongs())) {
+            currentSong = playlist.getPlaylist().get(0);
             playlist.setCurrentSong(currentSong);
         }
         playlist.setActive(true);
-        playlist.save();
-        if (currentSong != null) {
-            val msg = MessageFormat.format(getString(R.string.playlist_active), playlist.getName());
-            Snackbar.make(view, msg, Snackbar.LENGTH_LONG)
-                    .setAction("Action", null).show();
+        playlist.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
+        if (play) {
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, activePlaylistPosition, playlist);
+        } else {
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE, activePlaylistPosition, playlist);
         }
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, position);
+        sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+    }
+
+    public void resetActiveFromPreset() {
+        findActive().ifPresent(playlist -> {
+            playlist.setActive(false);
+            playlist.saveAsync()
+                    .subscribeOn(Schedulers.io())
+                    .subscribe();
+        });
     }
 
 
@@ -155,8 +270,8 @@ public class PlaylistService extends Service {
         }
     }
 
-    private void populateAndSend(EventType type, int position) {
-        populateAndSend(type, position, null);
+    private void populateAndSend(EventType type) {
+        populateAndSend(type, -1, null);
     }
 
     private void populateAndSend(EventType type, int position, Playlist data) {
