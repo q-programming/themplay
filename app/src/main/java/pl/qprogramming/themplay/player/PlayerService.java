@@ -35,6 +35,11 @@ import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.util.Utils;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
@@ -43,9 +48,6 @@ import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 public class PlayerService extends Service {
 
     private static final String TAG = PlayerService.class.getSimpleName();
-    private static final int NOTIFICATION_ID = 7;
-    private static final String CHANNEL_ID = "themplay_player";
-
     private Playlist activePlaylist;
     private int playlistPosition;
     @Setter
@@ -56,12 +58,13 @@ public class PlayerService extends Service {
     private final IBinder mBinder = new PlayerService.LocalBinder();
     private MediaPlayer mediaPlayer = new MediaPlayer();
     private MediaPlayer auxPlayer;
+    private MediaNotificationManager mNotificationManager;
 
 
     @Override
     public void onCreate() {
         super.onCreate();
-
+        mNotificationManager = new MediaNotificationManager(this);
     }
 
     @Override
@@ -76,6 +79,11 @@ public class PlayerService extends Service {
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PLAY.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_NEXT.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PREV.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PAUSE.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_STOP.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
@@ -127,10 +135,13 @@ public class PlayerService extends Service {
         mediaPlayer.pause();
         val currentSong = activePlaylist.getCurrentSong();
         currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
+        currentSong.saveAsync().subscribeOn(Schedulers.io()).subscribe();
+        mNotificationManager.createMediaNotification(currentSong, true);
         progressHandler.removeCallbacks(updateProgressTask);
     }
 
     public void stop() {
+        mNotificationManager.removeNotification();
         Log.d(TAG, "Stop media player");
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
@@ -199,6 +210,7 @@ public class PlayerService extends Service {
      * @param songPosition from where next song should pickup
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
+        mNotificationManager.createMediaNotification(nextSong, false);
         Log.d(TAG, "Fading into song from " + this);
         try {
             val uri = Uri.parse(nextSong.getFileUri());
@@ -234,6 +246,7 @@ public class PlayerService extends Service {
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
         }
     }
+
 
     public boolean isActivePlaylist(Playlist playlist) {
         return playlist.equals(activePlaylist);
@@ -372,46 +385,64 @@ public class PlayerService extends Service {
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
-            if (event.equals(PRESET_ACTIVATED)) {
-                stop();
-                activePlaylist = null;
-                return;
-            }
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 Optional.ofNullable(args.getSerializable(Utils.POSITION)).ifPresent(position -> playlistPosition = (int) position);
-                switch (event) {
-                    case PLAYLIST_NOTIFICATION_ADD:
-                        Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent(playlist -> {
-                                    if (playlist.equals(activePlaylist)) {
-                                        activePlaylist = (Playlist) playlist;
-                                    }
-                                });
-                        break;
-                    case PLAYLIST_NOTIFICATION_ACTIVE:
-                        Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent((playlist -> fadeIntoNewPlaylist((Playlist) playlist)));
-                        break;
-                    case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
-                        Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
-                        break;
-                    case PLAYLIST_NOTIFICATION_RECREATE_LIST:
-                        val sp = getDefaultSharedPreferences(context);
-                        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-                        createPlaylist(activePlaylist, shuffle);
-                        break;
-                    case PLAYLIST_NOTIFICATION_DELETE:
-                        Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent(playlist -> {
-                                    if (playlist.equals(activePlaylist)) {
-                                        stop();
-                                        activePlaylist = null;
-                                    }
-                                });
-                        break;
-                }
+            }
+            switch (event) {
+                case PLAYBACK_NOTIFICATION_NEXT:
+                    next();
+                    break;
+                case PLAYBACK_NOTIFICATION_PREV:
+                    previous();
+                    break;
+                case PLAYBACK_NOTIFICATION_PLAY:
+                    play();
+                    break;
+                case PLAYBACK_NOTIFICATION_STOP:
+                    stop();
+                    break;
+                case PLAYBACK_NOTIFICATION_PAUSE:
+                    pause();
+                    break;
+                case PRESET_ACTIVATED:
+                    stop();
+                    activePlaylist = null;
+                    break;
+                case PLAYLIST_NOTIFICATION_ADD:
+                    assert args != null;
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent(playlist -> {
+                                if (playlist.equals(activePlaylist)) {
+                                    activePlaylist = (Playlist) playlist;
+                                }
+                            });
+                    break;
+                case PLAYLIST_NOTIFICATION_ACTIVE:
+                    assert args != null;
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> fadeIntoNewPlaylist((Playlist) playlist)));
+                    break;
+                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
+                    assert args != null;
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
+                    break;
+                case PLAYLIST_NOTIFICATION_RECREATE_LIST:
+                    val sp = getDefaultSharedPreferences(context);
+                    val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+                    createPlaylist(activePlaylist, shuffle);
+                    break;
+                case PLAYLIST_NOTIFICATION_DELETE:
+                    assert args != null;
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent(playlist -> {
+                                if (playlist.equals(activePlaylist)) {
+                                    stop();
+                                    activePlaylist = null;
+                                }
+                            });
+                    break;
             }
         }
     };

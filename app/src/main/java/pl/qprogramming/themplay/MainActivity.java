@@ -62,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private int activeColor;
     private ProgressBar loader;
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -83,6 +84,9 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PLAY.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_STOP.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PAUSE.getCode());
         filter.addAction(EventType.PRESET_ACTIVATED.getCode());
         filter.addAction(EventType.PRESET_REMOVED.getCode());
         filter.addAction(EventType.OPERATION_STARTED.getCode());
@@ -134,6 +138,7 @@ public class MainActivity extends AppCompatActivity {
         val playerIntent = new Intent(context, PlayerService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
+
     }
 
 
@@ -344,8 +349,13 @@ public class MainActivity extends AppCompatActivity {
                         playlistService.removePlaylistsFromPreset(preset.getName());
                     });
                     break;
+                case PLAYBACK_NOTIFICATION_PLAY:
                 case PLAYLIST_NOTIFICATION_ACTIVE:
                     renderPauseButton();
+                    break;
+                case PLAYBACK_NOTIFICATION_STOP:
+                case PLAYBACK_NOTIFICATION_PAUSE:
+                    renderPlayButton();
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))

@@ -36,7 +36,10 @@
             android:foregroundServiceType="dataSync" />
         <service
             android:name=".player.PlayerService"
-            android:foregroundServiceType="mediaPlayback" />
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+        </service>
+
     </application>
 
 </manifest>
