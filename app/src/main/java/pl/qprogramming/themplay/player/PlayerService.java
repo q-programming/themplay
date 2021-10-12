@@ -410,23 +410,26 @@ public class PlayerService extends Service {
                     activePlaylist = null;
                     break;
                 case PLAYLIST_NOTIFICATION_ADD:
-                    assert args != null;
-                    Optional.ofNullable(args.getSerializable(PLAYLIST))
-                            .ifPresent(playlist -> {
-                                if (playlist.equals(activePlaylist)) {
-                                    activePlaylist = (Playlist) playlist;
-                                }
-                            });
+                    if (args != null) {
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent(playlist -> {
+                                    if (playlist.equals(activePlaylist)) {
+                                        activePlaylist = (Playlist) playlist;
+                                    }
+                                });
+                    }
                     break;
                 case PLAYLIST_NOTIFICATION_ACTIVE:
-                    assert args != null;
-                    Optional.ofNullable(args.getSerializable(PLAYLIST))
-                            .ifPresent((playlist -> fadeIntoNewPlaylist((Playlist) playlist)));
+                    if (args != null) {
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent((playlist -> fadeIntoNewPlaylist((Playlist) playlist)));
+                    }
                     break;
                 case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
-                    assert args != null;
-                    Optional.ofNullable(args.getSerializable(PLAYLIST))
-                            .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
+                    if (args != null) {
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
+                    }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
                     val sp = getDefaultSharedPreferences(context);
@@ -434,14 +437,15 @@ public class PlayerService extends Service {
                     createPlaylist(activePlaylist, shuffle);
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
-                    assert args != null;
-                    Optional.ofNullable(args.getSerializable(PLAYLIST))
-                            .ifPresent(playlist -> {
-                                if (playlist.equals(activePlaylist)) {
-                                    stop();
-                                    activePlaylist = null;
-                                }
-                            });
+                    if (args != null) {
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent(playlist -> {
+                                    if (playlist.equals(activePlaylist)) {
+                                        stop();
+                                        activePlaylist = null;
+                                    }
+                                });
+                    }
                     break;
             }
         }
