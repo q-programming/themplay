@@ -31,14 +31,14 @@ public class AboutFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        val textView = (TextView) getView().findViewById(R.id.header_title);
+        val textView = (TextView) view.findViewById(R.id.header_title);
         textView.setText(getString(R.string.about));
-        getView()
+        view
                 .findViewById(R.id.Header)
-                .setOnClickListener(clicked -> getActivity()
+                .setOnClickListener(clicked -> requireActivity()
                         .getSupportFragmentManager()
                         .popBackStack());
-        val versionTxt = (TextView) getView().findViewById(R.id.version);
+        val versionTxt = (TextView) requireView().findViewById(R.id.version);
         versionTxt.setText(String.format("v%s", BuildConfig.VERSION_NAME));
     }
 }

@@ -11,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
+import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.PopupMenu;
@@ -37,15 +38,19 @@ import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
+import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
+import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
-import static pl.qprogramming.themplay.player.PlayerService.ARGS;
-import static pl.qprogramming.themplay.playlist.PlaylistService.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.PRESET;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 public class MainActivity extends AppCompatActivity {
@@ -55,6 +60,8 @@ public class MainActivity extends AppCompatActivity {
     private boolean serviceIsBound;
     private boolean playerServiceIsBound;
     private int activeColor;
+    private ProgressBar loader;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +72,7 @@ public class MainActivity extends AppCompatActivity {
         setActiveColor();
         setupPreferences();
         setupMainMenu();
+        setupLoader();
         setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
         checkPermission(Manifest.permission.INTERNET);
@@ -76,7 +84,18 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PLAY.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_STOP.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PAUSE.getCode());
+        filter.addAction(EventType.PRESET_ACTIVATED.getCode());
+        filter.addAction(EventType.PRESET_REMOVED.getCode());
+        filter.addAction(EventType.OPERATION_STARTED.getCode());
+        filter.addAction(EventType.OPERATION_FINISHED.getCode());
         registerReceiver(receiver, filter);
+    }
+
+    private void setupLoader() {
+        loader = findViewById(R.id.operation_in_progress);
     }
 
     private void setActiveColor() {
@@ -102,6 +121,8 @@ public class MainActivity extends AppCompatActivity {
                     addPlaylist();
                 } else if (itemId == R.id.settings) {
                     navigateToFragment(getSupportFragmentManager(), new SettingsFragment(), "settings");
+                } else if (itemId == R.id.preset) {
+                    navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
                 } else {
                     navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }
@@ -117,12 +138,15 @@ public class MainActivity extends AppCompatActivity {
         val playerIntent = new Intent(context, PlayerService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
+
     }
 
 
     private void setupPreferences() {
         val sp = getDefaultSharedPreferences(this);
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
+        val keepScreenOn = sp.getBoolean(Property.KEEP_SCREEN_ON, true);
+        findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
     }
 
@@ -156,7 +180,7 @@ public class MainActivity extends AppCompatActivity {
         val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
         renderShuffle(shuffle);
         shuffle_btn.setOnClickListener(rand -> {
-            val newRandom = !sp.getBoolean(Property.SHUFFLE_MODE, false);
+            val newRandom = !sp.getBoolean(Property.SHUFFLE_MODE, true);
             val editor = sp.edit();
             editor.putBoolean(Property.SHUFFLE_MODE, newRandom);
             editor.apply();
@@ -196,6 +220,18 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void addPlaylist() {
+
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        if (isEmpty(currentPresetName)) {
+            val msg = getString(R.string.presets_create_first);
+            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+        } else {
+            renderNewPlaylistDialog(currentPresetName);
+        }
+    }
+
+    private void renderNewPlaylistDialog(String currentPresetName) {
         val input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_TEXT);
         new AlertDialog.Builder(this)
@@ -209,7 +245,7 @@ public class MainActivity extends AppCompatActivity {
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
-                        val playlist = Playlist.builder().name(playlistName).build();
+                        val playlist = Playlist.builder().name(playlistName).preset(currentPresetName).build();
                         playlistService.addPlaylist(playlist);
                         val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                         sendBroadcast(notify);
@@ -295,16 +331,40 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
-            if (EventType.PLAYLIST_NOTIFICATION_ACTIVE.equals(event)) {
-                renderPauseButton();
-            } else if (EventType.PLAYLIST_NOTIFICATION_DELETE.equals(event)) {
-                Bundle args = intent.getBundleExtra(PlaylistService.ARGS);
-                Optional.ofNullable(args.getSerializable(PLAYLIST))
-                        .ifPresent((playlist -> {
-                            if (playerService.isActivePlaylist((Playlist) playlist)) {
-                                renderPlayButton();
-                            }
-                        }));
+            Bundle args = intent.getBundleExtra(ARGS);
+            switch (event) {
+                case OPERATION_STARTED:
+                    loader.setVisibility(View.VISIBLE);
+                    break;
+                case OPERATION_FINISHED:
+                    loader.setVisibility(View.GONE);
+                    break;
+                case PRESET_ACTIVATED:
+                    playlistService.resetActiveFromPreset();
+                    renderPlayButton();
+                    break;
+                case PRESET_REMOVED:
+                    Optional.ofNullable(args.getSerializable(PRESET)).ifPresent(serializedPreset -> {
+                        val preset = (Preset) serializedPreset;
+                        playlistService.removePlaylistsFromPreset(preset.getName());
+                    });
+                    break;
+                case PLAYBACK_NOTIFICATION_PLAY:
+                case PLAYLIST_NOTIFICATION_ACTIVE:
+                    renderPauseButton();
+                    break;
+                case PLAYBACK_NOTIFICATION_STOP:
+                case PLAYBACK_NOTIFICATION_PAUSE:
+                    renderPlayButton();
+                    break;
+                case PLAYLIST_NOTIFICATION_DELETE:
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> {
+                                if (playerService.isActivePlaylist((Playlist) playlist)) {
+                                    renderPlayButton();
+                                }
+                            }));
+                    break;
             }
         }
     };

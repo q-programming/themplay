@@ -39,6 +39,7 @@
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
+            android:background="?android:colorBackground"
             android:id="@+id/songs_list"
             android:name="pl.qprogramming.themplay.views.SongFragment"
             android:layout_width="match_parent"

@@ -15,5 +15,10 @@
         android:singleLine="true"
         app:useSimpleSummaryProvider="true"
         android:title="@string/settings_fade" />
+    <SwitchPreferenceCompat
+        app:key="app.keepScreen"
+        android:defaultValue="true"
+        android:summary="@string/settings_keep_screen_summary"
+        app:title="@string/settings_keep_screen" />
 
 </PreferenceScreen>
