@@ -1,5 +1,6 @@
 package pl.qprogramming.themplay.player;
 
+import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -16,6 +17,8 @@ import android.os.Looper;
 import android.util.Log;
 import android.widget.ProgressBar;
 import android.widget.Toast;
+
+import com.reactiveandroid.query.Select;
 
 import java.io.IOException;
 import java.text.MessageFormat;
@@ -135,7 +138,9 @@ public class PlayerService extends Service {
         mediaPlayer.pause();
         val currentSong = activePlaylist.getCurrentSong();
         currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
-        currentSong.saveAsync().subscribeOn(Schedulers.io()).subscribe();
+        currentSong.saveAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe();
         mNotificationManager.createMediaNotification(currentSong, true);
         progressHandler.removeCallbacks(updateProgressTask);
     }
@@ -164,21 +169,30 @@ public class PlayerService extends Service {
                 val sp = getDefaultSharedPreferences(this);
                 val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
                 createPlaylist(activePlaylist, shuffle);
-                activePlaylist.saveAsync()
-                        .subscribeOn(Schedulers.io())
-                        .subscribe();
                 songIndex = 0;
             }
             val song = activePlaylist.getPlaylist().get(songIndex);
             activePlaylist.setCurrentSong(song);
-            activePlaylist.saveAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
+            saveActivePlaylist();
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, playlistPosition);
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         }
+    }
+
+    @SuppressLint("CheckResult")
+    private void saveActivePlaylist() {
+        Select.from(Playlist.class).where("id = ?", activePlaylist.getId())
+                .fetchSingleAsync()
+                .subscribeOn(Schedulers.io())
+                .subscribe(playlist -> {
+                    activePlaylist.setBackgroundImage(playlist.getBackgroundImage());
+                    activePlaylist.saveAsync()
+                            .subscribeOn(Schedulers.io())
+                            .subscribe();
+                });
+
     }
 
     public void previous() {
@@ -192,9 +206,7 @@ public class PlayerService extends Service {
             }
             val song = songs.get(songIndex);
             activePlaylist.setCurrentSong(song);
-            activePlaylist.saveAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
+            saveActivePlaylist();
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, playlistPosition);
         } else {
@@ -244,6 +256,7 @@ public class PlayerService extends Service {
             Log.d(TAG, e.getMessage());
             val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+            next();
         }
     }
 

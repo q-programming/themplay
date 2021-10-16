@@ -23,9 +23,25 @@
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
-
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
+    <string name="playlist_change_look">Change playlist look</string>
+    <string name="playlist_look_preview">Preview</string>
+    <string name="playlist_look_active">Active</string>
+    <string name="playlist_look_inactive">Inactive</string>
+    <string name="playlist_look_change_text_color">Change text color</string>
+    <string name="playlist_look_change_background">Change background</string>
+    <string name="playlist_look_remove_background">Remove background</string>
+    <string name="playlist_look_song">Jakaś fajna piosenka.mp3</string>
+    <string name="playlist_look_text_outline">Add shadow outline around text</string>
+    <string name="playlist_look_default">default</string>
+    <string name="playlist_look_white">white</string>
+    <string name="playlist_look_black">black</string>
+    <string name="playlist_look_blue">blue</string>
+    <string name="playlist_look_green">green</string>
+    <string name="playlist_look_red">red</string>
+    <string name="playlist_look_yellow">yellow</string>
+    <string name="playlist_look_gray">gray</string>
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
     <string name="playlist_now_playing">Now playing \"{0}\"</string>
     <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>
@@ -49,7 +65,7 @@
     <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
-
     <string name="playlist_now_playing_notificatoin">Now playing</string>
+
 
 </resources>

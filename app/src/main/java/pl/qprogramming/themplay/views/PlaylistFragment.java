@@ -30,6 +30,7 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_CHANGE_BACKGROUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
@@ -96,7 +97,7 @@ public class PlaylistFragment extends Fragment {
 
     private void bindRecyclerViewAndService(@NonNull View view) {
         val context = requireActivity().getApplicationContext();
-        recyclerView = (RecyclerView) view.findViewById(R.id.playlist_item_list);
+        recyclerView = view.findViewById(R.id.playlist_item_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
@@ -110,6 +111,7 @@ public class PlaylistFragment extends Fragment {
         filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PLAYLIST_CHANGE_BACKGROUND.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PLAY.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PAUSE.getCode());
@@ -142,6 +144,8 @@ public class PlaylistFragment extends Fragment {
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 switch (event) {
+                    case PLAYLIST_CHANGE_BACKGROUND:
+                        Objects.requireNonNull(recyclerView.getAdapter()).notifyItemChanged((Integer) args.getSerializable(POSITION));
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_STOP:

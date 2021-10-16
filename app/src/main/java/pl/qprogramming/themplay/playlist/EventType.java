@@ -21,6 +21,7 @@ public enum EventType {
     PLAYLIST_NOTIFICATION_NEXT("q-programming.themplay.playlist.next"),
     PLAYLIST_NOTIFICATION_PREV("q-programming.themplay.playlist.prev"),
     PLAYLIST_NOTIFICATION_STOP("q-programming.themplay.playlist.stop"),
+    PLAYLIST_CHANGE_BACKGROUND("q-programming.themplay.playlist.background"),
     PLAYBACK_NOTIFICATION_PLAY("q-programming.themplay.player.play"),
     PLAYBACK_NOTIFICATION_PAUSE("q-programming.themplay.player.pause"),
     PLAYBACK_NOTIFICATION_NEXT("q-programming.themplay.player.next"),

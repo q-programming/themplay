@@ -3,6 +3,9 @@
         android:id="@+id/editPlaylist"
         android:title="@string/playlist_edit_playlist" />
     <item
+        android:id="@+id/change_look"
+        android:title="@string/playlist_change_look" />
+    <item
         android:id="@+id/deletePlaylist"
         android:title="@string/playlist_delete_playlist" />
 </menu>

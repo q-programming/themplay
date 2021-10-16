@@ -21,6 +21,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="com.theartofdev.edmodo.cropper.CropImageActivity"
+            android:theme="@style/Base.Theme.AppCompat" />
+        <activity android:name=".activities.ChangeBackgroundActivity" />
         <meta-data
             android:name="AA_DB_VERSION"
             android:value="1" />

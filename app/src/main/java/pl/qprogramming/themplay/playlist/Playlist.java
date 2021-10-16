@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import androidx.annotation.NonNull;
+import io.reactivex.Single;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,16 +27,20 @@ import lombok.ToString;
 @AllArgsConstructor
 @Builder
 @ToString
-@Table(name = "playlists", database = ThemPlayDatabase.class)
+@Table(name = Playlist.PLAYLIST_TABLE_NAME, database = ThemPlayDatabase.class)
 public class Playlist extends Model implements Serializable {
     public static final String CURRENT_SONG = "currentSong";
 
+    public static final String PLAYLIST_TABLE_NAME = "playlists";
     public static final String ACTIVE = "active";
     public static final String CREATED_AT = "created_at";
     public static final String UPDATED_AT = "updated_at";
     public static final String SONG_COUNT = "songs_count";
     public static final String PRESET = "preset";
+    public static final String BACKGROUND = "background";
+    public static final String TEXT_COLOR = "text_color";
     public static final String NAME = "name";
+    public static final String TEXT_OUTLINE = "text_outline" ;
     @PrimaryKey
     private Long id;
     @Column(name = NAME)
@@ -53,6 +58,12 @@ public class Playlist extends Model implements Serializable {
     private int songCount;
     @Column(name = PRESET)
     private String preset;
+    @Column(name = BACKGROUND)
+    private transient String backgroundImage;
+    @Column(name = TEXT_COLOR)
+    private int textColor;
+    @Column(name = TEXT_OUTLINE)
+    private boolean textOutline;
 
 
     private List<Song> songs;
@@ -79,6 +90,16 @@ public class Playlist extends Model implements Serializable {
         }
         updatedAt = new Date();
         return super.save();
+    }
+
+    @NonNull
+    @Override
+    public Single<Long> saveAsync() {
+        if (id == null) {
+            createdAt = new Date();
+        }
+        updatedAt = new Date();
+        return super.saveAsync();
     }
 
     @Override
