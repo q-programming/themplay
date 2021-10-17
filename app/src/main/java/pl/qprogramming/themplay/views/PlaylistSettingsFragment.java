@@ -16,6 +16,7 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -97,6 +98,7 @@ public class PlaylistSettingsFragment extends Fragment {
                 adapter.setSongs(playlist.getSongs());
                 adapter.notifyDataSetChanged();
                 removeBtn.setVisibility(View.GONE);
+                Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
             });
             val textView = (TextView) view.findViewById(R.id.header_title);
             view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());

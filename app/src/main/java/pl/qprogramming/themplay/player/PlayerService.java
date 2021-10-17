@@ -38,6 +38,7 @@ import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.util.Utils;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
@@ -251,11 +252,17 @@ public class PlayerService extends Service {
             updateProgressBar();
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
+        } catch (IOException | SecurityException e) {
             e.printStackTrace();
             Log.d(TAG, e.getMessage());
             val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+            Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
+            val args = new Bundle();
+            args.putSerializable(Utils.SONG, nextSong);
+            args.putSerializable(PLAYLIST, activePlaylist);
+            intent.putExtra(ARGS, args);
+            sendBroadcast(intent);
             next();
         }
     }

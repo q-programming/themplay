@@ -118,7 +118,6 @@ public class PlaylistService extends Service {
                 .map(PlaylistSongs::getSong)
                 .collect(Collectors.toList());
     }
-    //functional methods
 
     public void save(Playlist playlist) {
         playlist.saveAsync()
@@ -126,16 +125,26 @@ public class PlaylistService extends Service {
                 .subscribe();
     }
 
+    /**
+     * Creates new playlist and saves it to database
+     *
+     * @param playlist playlist to be created
+     */
+    @SuppressLint("CheckResult")
     public void addPlaylist(Playlist playlist) {
         Log.d(TAG, "Adding new playlist" + playlist);
         playlist.saveAsync()
                 .subscribeOn(Schedulers.io())
-                .subscribe();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
+                .subscribe(id -> populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD));
     }
 
+    /**
+     * Adds new song into playlist
+     *
+     * @param playlist playlists which will have new song added
+     * @param song     song to be added
+     */
     public void addSongToPlaylist(Playlist playlist, Song song) {
-        //TODO reshuffle random playlist when adding ?
         Log.d(TAG, "Adding song to playlist ");
         playlist.addSong(song);
         val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
@@ -147,7 +156,32 @@ public class PlaylistService extends Service {
                 .subscribe();
     }
 
+    /**
+     * Remove songs from playlist
+     *
+     * @param playlist playlist which should be updated
+     * @param songs    list of songs to be deleted
+     */
+    @SneakyThrows
     public void removeSongFromPlaylist(Playlist playlist, List<Song> songs) {
+        removeSongFromPlaylist(playlist, songs, false);
+    }
+
+    /**
+     * Removes songs from playlist. If refresh parameter is pased, playlist will be first refreshed
+     * to have latest, db state of it ( for example if trigger comes from event and doesn't contain background information )
+     *
+     * @param playlist playlist which should be updated
+     * @param songs    list of songs to be deleted
+     * @param refresh  if playlist should be refreshed before delete operation ( for event trigger )
+     */
+    @SneakyThrows
+    public void removeSongFromPlaylist(Playlist playlist, List<Song> songs, boolean refresh) {
+        if (refresh) {
+            playlist = findById(playlist.getId()).orElseThrow(PlaylistNotFoundException::new);
+            val playlistSongs = fetchSongsByPlaylistSync(playlist);
+            playlist.setSongs(playlistSongs);
+        }
         playlist.getSongs().removeAll(songs);
         playlist.setSongCount(playlist.getSongs().size());
         for (Song song : songs) {
@@ -162,7 +196,6 @@ public class PlaylistService extends Service {
                 .subscribeOn(Schedulers.io())
                 .subscribe();
         populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE);
-        Toast.makeText(getApplicationContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
     }
 
     public void removePlaylistsFromPreset(String presetName) {

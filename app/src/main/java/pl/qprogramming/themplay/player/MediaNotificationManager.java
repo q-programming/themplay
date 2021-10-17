@@ -74,7 +74,7 @@ public class MediaNotificationManager {
     @RequiresApi(Build.VERSION_CODES.O)
     private void createNotificationChannel() {
         val chan = new NotificationChannel(CHANNEL_ID,
-                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_DEFAULT);
+                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_HIGH);
         chan.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         chan.setLightColor(Color.BLUE);
         notificationManager.createNotificationChannel(chan);

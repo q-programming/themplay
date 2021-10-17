@@ -24,6 +24,7 @@ import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
 
 import java.text.MessageFormat;
+import java.util.Collections;
 import java.util.Optional;
 
 import androidx.appcompat.app.AlertDialog;
@@ -37,6 +38,7 @@ import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.settings.Property;
@@ -51,6 +53,7 @@ import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_1_2;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
+import static pl.qprogramming.themplay.util.Utils.SONG;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -92,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.PRESET_REMOVED.getCode());
         filter.addAction(EventType.OPERATION_STARTED.getCode());
         filter.addAction(EventType.OPERATION_FINISHED.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         registerReceiver(receiver, filter);
     }
 
@@ -365,6 +369,13 @@ public class MainActivity extends AppCompatActivity {
                                 if (playerService.isActivePlaylist((Playlist) playlist)) {
                                     renderPlayButton();
                                 }
+                            }));
+                    break;
+                case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> {
+                                val song = (Song) args.getSerializable(SONG);
+                                playlistService.removeSongFromPlaylist((Playlist) playlist, Collections.singletonList(song), true);
                             }));
                     break;
             }

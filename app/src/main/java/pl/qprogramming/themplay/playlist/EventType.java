@@ -27,6 +27,7 @@ public enum EventType {
     PLAYBACK_NOTIFICATION_NEXT("q-programming.themplay.player.next"),
     PLAYBACK_NOTIFICATION_PREV("q-programming.themplay.player.prev"),
     PLAYBACK_NOTIFICATION_STOP("q-programming.themplay.player.stop"),
+    PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND("q-programming.themplay.player.delete.song"),
     PRESET_ACTIVATED("q-programming.themplay.preset.activated"),
     PRESET_REMOVED("q-programming.themplay.preset.removed"),
     OPERATION_STARTED("q-programming.themplay.operation.started"),
