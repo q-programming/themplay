@@ -15,6 +15,6 @@
     <color name="green_600">#43A047</color>
     <color name="active">#458A48</color>
     <color name="light_text">#515151</color>
-    <color name="dark_text">#BFFFFFFF</color>
+    <color name="dark_text">#BCBCBC</color>
     <color name="gray">#4C4C4C</color>
 </resources>
