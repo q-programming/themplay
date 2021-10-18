@@ -25,8 +25,10 @@ import pl.qprogramming.themplay.util.Utils;
 
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_CHANGE_BACKGROUND;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.HEIGHT;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
+import static pl.qprogramming.themplay.util.Utils.WIDTH;
 
 /**
  * Activity to load image from galery , crop it and save it as base64 string into playlist
@@ -36,6 +38,10 @@ public class ChangeBackgroundActivity extends Activity {
     private final int GALLERY_ACTIVITY_CODE = 200;
     private Playlist playlist;
     private int position;
+    private int ratio;
+    private int width;
+    private int height;
+
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -44,6 +50,9 @@ public class ChangeBackgroundActivity extends Activity {
         Bundle args = launchingIntent.getBundleExtra(ARGS);
         playlist = (Playlist) args.getSerializable(PLAYLIST);
         position = (int) args.getSerializable(POSITION);
+        width = (int) args.getSerializable(WIDTH);
+        height = (int) args.getSerializable(HEIGHT);
+        ratio = Math.round(1f * width / height);
         if (playlist != null) {
             Intent intent = new Intent();
             intent.setType("image/*");
@@ -63,7 +72,7 @@ public class ChangeBackgroundActivity extends Activity {
             if (resultCode == Activity.RESULT_OK) {
                 val uri = data.getData();
                 CropImage.activity(uri)
-//                        .setAspectRatio(25, 5)
+                        .setAspectRatio(ratio, 1)
                         .start(this);
             } else {
                 finish();
@@ -80,7 +89,8 @@ public class ChangeBackgroundActivity extends Activity {
                     bitmap = MediaStore.Images.Media.getBitmap(getApplicationContext().getContentResolver(), resultUri);
                 }
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+                    val scaledBitmap = Bitmap.createScaledBitmap(bitmap, width, height,false);
+                    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos);
                     byte[] imageBytes = baos.toByteArray();
                     String imageString = Base64.encodeToString(imageBytes, Base64.DEFAULT);
                     playlist.setBackgroundImage(imageString);
