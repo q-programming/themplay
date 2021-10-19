@@ -24,6 +24,8 @@ public class Utils {
     public static final String PLAYLIST = "playlist";
     public static final String PRESET = "preset";
     public static final String ARGS = "args";
+    public static final String WIDTH = "width";
+    public static final String HEIGHT = "height";
 
 
     private Utils() {

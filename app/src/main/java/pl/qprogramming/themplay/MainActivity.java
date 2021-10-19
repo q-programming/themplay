@@ -80,7 +80,6 @@ public class MainActivity extends AppCompatActivity {
         setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
         checkPermission(Manifest.permission.INTERNET);
-        checkPermission(Manifest.permission.INTERNET);
         //load playlist fragment
         getSupportFragmentManager()
                 .beginTransaction()
@@ -251,7 +250,12 @@ public class MainActivity extends AppCompatActivity {
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
-                        val playlist = Playlist.builder().name(playlistName).preset(currentPresetName).build();
+                        val playlist = Playlist
+                                .builder()
+                                .name(playlistName)
+                                .textOutline(true)
+                                .preset(currentPresetName)
+                                .build();
                         playlistService.addPlaylist(playlist);
                         val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                         sendBroadcast(notify);

@@ -31,8 +31,10 @@ import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 
 import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.HEIGHT;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
+import static pl.qprogramming.themplay.util.Utils.WIDTH;
 import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
@@ -99,8 +101,12 @@ public class PlaylistThemeFragment extends Fragment {
         view.findViewById(R.id.change_background).setOnClickListener(v -> {
             val intent = new Intent(context, ChangeBackgroundActivity.class);
             val args = new Bundle();
+            val width = view.getWidth();
+            val height = getResources().getDimension(R.dimen.playlist_max_height);
             args.putSerializable(PLAYLIST, playlist);
             args.putSerializable(POSITION, position);
+            args.putSerializable(WIDTH, width);
+            args.putSerializable(HEIGHT, Math.round(height));
             intent.putExtra(ARGS, args);
             context.startActivity(intent);
         });
