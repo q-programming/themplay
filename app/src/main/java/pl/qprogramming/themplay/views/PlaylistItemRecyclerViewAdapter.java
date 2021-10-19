@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -46,6 +47,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
     private static final String TAG = PlaylistItemRecyclerViewAdapter.class.getSimpleName();
     private List<Playlist> playlists;
     private int activeColor;
+    private int cardBackgroundColor;
 
 
     private final PlaylistService playlistService;
@@ -90,11 +92,13 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
         }
         if (!isEmpty(playlist.getBackgroundImage())) {
+            holder.mCardView.setBackgroundColor(Color.TRANSPARENT);
             byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
             Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
             holder.background.setImageBitmap(decodedImage);
             holder.background.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
+        } else {
+            holder.mCardView.setBackgroundColor(cardBackgroundColor);
         }
         //render is active
         setActive(holder, position, playlist);
@@ -105,6 +109,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     private void loadColors(Context context) {
         activeColor = getThemeColor(context, R.attr.colorSecondary);
+        cardBackgroundColor = getThemeColor(context, R.attr.card_background_color);
         colorArray = loadColorsArray(context);
     }
 
