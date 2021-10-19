@@ -1,11 +1,13 @@
 package pl.qprogramming.themplay.views;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
@@ -62,6 +64,14 @@ public class AboutFragment extends Fragment {
         val webSettings = mWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         mWebView.setWebViewClient(new WebViewClient() {
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                val intent = new Intent(Intent.ACTION_VIEW, request.getUrl());
+                view.getContext().startActivity(intent);
+                return true;
+            }
+
             public void onPageFinished(WebView view, String url) {
                 if (darkMode) {
                     mWebView.loadUrl(

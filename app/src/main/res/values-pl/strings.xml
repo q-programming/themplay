@@ -66,6 +66,10 @@
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
     <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
+    <string name="playlist_copy">Kopiuj playlistę</string>
+    <string name="playlist_paste">Wklej playlistę</string>
+    <string name="playlist_pasted">Utworzono kopię playlisty</string>
+    <string name="playlist_copied">Skopiowano playlistę</string>
 
 
 </resources>

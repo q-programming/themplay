@@ -16,6 +16,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.text.MessageFormat;
 import java.util.List;
@@ -140,7 +141,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                 val itemId = item.getItemId();
                 val context = holder.mCardView.getContext();
                 if (itemId == R.id.editPlaylist) {
-                    holder.mView.getContext().sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
+                    context.sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
                     playlistService.fetchSongsByPlaylistAsync(playlist)
                             .subscribe(songs -> {
                                 context.sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
@@ -165,6 +166,9 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                             fmanager,
                             new PlaylistThemeFragment(playlist, position),
                             "theme" + playlist.getName() + playlist.getId());
+                } else if (itemId == R.id.copy) {
+                    playlistService.setCopy(playlist);
+                    Toast.makeText(context, context.getString(R.string.playlist_copied), Toast.LENGTH_LONG).show();
                 } else {
                     throw new IllegalStateException("Unexpected value: " + itemId);
                 }

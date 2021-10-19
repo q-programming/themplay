@@ -120,6 +120,7 @@ public class MainActivity extends AppCompatActivity {
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
             popup.getMenuInflater().inflate(R.menu.settings_menu, popup.getMenu());
+            popup.getMenu().findItem(R.id.pastePlaylist).setVisible(playlistService.getCopy() != null);
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.addPlaylist) {
@@ -128,6 +129,8 @@ public class MainActivity extends AppCompatActivity {
                     navigateToFragment(getSupportFragmentManager(), new SettingsFragment(), "settings");
                 } else if (itemId == R.id.preset) {
                     navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
+                } else if (itemId == R.id.pastePlaylist) {
+                    playlistService.paste();
                 } else {
                     navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }
@@ -253,7 +256,6 @@ public class MainActivity extends AppCompatActivity {
                         val playlist = Playlist
                                 .builder()
                                 .name(playlistName)
-                                .textOutline(true)
                                 .preset(currentPresetName)
                                 .build();
                         playlistService.addPlaylist(playlist);

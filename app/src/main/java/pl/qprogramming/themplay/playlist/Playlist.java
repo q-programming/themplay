@@ -20,6 +20,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.val;
 
 @Getter
 @Setter
@@ -28,7 +29,7 @@ import lombok.ToString;
 @Builder
 @ToString
 @Table(name = Playlist.PLAYLIST_TABLE_NAME, database = ThemPlayDatabase.class)
-public class Playlist extends Model implements Serializable {
+public class Playlist extends Model implements Serializable, Cloneable {
     public static final String CURRENT_SONG = "currentSong";
 
     public static final String PLAYLIST_TABLE_NAME = "playlists";
@@ -40,7 +41,7 @@ public class Playlist extends Model implements Serializable {
     public static final String BACKGROUND = "background";
     public static final String TEXT_COLOR = "text_color";
     public static final String NAME = "name";
-    public static final String TEXT_OUTLINE = "text_outline" ;
+    public static final String TEXT_OUTLINE = "text_outline";
     @PrimaryKey
     private Long id;
     @Column(name = NAME)
@@ -122,4 +123,16 @@ public class Playlist extends Model implements Serializable {
     public int hashCode() {
         return Objects.hash(id, name, active, createdAt, updatedAt);
     }
+
+    @NonNull
+    @Override
+    public Playlist clone() throws CloneNotSupportedException {
+        val playlist = (Playlist) super.clone();
+        playlist.setId(null);
+        playlist.setCurrentSong(null);
+        playlist.setCreatedAt(null);
+        playlist.setActive(false);
+        return playlist;
+    }
+
 }

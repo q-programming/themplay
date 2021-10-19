@@ -22,6 +22,7 @@ import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
+import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.val;
@@ -42,6 +43,9 @@ public class PlaylistService extends Service {
 
     @Setter
     private int activePlaylistPosition;
+    @Setter
+    @Getter
+    private Playlist copy;
     private final IBinder mBinder = new LocalBinder();
 
     @SuppressLint("CheckResult")
@@ -219,6 +223,24 @@ public class PlaylistService extends Service {
         playlist.setCurrentSong(null);
         playlist.delete();
         songs.forEach(Model::delete);
+    }
+
+    @SneakyThrows
+    public void paste() {
+        if (copy != null) {
+            val sp = getDefaultSharedPreferences(this);
+            val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+            val playlistCopy = copy.clone();
+            playlistCopy.setPreset(currentPresetName);
+            playlistCopy.save();
+            val songs = fetchSongsByPlaylistSync(copy);
+            for (Song song : songs) {
+                addSongToPlaylist(playlistCopy, song.clone());
+            }
+            Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
+            copy = null;
+        }
     }
 
     @SneakyThrows
