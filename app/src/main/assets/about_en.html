@@ -1,0 +1,97 @@
+<html>
+<head>
+    <!-- Tip: Use relative URLs when referring to other in-app content to give
+              your app code the flexibility to change the scheme or domain as
+              necessary. -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h3 class="text-centered">Application to play songs in playlists</h3>
+<p>
+    Main goal is to create multiple playlists ( grouped within presets) and allow to quickly switch
+    between them by single tap</p>
+<p>
+    When playlist is tapped, app will save current song position and fade into new song ( fade time
+    can be
+    configured )
+</p>
+<p>Let's imagine you want to organize D&D roleplay session. You can configure couple playlists like
+    "tavern", "dungeons" , "woods" "battle" etc. etc. </p>
+<p>Add songs based on theme to each of those playlist, and start your session</p>
+<p> Your party ventures into woods? You have playlist for this!</p>
+<p>They were ambushed by some orcs and battle is
+    starting, switch to "battle" and in matters of seconds , your theme music changes.</p>
+<p>Once enemy is slain , just tap back to woods playlist and continue with your quest just where you
+    finished...</p>
+<h3>How to use?</h3>
+<h4>Presets</h4>
+<p>After first launch there is nothing there. You have to start by creating a preset.<br>It will be
+    one of many collections of playlists, grouped together for various occasions. Thanks to this ,
+    you can have
+    some peaceful collection for board games with family , and another with some heavy metal for
+    rpg session
+    with your friends ( or other way around ...) </p>
+<p>Once you create and make preset active , new playlist is created will be assigned to it</p>
+<p>To switch to new preset , either click your current preset name at the top of application , or
+    choose "presets" from application menu at the bottom</p>
+<h3>Playlists</h3>
+<p>Main application functionality, holding list of songs, and ensuring only one is active at the
+    time</p>
+<h4>Creating playlist</h4>
+<p>To create new playlist , make sure proper preset is activated and select "Add new playlist" from
+    application at bottom of screen
+    <br>
+    You will be asked to give name to playlist, and then be moved to edition screen</p>
+<p>On it you can add new songs by clicking "Add new song" button. After that action new window will
+    be open with default android file selection. Choose songs which should be added to playlist and
+    confirm your selection</p>
+<p>To remove song , press and hold it for a bit , which will activate multiple selection. Select all
+    songs that you would like to remove and confirm with pressing "Remove selected songs"</p>
+<p> Press back button on your phone , or tap back arrow at the top of the screen</p>
+<h4>Editing playlists</h4>
+<p>To edit existing playlist choose "Edit playlist" from context menu available under three dots on
+    playlist card</p>
+<p>Edition screen is identical to creation screen and works exactly the same</p>
+<h4>Changing playlist card look</h4>
+<p>It's possible to change unique look of each playlist separately. To change look, select "Change
+    playlist look" from context menu available under three dots on playlist card</p>
+<p>On this screen you can pick and crop photo or picture from your gallery , by clicking "Change
+    background" button </p>
+<p>If you would like to remove existing background and restore default playlist card look, select
+    "Remove background" button</p>
+<p>To adjust text visible on picture, select one of available colors by clicking "change text color"
+    button.
+    You can additionally add shadow outline to improve it's readability ( true by default ) </p>
+<h4>Removing playlists</h4>
+<p>To remove playlist, select "Delete playlist" from context menu available under three dots on
+    playlist card<br>
+    <b>Please note that this operation cannot be undone!</b>.
+</p>
+<p>
+    No physical files will be removed during that operation</p>
+<h3>Playback</h3>
+<p>To start playing your playlist , all you need to do is to either click it and activate it , or
+    press play button if it's already active. Play button is available at the bottom of the screen
+    together with other multimedia buttons</p>
+<p>If for some reason application cannot play one of songs ( bad format or file was moved/deleted )
+    application will show notification , remove song from that playlist and attempt to play next
+    song from playlist</p>
+<h4>Shuffle playlist</h4>
+<p>By default application will try to play songs in random order from selected playlist. It will be
+    done by temporally creating random list of all songs from playlist and going through it one by
+    one. When list will play last song, new one will be randomly created and current song will be on
+    last position</p>
+<p>Random order is generated every time playlist is activated, which means that if we switch
+    playlists often , and playlist is not big enough , some songs might play more often </p>
+<h3>Settings</h3>
+Application has some basic settings
+<h4>Dark mode</h4>
+<p>How application should be displayed, light mode by default</p>
+<h4>Fade between songs duration </h4>
+<p>How long ( in seconds ) should the transition be when moving from one song to another, or when
+    activating second playlist
+</p>
+<h4>Don't turn off screen</h4>
+<p>When selected , application will prevent from turning off screen as long as it's active</p>
+</body>
+</html>

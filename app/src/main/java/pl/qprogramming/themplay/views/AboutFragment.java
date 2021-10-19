@@ -10,6 +10,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
 
+import java.text.MessageFormat;
+import java.util.Arrays;
+import java.util.Locale;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -24,6 +28,8 @@ import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
  * About fragment
  */
 public class AboutFragment extends Fragment {
+
+    private final Locale[] SUPPORTED_LANGUAGES = new Locale[]{new Locale("en"), new Locale("pl")};
 
     public AboutFragment() {
     }
@@ -42,6 +48,7 @@ public class AboutFragment extends Fragment {
         val darkMode = sp.getBoolean(Property.DARK_MODE, false);
         super.onViewCreated(view, savedInstanceState);
         val textView = (TextView) view.findViewById(R.id.header_title);
+        val locale = getResources().getConfiguration().getLocales().get(0);
         textView.setText(getString(R.string.about));
         view
                 .findViewById(R.id.include)
@@ -67,6 +74,15 @@ public class AboutFragment extends Fragment {
                 }
             }
         });
-        mWebView.loadUrl("file:///android_asset/about.html");
+        mWebView.loadUrl(getLanguageTemplate(locale));
+    }
+
+
+    private String getLanguageTemplate(Locale locale) {
+        val optionalLocale = Arrays.stream(SUPPORTED_LANGUAGES)
+                .filter(loc -> loc.getLanguage().equals(locale.getLanguage()))
+                .findFirst()
+                .orElseGet(() -> SUPPORTED_LANGUAGES[0]);
+        return MessageFormat.format("file:///android_asset/about_{0}.html", optionalLocale.getLanguage());
     }
 }

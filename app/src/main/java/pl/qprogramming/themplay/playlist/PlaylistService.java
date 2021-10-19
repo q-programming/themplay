@@ -270,6 +270,7 @@ public class PlaylistService extends Service {
         if (currentSong == null && isEmpty(playlist.getSongs())) {
             val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
             Toast.makeText(getApplicationContext(), notActiveMsg, Toast.LENGTH_LONG).show();
+            sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
             return;
         } else if (currentSong == null && !isEmpty(playlist.getSongs())) {
             currentSong = playlist.getPlaylist().get(0);
