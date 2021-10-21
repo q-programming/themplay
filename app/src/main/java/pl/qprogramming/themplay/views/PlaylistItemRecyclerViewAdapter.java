@@ -27,6 +27,7 @@ import androidx.cardview.widget.CardView;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
+import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
@@ -34,6 +35,7 @@ import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 
+import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
@@ -152,7 +154,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                                         playlist.getName() + playlist.getId());
 
                             });
-                    Log.d(TAG, "Editing playlist " + playlist);
+                    Log.d(TAG, "Editing playlist " + playlist.getId());
                 } else if (itemId == R.id.deletePlaylist) {
                     val msg = MessageFormat.format(context.getString(R.string.playlist_delete_playlist_confirm), playlist.getName());
                     new AlertDialog.Builder(context)
@@ -167,7 +169,9 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                             new PlaylistThemeFragment(playlist, position),
                             "theme" + playlist.getName() + playlist.getId());
                 } else if (itemId == R.id.copy) {
-                    playlistService.setCopy(playlist);
+                    val spEdit = PreferenceManager.getDefaultSharedPreferences(context).edit();
+                    spEdit.putLong(COPY_PLAYLIST, playlist.getId());
+                    spEdit.apply();
                     Toast.makeText(context, context.getString(R.string.playlist_copied), Toast.LENGTH_LONG).show();
                 } else {
                     throw new IllegalStateException("Unexpected value: " + itemId);

@@ -22,7 +22,6 @@ import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.schedulers.Schedulers;
-import lombok.Getter;
 import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.val;
@@ -32,6 +31,7 @@ import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
@@ -43,9 +43,6 @@ public class PlaylistService extends Service {
 
     @Setter
     private int activePlaylistPosition;
-    @Setter
-    @Getter
-    private Playlist copy;
     private final IBinder mBinder = new LocalBinder();
 
     @SuppressLint("CheckResult")
@@ -186,15 +183,14 @@ public class PlaylistService extends Service {
             val playlistSongs = fetchSongsByPlaylistSync(playlist);
             playlist.setSongs(playlistSongs);
         }
+
         playlist.getSongs().removeAll(songs);
         playlist.setSongCount(playlist.getSongs().size());
         for (Song song : songs) {
             if (song.equals(playlist.getCurrentSong())) {
                 playlist.setCurrentSong(null);
             }
-            song.deleteAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
+            song.delete();
         }
         playlist.saveAsync()
                 .subscribeOn(Schedulers.io())
@@ -225,22 +221,22 @@ public class PlaylistService extends Service {
         songs.forEach(Model::delete);
     }
 
-    @SneakyThrows
-    public void paste() {
-        if (copy != null) {
-            val sp = getDefaultSharedPreferences(this);
-            val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-            val playlistCopy = copy.clone();
-            playlistCopy.setPreset(currentPresetName);
-            playlistCopy.save();
-            val songs = fetchSongsByPlaylistSync(copy);
-            for (Song song : songs) {
-                addSongToPlaylist(playlistCopy, song.clone());
-            }
-            Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
-            copy = null;
+    public void paste(long copyId) throws PlaylistNotFoundException, CloneNotSupportedException {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        val copy = findById(copyId).orElseThrow(PlaylistNotFoundException::new);
+        val playlistCopy = copy.clone();
+        playlistCopy.setPreset(currentPresetName);
+        playlistCopy.save();
+        val songs = fetchSongsByPlaylistSync(copy);
+        for (Song song : songs) {
+            addSongToPlaylist(playlistCopy, song.clone());
         }
+        Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD);
+        val spEdit = sp.edit();
+        spEdit.putLong(COPY_PLAYLIST, -1L);
+        spEdit.apply();
     }
 
     @SneakyThrows

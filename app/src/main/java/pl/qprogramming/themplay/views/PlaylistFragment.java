@@ -16,7 +16,6 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -146,15 +145,15 @@ public class PlaylistFragment extends Fragment {
                 switch (event) {
                     case PLAYLIST_CHANGE_BACKGROUND:
                         Objects.requireNonNull(recyclerView.getAdapter()).notifyItemChanged((Integer) args.getSerializable(POSITION));
-                    case PLAYLIST_NOTIFICATION_PLAY:
-                    case PLAYLIST_NOTIFICATION_NEXT:
-                    case PLAYLIST_NOTIFICATION_STOP:
-                    case PLAYLIST_NOTIFICATION_PREV:
-                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
-                        Optional.ofNullable(args.getSerializable(POSITION))
-                                .ifPresent(position -> Objects.requireNonNull(recyclerView.getAdapter())
-                                        .notifyItemChanged((int) position));
-                        break;
+//                    case PLAYLIST_NOTIFICATION_PLAY:
+//                    case PLAYLIST_NOTIFICATION_NEXT:
+//                    case PLAYLIST_NOTIFICATION_STOP:
+//                    case PLAYLIST_NOTIFICATION_PREV:
+//                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
+//                        Optional.ofNullable(args.getSerializable(POSITION))
+//                                .ifPresent(position -> Objects.requireNonNull(recyclerView.getAdapter())
+//                                        .notifyItemChanged((int) position));
+//                        break;
                     default:
                         Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
                         Objects.requireNonNull(recyclerView.getAdapter()).notifyDataSetChanged();

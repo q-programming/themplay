@@ -11,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -33,6 +34,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.preference.PreferenceManager;
 import lombok.val;
 import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
@@ -40,6 +42,7 @@ import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
@@ -50,6 +53,7 @@ import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_1_2;
+import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
@@ -116,11 +120,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupMainMenu() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this);
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
             popup.getMenuInflater().inflate(R.menu.settings_menu, popup.getMenu());
-            popup.getMenu().findItem(R.id.pastePlaylist).setVisible(playlistService.getCopy() != null);
+            val copyId = sp.getLong(COPY_PLAYLIST, -1L);
+            popup.getMenu().findItem(R.id.pastePlaylist).setVisible(copyId >= 0);
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.addPlaylist) {
@@ -130,7 +136,13 @@ public class MainActivity extends AppCompatActivity {
                 } else if (itemId == R.id.preset) {
                     navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
                 } else if (itemId == R.id.pastePlaylist) {
-                    playlistService.paste();
+                    try {
+                        playlistService.paste(copyId);
+                    } catch (PlaylistNotFoundException | CloneNotSupportedException e) {
+                        Log.d(TAG, "something went wrong while trying to paste playlist", e);
+                        Toast.makeText(this, getString(R.string.playlist_paste_error), Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
                 } else {
                     navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }

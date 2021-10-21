@@ -30,6 +30,7 @@
     <string name="playlist_paste">Paste playlist</string>
     <string name="playlist_pasted">Copy of playlist created</string>
     <string name="playlist_copied">Playlist copied</string>
+    <string name="playlist_paste_error">There was an error while trying to paste playlist, please try again</string>
     <string name="playlist_look_preview">Preview</string>
     <string name="playlist_look_active">Active</string>
     <string name="playlist_look_inactive">Inactive</string>
