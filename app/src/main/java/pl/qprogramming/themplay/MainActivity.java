@@ -288,6 +288,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         doUnbindService();
+        unregisterReceiver(receiver);
         super.onStop();
     }
 

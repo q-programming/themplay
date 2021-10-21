@@ -76,6 +76,12 @@ public class PlayerService extends Service {
         return Service.START_STICKY;
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(receiver);
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {

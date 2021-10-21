@@ -118,6 +118,11 @@ public class PresetsFragment extends Fragment {
         requireActivity().registerReceiver(receiver, filter);
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        requireActivity().unregisterReceiver(receiver);
+    }
 
     @SuppressLint("CheckResult")
     private void createPreset(String presetName) throws PresetAlreadyExistsException {

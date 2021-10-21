@@ -120,6 +120,16 @@ public class PlaylistFragment extends Fragment {
         requireActivity().registerReceiver(receiver, filter);
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            requireActivity().unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
+    }
+
     private final ServiceConnection mConnection = new ServiceConnection() {
         @SuppressLint("CheckResult")
         public void onServiceConnected(ComponentName className, IBinder service) {
