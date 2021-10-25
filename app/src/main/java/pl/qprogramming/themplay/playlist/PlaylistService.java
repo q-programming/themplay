@@ -189,13 +189,14 @@ public class PlaylistService extends Service {
         for (Song song : songs) {
             if (song.equals(playlist.getCurrentSong())) {
                 playlist.setCurrentSong(null);
+                playlist.save();
             }
             song.delete();
         }
         playlist.saveAsync()
                 .subscribeOn(Schedulers.io())
                 .subscribe();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE);
+        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS, activePlaylistPosition, playlist);
     }
 
     public void removePlaylistsFromPreset(String presetName) {

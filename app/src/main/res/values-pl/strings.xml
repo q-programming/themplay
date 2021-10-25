@@ -48,7 +48,7 @@
     <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
     <string name="playlist_add_atLeastOneChar">Nazwa twojej playlisty musi mieć przynajmniej jeden znak</string>
     <string name="playlist_add_created">Utworzono nową playlistę \"{0}\"</string>
-    <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna</string>
+    <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna, lub wybrana lista nie ma wystarczająco piosenek</string>
     <string name="playlist_cant_play">Nie można odtworzyć piosenki \"{0}\"!</string>
     <string name="playlist_add_new_song">Dodaj nową piosenkę</string>
     <string name="playlist_remove_selected">Usuń zaznaczone piosenki</string>

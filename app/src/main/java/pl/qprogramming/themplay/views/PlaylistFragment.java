@@ -34,6 +34,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_PAUSE;
@@ -112,6 +113,7 @@ public class PlaylistFragment extends Fragment {
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PLAYLIST_CHANGE_BACKGROUND.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE_SONGS.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PLAY.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PAUSE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_NEXT.getCode());
@@ -155,6 +157,7 @@ public class PlaylistFragment extends Fragment {
                 switch (event) {
                     case PLAYLIST_CHANGE_BACKGROUND:
                         Objects.requireNonNull(recyclerView.getAdapter()).notifyItemChanged((Integer) args.getSerializable(POSITION));
+                        //TODO once playlist will have position , we can just refresh single ones
 //                    case PLAYLIST_NOTIFICATION_PLAY:
 //                    case PLAYLIST_NOTIFICATION_NEXT:
 //                    case PLAYLIST_NOTIFICATION_STOP:

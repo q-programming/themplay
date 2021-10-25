@@ -288,7 +288,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         doUnbindService();
-        unregisterReceiver(receiver);
+        try {
+            unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
         super.onStop();
     }
 

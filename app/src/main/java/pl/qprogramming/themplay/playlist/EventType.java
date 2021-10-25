@@ -13,6 +13,7 @@ public enum EventType {
     PLAYLIST_NOTIFICATION("q-programming.themplay.playlist"),
     PLAYLIST_NOTIFICATION_ADD("q-programming.themplay.playlist.added"),
     PLAYLIST_NOTIFICATION_DELETE("q-programming.themplay.playlist.delete"),
+    PLAYLIST_NOTIFICATION_DELETE_SONGS("q-programming.themplay.playlist.delete.songs"),
     PLAYLIST_NOTIFICATION_ACTIVE("q-programming.themplay.playlist.active"),
     PLAYLIST_NOTIFICATION_RECREATE_LIST("q-programming.themplay.playlist.recreate"),
     PLAYLIST_NOTIFICATION_NEW_ACTIVE("q-programming.themplay.playlist.newActive"),

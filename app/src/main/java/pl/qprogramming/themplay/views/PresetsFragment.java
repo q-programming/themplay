@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -121,7 +122,11 @@ public class PresetsFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        requireActivity().unregisterReceiver(receiver);
+        try {
+            requireActivity().unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
     }
 
     @SuppressLint("CheckResult")

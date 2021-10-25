@@ -50,7 +50,7 @@
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
     <string name="playlist_now_playing">Now playing \"{0}\"</string>
     <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>
-    <string name="playlist_no_active_playlist">There are no active playlists, please select one first</string>
+    <string name="playlist_no_active_playlist">Playlist ist not active or there are not enough songs to play</string>
     <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
     <string name="playlist_name_atLeastOneChar">Please enter at least single character!</string>
     <string name="playlist_add_atLeastOneChar">Your playlist name must have at least single character!</string>

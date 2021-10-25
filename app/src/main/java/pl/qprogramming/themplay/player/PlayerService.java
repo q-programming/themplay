@@ -44,10 +44,17 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
 public class PlayerService extends Service {
 
@@ -79,23 +86,29 @@ public class PlayerService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        unregisterReceiver(receiver);
+        try {
+            unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
+
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
         Log.d(TAG, "Binding service to " + intent + "this:" + this);
-        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        val filter = new IntentFilter(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE_SONGS.getCode());
         filter.addAction(PLAYBACK_NOTIFICATION_PLAY.getCode());
         filter.addAction(PLAYBACK_NOTIFICATION_NEXT.getCode());
         filter.addAction(PLAYBACK_NOTIFICATION_PREV.getCode());
         filter.addAction(PLAYBACK_NOTIFICATION_PAUSE.getCode());
         filter.addAction(PLAYBACK_NOTIFICATION_STOP.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
         getApplicationContext().registerReceiver(receiver, filter);
         return mBinder;
@@ -157,9 +170,11 @@ public class PlayerService extends Service {
         Log.d(TAG, "Stop media player");
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
-            currentSong.saveAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
+            if (currentSong != null) {
+                currentSong.saveAsync()
+                        .subscribeOn(Schedulers.io())
+                        .subscribe();
+            }
             mediaPlayer.reset();
             mediaPlayer.release();
             progressHandler.removeCallbacks(updateProgressTask);
@@ -167,7 +182,7 @@ public class PlayerService extends Service {
     }
 
     public void next() {
-        if (activePlaylist != null) {
+        if (activePlaylist != null && (!isEmpty(activePlaylist.getPlaylist()) && activePlaylist.getPlaylist().size() > 0)) {
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
@@ -415,6 +430,8 @@ public class PlayerService extends Service {
             if (args != null) {
                 Optional.ofNullable(args.getSerializable(Utils.POSITION)).ifPresent(position -> playlistPosition = (int) position);
             }
+            val sp = getDefaultSharedPreferences(context);
+            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
             switch (event) {
                 case PLAYBACK_NOTIFICATION_NEXT:
                     next();
@@ -458,8 +475,6 @@ public class PlayerService extends Service {
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
-                    val sp = getDefaultSharedPreferences(context);
-                    val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
                     createPlaylist(activePlaylist, shuffle);
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
@@ -473,8 +488,28 @@ public class PlayerService extends Service {
                                 });
                     }
                     break;
+                case PLAYLIST_NOTIFICATION_DELETE_SONGS:
+                    handleSongDeleted(args, shuffle);
+                    break;
             }
         }
     };
+
+    private void handleSongDeleted(Bundle args, boolean shuffle) {
+        if (args != null) {
+            Optional.ofNullable(args.getSerializable(PLAYLIST))
+                    .ifPresent(playlist -> {
+                        if (((Playlist) playlist).getId().equals(activePlaylist.getId())) {
+                            activePlaylist = (Playlist) playlist;
+                            createPlaylist(activePlaylist, shuffle);
+                            if (activePlaylist.getSongs().size() == 0) {
+                                populateAndSend(PLAYBACK_NOTIFICATION_STOP, playlistPosition);
+                            } else if (activePlaylist.getCurrentSong() == null && activePlaylist.getSongs().size() > 0) {
+                                populateAndSend(PLAYBACK_NOTIFICATION_NEXT, playlistPosition);
+                            }
+                        }
+                    });
+        }
+    }
 
 }
