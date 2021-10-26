@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase;
 import com.reactiveandroid.annotation.Database;
 import com.reactiveandroid.internal.database.migration.Migration;
 
-@Database(name = "themplay", version = 2)
+@Database(name = "themplay", version = 3)
 public class ThemPlayDatabase {
 
 
@@ -15,6 +15,12 @@ public class ThemPlayDatabase {
             database.execSQL("alter table " + Playlist.PLAYLIST_TABLE_NAME + " add column " + Playlist.BACKGROUND + " TEXT");
             database.execSQL("alter table " + Playlist.PLAYLIST_TABLE_NAME + " add column " + Playlist.TEXT_COLOR + " INTEGER");
             database.execSQL("alter table " + Playlist.PLAYLIST_TABLE_NAME + " add column " + Playlist.TEXT_OUTLINE + " BOOLEAN");
+        }
+    };
+    public static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        @Override
+        public void migrate(SQLiteDatabase database) {
+            database.execSQL("alter table " + Playlist.PLAYLIST_TABLE_NAME + " add column " + Playlist.POSITION + " INTEGER");
         }
     };
 }

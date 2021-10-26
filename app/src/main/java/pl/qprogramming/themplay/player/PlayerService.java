@@ -60,7 +60,6 @@ public class PlayerService extends Service {
 
     private static final String TAG = PlayerService.class.getSimpleName();
     private Playlist activePlaylist;
-    private int playlistPosition;
     @Setter
     private ProgressBar progressBar;
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
@@ -147,7 +146,7 @@ public class PlayerService extends Service {
         if (activePlaylist != null) {
             val currentSong = activePlaylist.getCurrentSong();
             fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, playlistPosition);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         }
@@ -169,11 +168,13 @@ public class PlayerService extends Service {
         mNotificationManager.removeNotification();
         Log.d(TAG, "Stop media player");
         if (isPlaying()) {
-            val currentSong = activePlaylist.getCurrentSong();
-            if (currentSong != null) {
-                currentSong.saveAsync()
-                        .subscribeOn(Schedulers.io())
-                        .subscribe();
+            if (activePlaylist != null) {
+                val currentSong = activePlaylist.getCurrentSong();
+                if (currentSong != null) {
+                    currentSong.saveAsync()
+                            .subscribeOn(Schedulers.io())
+                            .subscribe();
+                }
             }
             mediaPlayer.reset();
             mediaPlayer.release();
@@ -182,14 +183,17 @@ public class PlayerService extends Service {
     }
 
     public void next() {
-        if (activePlaylist != null && (!isEmpty(activePlaylist.getPlaylist()) && activePlaylist.getPlaylist().size() > 0)) {
+        val sp = getDefaultSharedPreferences(this);
+        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+        if (isEmpty(activePlaylist.getPlaylist())) {
+            createPlaylist(activePlaylist, shuffle);
+        }
+        if (activePlaylist != null && activePlaylist.getPlaylist().size() > 0) {
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
             if (songIndex > activePlaylist.getPlaylist().size() - 1) {
                 Log.d(TAG, "Creating new playlist");
-                val sp = getDefaultSharedPreferences(this);
-                val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
                 createPlaylist(activePlaylist, shuffle);
                 songIndex = 0;
             }
@@ -197,7 +201,7 @@ public class PlayerService extends Service {
             activePlaylist.setCurrentSong(song);
             saveActivePlaylist();
             fadeIntoNewSong(song, 0);
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, playlistPosition);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         }
@@ -210,9 +214,7 @@ public class PlayerService extends Service {
                 .subscribeOn(Schedulers.io())
                 .subscribe(playlist -> {
                     activePlaylist.setBackgroundImage(playlist.getBackgroundImage());
-                    activePlaylist.saveAsync()
-                            .subscribeOn(Schedulers.io())
-                            .subscribe();
+                    activePlaylist.save();
                 });
 
     }
@@ -230,7 +232,7 @@ public class PlayerService extends Service {
             activePlaylist.setCurrentSong(song);
             saveActivePlaylist();
             fadeIntoNewSong(song, 0);
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, playlistPosition);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
         }
@@ -427,9 +429,6 @@ public class PlayerService extends Service {
             Log.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
-            if (args != null) {
-                Optional.ofNullable(args.getSerializable(Utils.POSITION)).ifPresent(position -> playlistPosition = (int) position);
-            }
             val sp = getDefaultSharedPreferences(context);
             val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
             switch (event) {
@@ -482,7 +481,7 @@ public class PlayerService extends Service {
                         Optional.ofNullable(args.getSerializable(PLAYLIST))
                                 .ifPresent(playlist -> {
                                     if (playlist.equals(activePlaylist)) {
-                                        stop();
+                                        populateAndSend(PLAYBACK_NOTIFICATION_STOP, activePlaylist.getPosition());
                                         activePlaylist = null;
                                     }
                                 });
@@ -503,9 +502,9 @@ public class PlayerService extends Service {
                             activePlaylist = (Playlist) playlist;
                             createPlaylist(activePlaylist, shuffle);
                             if (activePlaylist.getSongs().size() == 0) {
-                                populateAndSend(PLAYBACK_NOTIFICATION_STOP, playlistPosition);
+                                populateAndSend(PLAYBACK_NOTIFICATION_STOP, activePlaylist.getPosition());
                             } else if (activePlaylist.getCurrentSong() == null && activePlaylist.getSongs().size() > 0) {
-                                populateAndSend(PLAYBACK_NOTIFICATION_NEXT, playlistPosition);
+                                populateAndSend(PLAYBACK_NOTIFICATION_NEXT, activePlaylist.getPosition());
                             }
                         }
                     });

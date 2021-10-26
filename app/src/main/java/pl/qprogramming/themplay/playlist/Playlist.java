@@ -42,6 +42,7 @@ public class Playlist extends Model implements Serializable, Cloneable {
     public static final String TEXT_COLOR = "text_color";
     public static final String NAME = "name";
     public static final String TEXT_OUTLINE = "text_outline";
+    public static final String POSITION = "position";
     @PrimaryKey
     private Long id;
     @Column(name = NAME)
@@ -65,6 +66,8 @@ public class Playlist extends Model implements Serializable, Cloneable {
     private int textColor;
     @Column(name = TEXT_OUTLINE)
     private boolean textOutline;
+    @Column(name = POSITION)
+    private int position;
 
 
     private List<Song> songs;

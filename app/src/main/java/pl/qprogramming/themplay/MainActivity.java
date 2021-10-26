@@ -53,6 +53,7 @@ import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_1_2;
+import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_2_3;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
@@ -113,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupDBConnection() {
         DatabaseConfig appDatabase = new DatabaseConfig.Builder(ThemPlayDatabase.class)
                 .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_2_3)
                 .build();
         ReActiveAndroid.init(new ReActiveConfig.Builder(this)
                 .addDatabaseConfigs(appDatabase)
