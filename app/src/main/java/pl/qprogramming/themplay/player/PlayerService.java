@@ -221,6 +221,11 @@ public class PlayerService extends Service {
 
     public void previous() {
         if (activePlaylist != null) {
+            if (isEmpty(activePlaylist.getPlaylist())) {
+                val sp = getDefaultSharedPreferences(this);
+                val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+                createPlaylist(activePlaylist, shuffle);
+            }
             val songs = activePlaylist.getPlaylist();
             val lastSongIndex = songs.size() - 1;
             //if this was first song we will loop around to last song in playlist
