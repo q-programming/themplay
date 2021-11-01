@@ -94,9 +94,10 @@ public class PlaylistSettingsFragment extends Fragment {
             removeBtn.setOnClickListener(clicked -> {
                 val songsToRemove = playlist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
                 playlistService.removeSongFromPlaylist(playlist, songsToRemove);
-                adapter.setMultiple(false);
-                adapter.setSongs(playlist.getSongs());
-                adapter.notifyDataSetChanged();
+                val recyclerView = (RecyclerView) view.findViewById(R.id.songs_list);
+                //change to custom adapter
+                adapter = new SongViewAdapter(playlist.getSongs());
+                recyclerView.setAdapter(adapter);
                 removeBtn.setVisibility(View.GONE);
                 Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
             });

@@ -131,12 +131,14 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             holder.active.setBackgroundColor(activeColor);
             holder.active.setVisibility(View.VISIBLE);
             holder.mCurrentFilename.setVisibility(View.VISIBLE);
+            holder.mCurrentFilename.setSelected(true);
         } else {
             if (!isEmpty(playlist.getBackgroundImage())) {
                 holder.background.setAlpha(0.5f);
             }
             holder.active.setVisibility(View.INVISIBLE);
             holder.mCurrentFilename.setVisibility(View.INVISIBLE);
+            holder.mCurrentFilename.setSelected(false);
         }
     }
 

@@ -505,7 +505,7 @@ public class PlayerService extends Service {
         if (args != null) {
             Optional.ofNullable(args.getSerializable(PLAYLIST))
                     .ifPresent(playlist -> {
-                        if (((Playlist) playlist).getId().equals(activePlaylist.getId())) {
+                        if (activePlaylist!=null && ((Playlist) playlist).getId().equals(activePlaylist.getId())) {
                             activePlaylist = (Playlist) playlist;
                             createPlaylist(activePlaylist, shuffle);
                             if (activePlaylist.getSongs().size() == 0) {
