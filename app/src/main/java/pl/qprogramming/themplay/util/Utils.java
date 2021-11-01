@@ -7,6 +7,7 @@ import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Random;
 
 import androidx.fragment.app.Fragment;
@@ -112,13 +113,14 @@ public class Utils {
         } else {
             playlist.setPlaylist(list);
         }
+        playlist.getPlaylist().removeAll(Collections.singleton(null));
     }
 
     public static void applyPlaylistStyle(int textColor, TextView textView, boolean textOutline) {
         textView.setTextColor(textColor);
         if (textOutline) {
             textView.setShadowLayer(1.6f, 1.5f, 1.5f, R.color.black);
-        }else{
+        } else {
             textView.setShadowLayer(0f, 0f, 0f, 0);
         }
     }

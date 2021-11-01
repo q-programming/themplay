@@ -124,7 +124,9 @@ public class PlayerService extends Service {
         }
         activePlaylist = playlist;
         val song = activePlaylist.getCurrentSong();
-        fadeIntoNewSong(song, song.getCurrentPosition());
+        if (song != null) {
+            fadeIntoNewSong(song, song.getCurrentPosition());
+        }
     }
 
 
