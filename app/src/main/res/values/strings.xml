@@ -47,6 +47,7 @@
     <string name="playlist_look_red">red</string>
     <string name="playlist_look_yellow">yellow</string>
     <string name="playlist_look_gray">gray</string>
+    <string name="playlist_look_violet">violet</string>
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
     <string name="playlist_now_playing">Now playing \"{0}\"</string>
     <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>

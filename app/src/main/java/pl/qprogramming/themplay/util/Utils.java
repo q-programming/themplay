@@ -134,7 +134,9 @@ public class Utils {
                 getThemeColor(context, R.attr.text_color_green),
                 getThemeColor(context, R.attr.text_color_red),
                 getThemeColor(context, R.attr.text_color_yellow),
-                getThemeColor(context, R.attr.text_color_gray)};
+                getThemeColor(context, R.attr.text_color_gray),
+                getThemeColor(context, R.attr.text_color_violet)
+        };
     }
 
 }

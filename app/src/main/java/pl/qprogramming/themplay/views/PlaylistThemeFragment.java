@@ -123,7 +123,10 @@ public class PlaylistThemeFragment extends Fragment {
                     context.getString(R.string.playlist_look_blue),
                     context.getString(R.string.playlist_look_green),
                     context.getString(R.string.playlist_look_red),
-                    context.getString(R.string.playlist_look_yellow)};
+                    context.getString(R.string.playlist_look_yellow),
+                    context.getString(R.string.playlist_look_gray),
+                    context.getString(R.string.playlist_look_violet)
+            };
             colors[playlist.getTextColor()] = colors[playlist.getTextColor()] + " \u2713";
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
             builder.setTitle(context.getString(R.string.playlist_look_change_text_color));

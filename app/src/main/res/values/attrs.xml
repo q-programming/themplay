@@ -9,5 +9,5 @@
     <attr name="text_color_red" format="reference" />
     <attr name="text_color_yellow" format="reference" />
     <attr name="text_color_gray" format="reference" />
-    <attr name="text_color_9" format="reference" />
+    <attr name="text_color_violet" format="reference" />
 </resources>

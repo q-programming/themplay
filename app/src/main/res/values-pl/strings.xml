@@ -43,6 +43,7 @@
     <string name="playlist_look_red">czerwony</string>
     <string name="playlist_look_yellow">żółty</string>
     <string name="playlist_look_gray">szary</string>
+    <string name="playlist_look_violet">fioletowy</string>
     <string name="playlist_active_no_songs">Plalista \"{0}\" nie ma żadnych piosenek i nie może być aktywowana</string>
     <string name="playlist_no_playlists">Nie masz jeszcze żadnych playlist. Dodaj najpierw jakąś</string>
     <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
