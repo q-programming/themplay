@@ -1,11 +1,15 @@
 package pl.qprogramming.themplay.views;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.text.InputType;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,24 +21,33 @@ import android.widget.Toast;
 
 import com.reactiveandroid.query.Select;
 
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.Optional;
 
+import androidx.activity.result.ActivityResult;
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.RecyclerView;
 import io.reactivex.android.schedulers.AndroidSchedulers;
+import lombok.SneakyThrows;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_REMOVED;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_SAVE;
 import static pl.qprogramming.themplay.settings.Property.CURRENT_PRESET;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
@@ -47,6 +60,9 @@ public class PresetsFragment extends Fragment {
     private static final String TAG = PresetsFragment.class.getSimpleName();
 
     PresetViewAdapter adapter;
+    private PlaylistService playlistService;
+    private boolean serviceIsBound;
+    private String presetContentBuffer = "";
 
     public PresetsFragment() {
     }
@@ -65,6 +81,9 @@ public class PresetsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        val context = this.requireContext();
+        val playlistServiceIntent = new Intent(context, PlaylistService.class);
+        context.bindService(playlistServiceIntent, mConnection, Context.BIND_AUTO_CREATE);
         val textView = (TextView) view.findViewById(R.id.header_title);
         textView.setText(getString(R.string.presets));
         view
@@ -74,6 +93,7 @@ public class PresetsFragment extends Fragment {
                         .popBackStack());
         view.findViewById(R.id.add_preset).setOnClickListener(click -> addPreset());
         renderPresetList(view);
+
     }
 
     private void renderPresetList(@NonNull View view) {
@@ -116,6 +136,7 @@ public class PresetsFragment extends Fragment {
         super.onResume();
         val filter = new IntentFilter(PRESET_ACTIVATED.getCode());
         filter.addAction(PRESET_REMOVED.getCode());
+        filter.addAction(PRESET_SAVE.getCode());
         requireActivity().registerReceiver(receiver, filter);
     }
 
@@ -124,6 +145,10 @@ public class PresetsFragment extends Fragment {
         super.onDestroy();
         try {
             requireActivity().unregisterReceiver(receiver);
+            if (serviceIsBound) {
+                this.requireContext().unbindService(mConnection);
+                serviceIsBound = false;
+            }
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Receiver not registered");
         }
@@ -151,25 +176,82 @@ public class PresetsFragment extends Fragment {
         @Override
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
+            val args = intent.getBundleExtra(ARGS);
             switch (event) {
                 case PRESET_REMOVED:
-                    val args = intent.getBundleExtra(ARGS);
-                    int position = (int) args.getSerializable(POSITION);
-                    val preset = (Preset) args.getSerializable(PRESET);
-                    val sp = getDefaultSharedPreferences(context);
-                    val currentPreset = sp.getString(CURRENT_PRESET, null);
-                    if (preset.getName().equals(currentPreset)) {
-                        sp.edit().putString(CURRENT_PRESET, null).apply();
-                        val newIntent = new Intent(PRESET_ACTIVATED.getCode());
-                        context.sendBroadcast(newIntent);
-                    }
-                    adapter.getPresets().remove(position);
-                    adapter.notifyItemRemoved(position);
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .map(serializable -> (Preset) serializable)
+                            .ifPresent(removedPreset -> {
+                                int position = (int) args.getSerializable(POSITION);
+                                val sp = getDefaultSharedPreferences(context);
+                                val currentPreset = sp.getString(CURRENT_PRESET, null);
+                                if (removedPreset.getName().equals(currentPreset)) {
+                                    sp.edit().putString(CURRENT_PRESET, null).apply();
+                                    val newIntent = new Intent(PRESET_ACTIVATED.getCode());
+                                    context.sendBroadcast(newIntent);
+                                }
+                                adapter.getPresets().remove(position);
+                                adapter.notifyItemRemoved(position);
+                            });
+                    break;
+                case PRESET_SAVE:
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .map(serializable -> (Preset) serializable)
+                            .ifPresent(savedPreset -> {
+                                presetContentBuffer = "";
+                                playlistService.savePreset(savedPreset.getName())
+                                        .subscribe(presetContent -> {
+                                            val saveIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                                            saveIntent.addCategory(Intent.CATEGORY_OPENABLE);
+                                            saveIntent.setType("text/plain");
+                                            saveIntent.putExtra(Intent.EXTRA_TITLE, savedPreset.getName() + ".txt");
+                                            presetContentBuffer = presetContent;
+                                            Log.d(TAG, presetContent);
+                                            fileSaveActivityResultLauncher.launch(saveIntent);
+                                        });
+
+                            });
                     break;
                 case PRESET_ACTIVATED:
                     adapter.notifyDataSetChanged();
                     break;
             }
+        }
+    };
+
+    ActivityResultLauncher<Intent> fileSaveActivityResultLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            new ActivityResultCallback<ActivityResult>() {
+                @Override
+                @SneakyThrows
+                public void onActivityResult(ActivityResult result) {
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        val uri = result.getData().getData();
+                        try {
+                            val outputStream = requireContext().getContentResolver().openOutputStream(uri);
+                            val documentFile = DocumentFile.fromSingleUri(requireContext(), uri);
+                            outputStream.write(presetContentBuffer.getBytes());
+                            outputStream.close();
+                            val context = requireContext();
+                            val msg = MessageFormat.format(context.getString(R.string.presets_saved), documentFile.getName());
+                            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                        } catch (IOException e) {
+                            Log.e(TAG, "Failed to write to file ", e);
+                            throw new IOException(e);
+                        }
+                    }
+                }
+            });
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            val binder = (PlaylistService.LocalBinder) service;
+            playlistService = binder.getService();
+            serviceIsBound = true;
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            playlistService = null;
         }
     };
 

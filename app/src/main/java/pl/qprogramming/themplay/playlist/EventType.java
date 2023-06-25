@@ -31,6 +31,7 @@ public enum EventType {
     PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND("q-programming.themplay.player.delete.song"),
     PRESET_ACTIVATED("q-programming.themplay.preset.activated"),
     PRESET_REMOVED("q-programming.themplay.preset.removed"),
+    PRESET_SAVE("q-programming.themplay.preset.save"),
     OPERATION_STARTED("q-programming.themplay.operation.started"),
     OPERATION_FINISHED("q-programming.themplay.operation.finished"),
     UNKNOWN("q-programming.themplay.n/a");

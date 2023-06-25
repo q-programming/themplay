@@ -16,6 +16,7 @@ import java.text.MessageFormat;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
@@ -80,11 +81,33 @@ public class PlaylistService extends Service {
     public Single<List<Playlist>> getAllAsync() {
         val sp = getDefaultSharedPreferences(this);
         val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return getByPresetAsync(currentPresetName);
+    }
+
+    public Single<List<Playlist>> getByPresetAsync(String preset) {
         return Select.from(Playlist.class)
-                .where(Playlist.PRESET + " =?", currentPresetName)
+                .where(Playlist.PRESET + " =?", preset)
                 .fetchAsync()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
+    }
+
+    public Single<String> savePreset(String preset) {
+        return this.getByPresetAsync(preset).map(playlists -> playlists.stream()
+                        .collect(Collectors.toMap(Function.identity(), this::fetchSongsByPlaylistSync)))
+                .map(playlistListMap -> {
+                    val content = new StringBuilder();
+                    playlistListMap.forEach((playlist, songs) -> {
+                        content.append("\n-----------\n");
+                        content.append(playlist.getName());
+                        songs.forEach(song -> content.append("\n- ")
+                                .append(song.getFilename())
+                                .append(" (")
+                                .append(song.getFilePath())
+                                .append(")"));
+                    });
+                    return content.toString();
+                });
     }
 
     /**

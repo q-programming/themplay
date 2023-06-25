@@ -16,8 +16,9 @@
     <string name="presets_already_exists">Zestaw o nazwie \"{0}\" juz istnieje, a musi być unikalny</string>
     <string name="preset_make_active">Aktywuj</string>
     <string name="presets_activated">Zestaw \"{0}\" jest teraz aktywny</string>
+    <string name="presets_saved">Zawartość zestawu została wylistowana do pliku \"{0}\" </string>
     <string name="preset_delete">Usuń zestaw</string>
-    <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte\n.Tej operacji nie da się cofnąć</string>
+    <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
