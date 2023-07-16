@@ -84,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
         setupLoader();
         setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+        checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         checkPermission(Manifest.permission.INTERNET);
         //load playlist fragment
         getSupportFragmentManager()

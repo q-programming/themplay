@@ -8,9 +8,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.IBinder;
 import android.text.InputType;
+import android.util.Base64;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,9 +24,18 @@ import android.widget.Toast;
 
 import com.reactiveandroid.query.Select;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.MessageFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultCallback;
@@ -40,7 +52,9 @@ import lombok.SneakyThrows;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 
@@ -58,11 +72,12 @@ import static pl.qprogramming.themplay.util.Utils.PRESET;
  */
 public class PresetsFragment extends Fragment {
     private static final String TAG = PresetsFragment.class.getSimpleName();
+    private static final String BACKGROUND = "background.jpg";
 
     PresetViewAdapter adapter;
     private PlaylistService playlistService;
     private boolean serviceIsBound;
-    private String presetContentBuffer = "";
+    private Map<Playlist, List<Song>> presetContentBuffer = new HashMap<>();
 
     public PresetsFragment() {
     }
@@ -198,15 +213,14 @@ public class PresetsFragment extends Fragment {
                     Optional.ofNullable(args.getSerializable(PRESET))
                             .map(serializable -> (Preset) serializable)
                             .ifPresent(savedPreset -> {
-                                presetContentBuffer = "";
-                                playlistService.savePreset(savedPreset.getName())
+                                presetContentBuffer = new HashMap<>();
+                                playlistService.getByPresetWithPlaylists(savedPreset.getName())
                                         .subscribe(presetContent -> {
                                             val saveIntent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                                             saveIntent.addCategory(Intent.CATEGORY_OPENABLE);
-                                            saveIntent.setType("text/plain");
-                                            saveIntent.putExtra(Intent.EXTRA_TITLE, savedPreset.getName() + ".txt");
+                                            saveIntent.setType("application/zip");
+                                            saveIntent.putExtra(Intent.EXTRA_TITLE, savedPreset.getName() + ".zip");
                                             presetContentBuffer = presetContent;
-                                            Log.d(TAG, presetContent);
                                             fileSaveActivityResultLauncher.launch(saveIntent);
                                         });
 
@@ -227,21 +241,90 @@ public class PresetsFragment extends Fragment {
                 public void onActivityResult(ActivityResult result) {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         val uri = result.getData().getData();
-                        try {
-                            val outputStream = requireContext().getContentResolver().openOutputStream(uri);
-                            val documentFile = DocumentFile.fromSingleUri(requireContext(), uri);
-                            outputStream.write(presetContentBuffer.getBytes());
-                            outputStream.close();
-                            val context = requireContext();
-                            val msg = MessageFormat.format(context.getString(R.string.presets_saved), documentFile.getName());
-                            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                        val logs = new StringBuilder();
+                        val documentFile = DocumentFile.fromSingleUri(requireContext(), uri);
+                        try (val outputStream = requireContext().getContentResolver().openOutputStream(uri); val zip = new ZipOutputStream(outputStream)) {
+                            val list = new StringBuilder();
+                            //create zip and list preset with it's songs
+                            for (Map.Entry<Playlist, List<Song>> e : presetContentBuffer.entrySet()) {
+                                Playlist playlist = e.getKey();
+                                List<Song> songs = e.getValue();
+                                list.append("\n-----------\n");
+                                list.append(playlist.getName());
+                                saveBackgroundToZip(zip, playlist);
+                                songs.forEach(song -> {
+                                    list.append("\n- ")
+                                            .append(song.getFilename())
+                                            .append(" (")
+                                            .append(song.getFilePath())
+                                            .append(")");
+                                    saveSongToFile(logs, zip, playlist, song);
+                                });
+                            }
+                            val bgEntry = new ZipEntry("preset_content.txt");
+                            zip.putNextEntry(bgEntry);
+                            zip.write(list.toString().getBytes());
+                            zip.closeEntry();
+
                         } catch (IOException e) {
                             Log.e(TAG, "Failed to write to file ", e);
                             throw new IOException(e);
+                        } finally {
+                            val context = requireContext();
+                            if (logs.length() > 0) {
+                                File logFile = new File(Environment.getExternalStorageDirectory() + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
+                                try (val bw = new BufferedWriter(new FileWriter(logFile))) {
+                                    bw.write(logs.toString());
+                                }
+                                val msg = MessageFormat.format(context.getString(R.string.presets_saved_errors), documentFile.getName(), logFile.getName());
+                                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                            } else {
+                                val msg = MessageFormat.format(context.getString(R.string.presets_saved), documentFile.getName());
+                                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                            }
                         }
                     }
                 }
             });
+
+    /**
+     * If playlists has a background , save it to file
+     */
+    private void saveBackgroundToZip(ZipOutputStream zip, Playlist playlist) throws IOException {
+        if (playlist.getBackgroundImage() != null) {
+            val bgEntry = new ZipEntry(playlist.getName() + "/" + BACKGROUND);
+            zip.putNextEntry(bgEntry);
+            zip.write(Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT));
+            zip.closeEntry();
+        }
+    }
+
+    /**
+     * Load file based on it's song uri and add it to zip file
+     */
+    private void saveSongToFile(StringBuilder logs, ZipOutputStream zip, Playlist playlist, Song song) {
+        val entry = new ZipEntry(playlist.getName() + "/" + song.getFilename());
+        val contentResolver = requireActivity().getApplicationContext().getContentResolver();
+        try {
+            zip.putNextEntry(entry);
+            val songUri = Uri.parse(song.getFileUri());
+            contentResolver.takePersistableUriPermission(songUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            val fd = contentResolver.openFileDescriptor(songUri, "r");
+            try (val fis = new FileInputStream(fd.getFileDescriptor())) {
+                byte[] buffer = new byte[1024];
+                int len;
+                while ((len = fis.read(buffer)) > 0) {
+                    zip.write(buffer, 0, len);
+                }
+            }
+            zip.closeEntry();
+        } catch (IOException ex) {
+            Log.e(TAG, "Error while trying to save file " + song.getFilename());
+            Log.e(TAG, ex.toString());
+            logs.append("\nFailed to save file ");
+            logs.append(ex);
+        }
+    }
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {

@@ -15,6 +15,7 @@ import com.reactiveandroid.query.Select;
 import java.text.MessageFormat;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -92,6 +93,23 @@ public class PlaylistService extends Service {
                 .observeOn(AndroidSchedulers.mainThread());
     }
 
+    /**
+     * Load all playlists with their songs belonging to selected preset
+     * @param preset Name of preset
+     * @return Map with Playlist and List of Songs
+     */
+    public  Single<Map<Playlist,List<Song>>> getByPresetWithPlaylists(String preset) {
+        return this.getByPresetAsync(preset)
+                .map(playlists -> playlists
+                        .stream()
+                        .collect(Collectors.toMap(Function.identity(), this::fetchSongsByPlaylistSync)));
+    }
+
+    /**
+     * List all Playlists and their songs belonging to preset
+     * @param preset
+     * @return
+     */
     public Single<String> savePreset(String preset) {
         return this.getByPresetAsync(preset).map(playlists -> playlists.stream()
                         .collect(Collectors.toMap(Function.identity(), this::fetchSongsByPlaylistSync)))
