@@ -16,7 +16,7 @@
     <string name="presets_already_exists">Zestaw o nazwie \"{0}\" juz istnieje, a musi być unikalny</string>
     <string name="preset_make_active">Aktywuj</string>
     <string name="presets_activated">Zestaw \"{0}\" jest teraz aktywny</string>
-    <string name="presets_saved">Zawartość zestawu została wylistowana do pliku \"{0}\" </string>
+    <string name="presets_saved">Zawartość zestawu została zapisana do pliku \"{0}\" </string>
     <string name="presets_saved_errors">Zawartość zestawu została zapisana do pliku \"{0}\", ale wystąpiły błedy. Proszę sprawdzić plik z logami {1}</string>
     <string name="preset_delete">Usuń zestaw</string>
     <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
@@ -74,6 +74,7 @@
     <string name="playlist_pasted">Utworzono kopię playlisty</string>
     <string name="playlist_copied">Skopiowano playlistę</string>
     <string name="playlist_paste_error">Wystąpił bład podczas próby wklejenia playlisty. Proszę spróbuj jeszcze raz</string>
+    <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
 
 
 </resources>

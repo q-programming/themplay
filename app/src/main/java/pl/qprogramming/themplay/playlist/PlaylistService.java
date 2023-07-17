@@ -15,9 +15,7 @@ import com.reactiveandroid.query.Select;
 import java.text.MessageFormat;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import androidx.annotation.Nullable;
@@ -56,8 +54,6 @@ public class PlaylistService extends Service {
         return mBinder;
     }
 
-    //repository methods
-
     /**
      * Returns all playlists. For each of those playlist try to fetch it's songs relation and store it into songs
      *
@@ -95,36 +91,17 @@ public class PlaylistService extends Service {
 
     /**
      * Load all playlists with their songs belonging to selected preset
+     *
      * @param preset Name of preset
      * @return Map with Playlist and List of Songs
      */
-    public  Single<Map<Playlist,List<Song>>> getByPresetWithPlaylists(String preset) {
+    public Observable<Playlist> getByPresetWithPlaylists(String preset) {
         return this.getByPresetAsync(preset)
-                .map(playlists -> playlists
-                        .stream()
-                        .collect(Collectors.toMap(Function.identity(), this::fetchSongsByPlaylistSync)));
-    }
-
-    /**
-     * List all Playlists and their songs belonging to preset
-     * @param preset
-     * @return
-     */
-    public Single<String> savePreset(String preset) {
-        return this.getByPresetAsync(preset).map(playlists -> playlists.stream()
-                        .collect(Collectors.toMap(Function.identity(), this::fetchSongsByPlaylistSync)))
-                .map(playlistListMap -> {
-                    val content = new StringBuilder();
-                    playlistListMap.forEach((playlist, songs) -> {
-                        content.append("\n-----------\n");
-                        content.append(playlist.getName());
-                        songs.forEach(song -> content.append("\n- ")
-                                .append(song.getFilename())
-                                .append(" (")
-                                .append(song.getFilePath())
-                                .append(")"));
-                    });
-                    return content.toString();
+                .toObservable()
+                .flatMap(Observable::fromIterable)
+                .map(playlist -> {
+                    playlist.setSongs(this.fetchSongsByPlaylistSync(playlist));
+                    return playlist;
                 });
     }
 
