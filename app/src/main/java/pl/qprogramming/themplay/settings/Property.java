@@ -31,6 +31,7 @@ public class Property extends Model implements Serializable {
     public static final String FADE_DURATION = "app.fade";
     public static final String CURRENT_PRESET = "app.preset";
     public static final String KEEP_SCREEN_ON = "app.keepScreen";
+    public static final String COPY_PLAYLIST = "app.copy";
     public static final String LANGUAGE = "app.lang";
 
     @PrimaryKey

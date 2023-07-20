@@ -15,7 +15,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -29,7 +31,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.EventType;
@@ -42,7 +43,7 @@ import static android.content.Intent.ACTION_OPEN_DOCUMENT;
 import static android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
-import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
+import static pl.qprogramming.themplay.views.SongListViewAdapter.MULTIPLE_SELECTED;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -50,12 +51,13 @@ import static pl.qprogramming.themplay.views.SongViewAdapter.MULTIPLE_SELECTED;
  */
 public class PlaylistSettingsFragment extends Fragment {
     private static final String TAG = PlaylistSettingsFragment.class.getSimpleName();
-    PlaylistService playlistService;
-    Playlist playlist;
-    TextInputEditText playlistEditText;
-    TextInputLayout playlistInputLayout;
-    SongViewAdapter adapter;
-    Button removeBtn;
+    private PlaylistService playlistService;
+    private Playlist playlist;
+    private TextInputEditText playlistEditText;
+    private TextInputLayout playlistInputLayout;
+    private SongListViewAdapter adapter;
+    private boolean multiple;
+    private Button removeBtn;
 
     public PlaylistSettingsFragment() {
         // Required empty public constructor
@@ -93,10 +95,12 @@ public class PlaylistSettingsFragment extends Fragment {
             removeBtn.setOnClickListener(clicked -> {
                 val songsToRemove = playlist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
                 playlistService.removeSongFromPlaylist(playlist, songsToRemove);
-                adapter.setMultiple(false);
+                removeBtn.setVisibility(View.GONE);
+                multiple = false;
+                adapter.setMultiple(multiple);
                 adapter.setSongs(playlist.getSongs());
                 adapter.notifyDataSetChanged();
-                removeBtn.setVisibility(View.GONE);
+                Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
             });
             val textView = (TextView) view.findViewById(R.id.header_title);
             view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
@@ -124,10 +128,9 @@ public class PlaylistSettingsFragment extends Fragment {
     }
 
     private void renderSongList(@NonNull View view) {
-        val recyclerView = (RecyclerView) view.findViewById(R.id.songs_list);
-        //change to custom adapter
-        adapter = new SongViewAdapter(playlist.getSongs());
-        recyclerView.setAdapter(adapter);
+        val listView = (ListView)view.findViewById(R.id.list_songs);
+        adapter = new SongListViewAdapter(view.getContext(), playlist.getSongs(), multiple);
+        listView.setAdapter(adapter);
         //add song listener
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
             Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
@@ -201,11 +204,24 @@ public class PlaylistSettingsFragment extends Fragment {
         });
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            requireActivity().unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
+
+    }
+
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             Log.d(TAG, "Multiple selection started");
             removeBtn.setVisibility(View.VISIBLE);
+            multiple = true;
+            adapter.notifyDataSetChanged();
         }
     };
 }

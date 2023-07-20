@@ -2,7 +2,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:card_view="http://schemas.android.com/apk/res-auto"
     android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/playlist_max_height"
     android:orientation="vertical">
 
     <androidx.cardview.widget.CardView
@@ -12,13 +12,26 @@
         android:layout_marginStart="10dp"
         android:layout_marginEnd="10dp"
         android:layout_marginBottom="15dp"
-        android:padding="15dp"
+        android:padding="30dp"
         card_view:cardCornerRadius="4dp"
         card_view:cardElevation="2dp">
+
+
+        <ImageView
+            android:id="@+id/card_background"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="center"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent">
+
+            <FrameLayout
+                android:visibility="invisible"
+                android:id="@+id/is_active"
+                android:layout_width="5dp"
+                android:layout_height="match_parent"/>
 
             <LinearLayout
                 android:id="@+id/text_wrapper"
@@ -47,16 +60,26 @@
                     android:paddingTop="8dp"
                     android:paddingEnd="16dp"
                     android:paddingBottom="8dp"
-                    android:rotationX="1"/>
+                    android:rotationX="1"
+                    android:ellipsize="marquee"
+                    android:singleLine="true"
+                    android:marqueeRepeatLimit="marquee_forever"
+                    android:scrollHorizontally="true"
+                    />
             </LinearLayout>
 
             <ImageView
-                android:id="@+id/delete"
+                android:id="@+id/playlist_menu_btn"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:layout_weight=".10"
                 android:contentDescription="@string/item_menu"
+                android:shadowColor="#000000"
+                android:shadowDx="1.5"
+                android:shadowDy="1.3"
+                android:shadowRadius="1.6"
+                android:textColor="@android:color/white"
                 card_view:srcCompat="@drawable/ic__more_vert_32" />
 
         </LinearLayout>

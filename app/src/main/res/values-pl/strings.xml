@@ -4,7 +4,7 @@
     <string name="item_menu">Menu pozycji</string>
     <string name="song_name">Nazwa piosenki</string>
     <string name="settings">Ustawienia</string>
-    <string name="about">O aplikacji</string>
+    <string name="about">O aplikacji i pomoc</string>
     <string name="toggle_night_mode">Przełacz tryb nocny</string>
     <string name="presets">Zestawy</string>
     <string name="presets_add">Dodaj nowy zestaw</string>
@@ -16,22 +16,42 @@
     <string name="presets_already_exists">Zestaw o nazwie \"{0}\" juz istnieje, a musi być unikalny</string>
     <string name="preset_make_active">Aktywuj</string>
     <string name="presets_activated">Zestaw \"{0}\" jest teraz aktywny</string>
+    <string name="presets_saved">Zawartość zestawu została zapisana do pliku \"{0}\" </string>
+    <string name="presets_saved_errors">Zawartość zestawu została zapisana do pliku \"{0}\", ale wystąpiły błedy. Proszę sprawdzić plik z logami {1}</string>
     <string name="preset_delete">Usuń zestaw</string>
-    <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte\n.Tej operacji nie da się cofnąć</string>
+    <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
+    <string name="playlist_change_look">Zmień wygląd playlisty</string>
     <string name="playlist_delete_playlist_confirm">Czy na pewno chcesz usunąc playlistę \"{0}\"?</string>
     <string name="playlist_now_playing">Teraz odtwarzam \"{0}\"</string>
     <string name="playlist_now_playing_notificatoin">Teraz odtwarzam</string>
-    <string name="playlist_active_no_songs">Plalista \"{0}\" jest aktywna, ale nie ma w niej piosenek</string>
+    <string name="playlist_look_preview">Podgląd</string>
+    <string name="playlist_look_active">Aktywna</string>
+    <string name="playlist_look_inactive">Nie aktywna</string>
+    <string name="playlist_look_change_text_color">Zmień kolor tekstu</string>
+    <string name="playlist_look_change_background">Zmień tło</string>
+    <string name="playlist_look_remove_background">Usuń tło</string>
+    <string name="playlist_look_text_outline">Obrysowanie tekstu cieniem</string>
+    <string name="playlist_look_song">Some nice song.mp3</string>
+    <string name="playlist_look_default">domyślny</string>
+    <string name="playlist_look_white">biały</string>
+    <string name="playlist_look_black">czarny</string>
+    <string name="playlist_look_blue">niebieski</string>
+    <string name="playlist_look_green">zielony</string>
+    <string name="playlist_look_red">czerwony</string>
+    <string name="playlist_look_yellow">żółty</string>
+    <string name="playlist_look_gray">szary</string>
+    <string name="playlist_look_violet">fioletowy</string>
+    <string name="playlist_active_no_songs">Plalista \"{0}\" nie ma żadnych piosenek i nie może być aktywowana</string>
     <string name="playlist_no_playlists">Nie masz jeszcze żadnych playlist. Dodaj najpierw jakąś</string>
     <string name="playlist_name_atLeastOneChar">Proszę wprowadzić przynajmniej jeden znak!</string>
     <string name="playlist_add_atLeastOneChar">Nazwa twojej playlisty musi mieć przynajmniej jeden znak</string>
     <string name="playlist_add_created">Utworzono nową playlistę \"{0}\"</string>
-    <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna</string>
+    <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna, lub wybrana lista nie ma wystarczająco piosenek</string>
     <string name="playlist_cant_play">Nie można odtworzyć piosenki \"{0}\"!</string>
     <string name="playlist_add_new_song">Dodaj nową piosenkę</string>
     <string name="playlist_remove_selected">Usuń zaznaczone piosenki</string>
@@ -49,6 +69,12 @@
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
     <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
+    <string name="playlist_copy">Kopiuj playlistę</string>
+    <string name="playlist_paste">Wklej playlistę</string>
+    <string name="playlist_pasted">Utworzono kopię playlisty</string>
+    <string name="playlist_copied">Skopiowano playlistę</string>
+    <string name="playlist_paste_error">Wystąpił bład podczas próby wklejenia playlisty. Proszę spróbuj jeszcze raz</string>
+    <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
 
 
 </resources>

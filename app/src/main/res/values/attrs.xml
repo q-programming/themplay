@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="card_background_color" format="reference" />
+    <attr name="text_color_default" format="reference" />
+    <attr name="text_color_white" format="reference" />
+    <attr name="text_color_black" format="reference" />
+    <attr name="text_color_blue" format="reference" />
+    <attr name="text_color_green" format="reference" />
+    <attr name="text_color_red" format="reference" />
+    <attr name="text_color_yellow" format="reference" />
+    <attr name="text_color_gray" format="reference" />
+    <attr name="text_color_violet" format="reference" />
+</resources>

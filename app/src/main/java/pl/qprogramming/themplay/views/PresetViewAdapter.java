@@ -26,6 +26,7 @@ import pl.qprogramming.themplay.settings.Property;
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_REMOVED;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_SAVE;
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 
 public class PresetViewAdapter extends RecyclerView.Adapter<PresetViewAdapter.ViewHolder> {
@@ -75,7 +76,7 @@ public class PresetViewAdapter extends RecyclerView.Adapter<PresetViewAdapter.Vi
                     .setNegativeButton(context.getString(R.string.cancel), (dialog, which) -> dialog.cancel())
                     .show();
         });
-
+        holder.save.setOnClickListener(click -> savePreset(preset,context));
         val currentPreset = sp.getString(Property.CURRENT_PRESET, null);
         if (preset.getName().equals(currentPreset)) {
             holder.mView.setBackgroundColor(getThemeColor(holder.mView, R.attr.colorSecondary));
@@ -95,7 +96,14 @@ public class PresetViewAdapter extends RecyclerView.Adapter<PresetViewAdapter.Vi
         intent.putExtra(ARGS, args);
         context.sendBroadcast(intent);
         preset.delete();
+    }
 
+    private void savePreset(Preset preset, Context context) {
+        Intent intent = new Intent(PRESET_SAVE.getCode());
+        val args = new Bundle();
+        args.putSerializable(PRESET, preset);
+        intent.putExtra(ARGS, args);
+        context.sendBroadcast(intent);
     }
 
     @Override
@@ -108,6 +116,7 @@ public class PresetViewAdapter extends RecyclerView.Adapter<PresetViewAdapter.Vi
         public final TextView presetName;
         public final Button activate;
         public final ImageView delete;
+        public final ImageView save;
         public Preset preset;
 
         public ViewHolder(View view) {
@@ -116,6 +125,7 @@ public class PresetViewAdapter extends RecyclerView.Adapter<PresetViewAdapter.Vi
             presetName = view.findViewById(R.id.preset_name);
             activate = view.findViewById(R.id.activate_preset);
             delete = view.findViewById(R.id.delete_preset);
+            save = view.findViewById(R.id.save_preset);
         }
 
         @Override

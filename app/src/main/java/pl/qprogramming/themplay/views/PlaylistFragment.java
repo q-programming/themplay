@@ -15,12 +15,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import java.util.Objects;
 import java.util.Optional;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import lombok.val;
@@ -30,10 +30,12 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.settings.Property;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_CHANGE_BACKGROUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_PAUSE;
@@ -91,12 +93,11 @@ public class PlaylistFragment extends Fragment {
         presetName.setOnClickListener(click ->
                 navigateToFragment(requireActivity()
                         .getSupportFragmentManager(), new PresetsFragment(), "presets"));
-
     }
 
     private void bindRecyclerViewAndService(@NonNull View view) {
         val context = requireActivity().getApplicationContext();
-        recyclerView = (RecyclerView) view.findViewById(R.id.playlist_item_list);
+        recyclerView = view.findViewById(R.id.playlist_item_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
@@ -110,7 +111,9 @@ public class PlaylistFragment extends Fragment {
         filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PLAYLIST_CHANGE_BACKGROUND.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE_SONGS.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PLAY.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PAUSE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_NEXT.getCode());
@@ -119,13 +122,28 @@ public class PlaylistFragment extends Fragment {
         requireActivity().registerReceiver(receiver, filter);
     }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            requireActivity().unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
+    }
+
     private final ServiceConnection mConnection = new ServiceConnection() {
         @SuppressLint("CheckResult")
         public void onServiceConnected(ComponentName className, IBinder service) {
             Log.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
-            recyclerView.setAdapter(new PlaylistItemRecyclerViewAdapter(playlistService, getActivity()));
+            val adapter = new PlaylistItemRecyclerViewAdapter(playlistService, getActivity());
+            recyclerView.setAdapter(adapter);
+            ItemTouchHelper.Callback callback =
+                    new PlaylistItemMoveCallback(adapter);
+            ItemTouchHelper touchHelper = new ItemTouchHelper(callback);
+            touchHelper.attachToRecyclerView(recyclerView);
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -141,21 +159,39 @@ public class PlaylistFragment extends Fragment {
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
+                val adapter = (PlaylistItemRecyclerViewAdapter) recyclerView.getAdapter();
                 switch (event) {
+                    case PLAYLIST_CHANGE_BACKGROUND:
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_STOP:
                     case PLAYLIST_NOTIFICATION_PREV:
-                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
                         Optional.ofNullable(args.getSerializable(POSITION))
-                                .ifPresent(position -> Objects.requireNonNull(recyclerView.getAdapter())
-                                        .notifyItemChanged((int) position));
+                                .ifPresent(position -> {
+                                    int activated = (int) position;
+                                    adapter.reloadItemAt(activated);
+                                    adapter.notifyItemChanged(activated);
+                                });
+                        break;
+                    case PLAYLIST_NOTIFICATION_ACTIVE:
+                    case PLAYLIST_NOTIFICATION_ADD:
+                        adapter.reloadAll();
+                        adapter.notifyDataSetChanged();
+                        break;
+                    case PLAYLIST_NOTIFICATION_DELETE:
+                        Optional.ofNullable(args.getSerializable(POSITION))
+                                .ifPresent(position -> {
+                                    int deletedPosition = (int) position;
+                                    adapter.notifyItemRemoved(deletedPosition);
+                                    adapter.reloadAll();
+                                });
                         break;
                     default:
                         Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
-                        Objects.requireNonNull(recyclerView.getAdapter()).notifyDataSetChanged();
+                        adapter.notifyDataSetChanged();
                 }
             }
         }
     };
+
 }

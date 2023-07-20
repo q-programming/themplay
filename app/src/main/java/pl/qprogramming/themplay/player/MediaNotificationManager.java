@@ -55,7 +55,7 @@ public class MediaNotificationManager {
         val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
                 .setContentIntent(pendingIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSmallIcon(R.drawable.ic_logo_v2)
+                .setSmallIcon(R.drawable.ic_logo)
                 .addAction(R.drawable.ic_previous_32, "Previous", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_PREV.getCode()), PendingIntent.FLAG_UPDATE_CURRENT))
                 .addAction(R.drawable.ic_stop_32, "Stop", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_STOP.getCode()), PendingIntent.FLAG_UPDATE_CURRENT));
         if (pause) {
@@ -74,7 +74,7 @@ public class MediaNotificationManager {
     @RequiresApi(Build.VERSION_CODES.O)
     private void createNotificationChannel() {
         val chan = new NotificationChannel(CHANNEL_ID,
-                mService.getString(R.string.playlist_now_playing_notificatoin), android.app.NotificationManager.IMPORTANCE_NONE);
+                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_HIGH);
         chan.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         chan.setLightColor(Color.BLUE);
         notificationManager.createNotificationChannel(chan);

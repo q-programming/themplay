@@ -6,6 +6,9 @@
         android:id="@+id/addPlaylist"
         android:title="@string/playlist_add_new_playlist" />
     <item
+        android:id="@+id/pastePlaylist"
+        android:title="@string/playlist_paste" />
+    <item
         android:id="@+id/settings"
         android:title="@string/settings" />
     <item

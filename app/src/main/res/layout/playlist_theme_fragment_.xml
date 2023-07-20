@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".views.PlaylistThemeFragment">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <include
+            android:id="@+id/include"
+            layout="@layout/header" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintTop_toBottomOf="@+id/include">
+
+            <TextView
+                android:id="@+id/active_text"
+                android:layout_marginStart="8dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_active" />
+
+            <include
+                android:id="@+id/activePlaylist"
+                layout="@layout/playlist_item"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/playlist_max_height" />
+
+            <TextView
+                android:id="@+id/inactive_text"
+                android:layout_marginStart="8dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_inactive" />
+
+            <include
+                android:id="@+id/inactivePlaylist"
+                layout="@layout/playlist_item"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/playlist_max_height" />
+
+            <Button
+                android:id="@+id/change_background"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_change_background" />
+
+            <Button
+                android:id="@+id/remove_background"
+                android:visibility="gone"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_remove_background" />
+            <Button
+                android:id="@+id/change_text_color"
+                style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_change_text_color" />
+
+            <com.google.android.material.switchmaterial.SwitchMaterial
+                style="?android:attr/buttonBarButtonStyle"
+                android:id="@+id/toggle_text_outline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/playlist_look_text_outline" />
+
+
+        </LinearLayout>
+
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+</FrameLayout>

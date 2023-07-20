@@ -26,6 +26,11 @@
         android:textAppearance="?attr/textAppearanceListItem" />
 
     <ImageView
+        android:id="@+id/save_preset"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:srcCompat="@drawable/ic_save_24" />
+    <ImageView
         android:id="@+id/delete_preset"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

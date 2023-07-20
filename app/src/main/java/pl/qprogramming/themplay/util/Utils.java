@@ -3,9 +3,11 @@ package pl.qprogramming.themplay.util;
 import android.content.Context;
 import android.util.TypedValue;
 import android.view.View;
+import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Random;
 
 import androidx.fragment.app.Fragment;
@@ -19,9 +21,12 @@ import pl.qprogramming.themplay.playlist.Song;
 public class Utils {
 
     public static final String POSITION = "position";
+    public static final String SONG = "song";
     public static final String PLAYLIST = "playlist";
     public static final String PRESET = "preset";
     public static final String ARGS = "args";
+    public static final String WIDTH = "width";
+    public static final String HEIGHT = "height";
 
 
     private Utils() {
@@ -108,5 +113,30 @@ public class Utils {
         } else {
             playlist.setPlaylist(list);
         }
+        playlist.getPlaylist().removeAll(Collections.singleton(null));
     }
+
+    public static void applyPlaylistStyle(int textColor, TextView textView, boolean textOutline) {
+        textView.setTextColor(textColor);
+        if (textOutline) {
+            textView.setShadowLayer(1.6f, 1.5f, 1.5f, R.color.black);
+        } else {
+            textView.setShadowLayer(0f, 0f, 0f, 0);
+        }
+    }
+
+    public static int[] loadColorsArray(Context context) {
+        return new int[]{
+                getThemeColor(context, R.attr.text_color_default),
+                getThemeColor(context, R.attr.text_color_white),
+                getThemeColor(context, R.attr.text_color_black),
+                getThemeColor(context, R.attr.text_color_blue),
+                getThemeColor(context, R.attr.text_color_green),
+                getThemeColor(context, R.attr.text_color_red),
+                getThemeColor(context, R.attr.text_color_yellow),
+                getThemeColor(context, R.attr.text_color_gray),
+                getThemeColor(context, R.attr.text_color_violet)
+        };
+    }
+
 }

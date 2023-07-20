@@ -11,6 +11,7 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -24,6 +25,7 @@ import com.reactiveandroid.ReActiveConfig;
 import com.reactiveandroid.internal.database.DatabaseConfig;
 
 import java.text.MessageFormat;
+import java.util.Collections;
 import java.util.Optional;
 
 import androidx.appcompat.app.AlertDialog;
@@ -32,12 +34,15 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.preference.PreferenceManager;
 import lombok.val;
 import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.Playlist;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.Song;
 import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.Preset;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
@@ -47,9 +52,13 @@ import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_1_2;
+import static pl.qprogramming.themplay.playlist.ThemPlayDatabase.MIGRATION_2_3;
+import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
+import static pl.qprogramming.themplay.util.Utils.SONG;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -75,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
         setupLoader();
         setupMediaControls();
         checkPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
-        checkPermission(Manifest.permission.INTERNET);
+        checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
         checkPermission(Manifest.permission.INTERNET);
         //load playlist fragment
         getSupportFragmentManager()
@@ -91,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.PRESET_REMOVED.getCode());
         filter.addAction(EventType.OPERATION_STARTED.getCode());
         filter.addAction(EventType.OPERATION_FINISHED.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         registerReceiver(receiver, filter);
     }
 
@@ -104,6 +114,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void setupDBConnection() {
         DatabaseConfig appDatabase = new DatabaseConfig.Builder(ThemPlayDatabase.class)
+                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_2_3)
                 .build();
         ReActiveAndroid.init(new ReActiveConfig.Builder(this)
                 .addDatabaseConfigs(appDatabase)
@@ -111,10 +123,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupMainMenu() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this);
         val menu = findViewById(R.id.menu);
         menu.setOnClickListener(menuView -> {
             val popup = new PopupMenu(this, menu);
             popup.getMenuInflater().inflate(R.menu.settings_menu, popup.getMenu());
+            val copyId = sp.getLong(COPY_PLAYLIST, -1L);
+            popup.getMenu().findItem(R.id.pastePlaylist).setVisible(copyId >= 0);
             popup.setOnMenuItemClickListener(item -> {
                 val itemId = item.getItemId();
                 if (itemId == R.id.addPlaylist) {
@@ -123,6 +138,14 @@ public class MainActivity extends AppCompatActivity {
                     navigateToFragment(getSupportFragmentManager(), new SettingsFragment(), "settings");
                 } else if (itemId == R.id.preset) {
                     navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
+                } else if (itemId == R.id.pastePlaylist) {
+                    try {
+                        playlistService.paste(copyId);
+                    } catch (PlaylistNotFoundException | CloneNotSupportedException e) {
+                        Log.d(TAG, "something went wrong while trying to paste playlist", e);
+                        Toast.makeText(this, getString(R.string.playlist_paste_error), Toast.LENGTH_LONG).show();
+                        e.printStackTrace();
+                    }
                 } else {
                     navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
                 }
@@ -245,7 +268,11 @@ public class MainActivity extends AppCompatActivity {
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
-                        val playlist = Playlist.builder().name(playlistName).preset(currentPresetName).build();
+                        val playlist = Playlist
+                                .builder()
+                                .name(playlistName)
+                                .preset(currentPresetName)
+                                .build();
                         playlistService.addPlaylist(playlist);
                         val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                         sendBroadcast(notify);
@@ -264,6 +291,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStop() {
         doUnbindService();
+        try {
+            unregisterReceiver(receiver);
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
+        }
         super.onStop();
     }
 
@@ -363,6 +395,13 @@ public class MainActivity extends AppCompatActivity {
                                 if (playerService.isActivePlaylist((Playlist) playlist)) {
                                     renderPlayButton();
                                 }
+                            }));
+                    break;
+                case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> {
+                                val song = (Song) args.getSerializable(SONG);
+                                playlistService.removeSongFromPlaylist((Playlist) playlist, Collections.singletonList(song), true);
                             }));
                     break;
             }

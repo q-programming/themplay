@@ -3,7 +3,7 @@
     <string name="item_menu">Item menu</string>
     <string name="song_name">Song name</string>
     <string name="settings">Settings</string>
-    <string name="about">About</string>
+    <string name="about">About and help</string>
     <string name="cancel">Cancel</string>
     <string name="create">Create</string>
     <string name="delete">delete</string>
@@ -16,6 +16,9 @@
     <string name="presets_create_first">Please activate preset before creating playlist</string>
     <string name="presets_created">Preset \"{0}\" created</string>
     <string name="presets_activated">Preset \"{0}\" is now active</string>
+    <string name="presets_saved">Preset contents were saved to file \"{0}\" </string>
+    <string name="presets_please_wait">Please wait…saving preset</string>
+    <string name="presets_saved_errors">Preset contents were saved to file \"{0}\" , but there were errors, please check logs in {1} file  </string>
     <string name="presets_already_exists">Preset with name \"{0}\" already exists and it must be unique</string>
     <string name="preset_make_active">Make active</string>
     <string name="preset_delete">Delete preset</string>
@@ -23,14 +26,36 @@
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
-
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
+    <string name="playlist_change_look">Change playlist look</string>
+    <string name="playlist_copy">Copy playlist</string>
+    <string name="playlist_paste">Paste playlist</string>
+    <string name="playlist_pasted">Copy of playlist created</string>
+    <string name="playlist_copied">Playlist copied</string>
+    <string name="playlist_paste_error">There was an error while trying to paste playlist, please try again</string>
+    <string name="playlist_look_preview">Preview</string>
+    <string name="playlist_look_active">Active</string>
+    <string name="playlist_look_inactive">Inactive</string>
+    <string name="playlist_look_change_text_color">Change text color</string>
+    <string name="playlist_look_change_background">Change background</string>
+    <string name="playlist_look_remove_background">Remove background</string>
+    <string name="playlist_look_song">Jakaś fajna piosenka.mp3</string>
+    <string name="playlist_look_text_outline">Add shadow outline around text</string>
+    <string name="playlist_look_default">default</string>
+    <string name="playlist_look_white">white</string>
+    <string name="playlist_look_black">black</string>
+    <string name="playlist_look_blue">blue</string>
+    <string name="playlist_look_green">green</string>
+    <string name="playlist_look_red">red</string>
+    <string name="playlist_look_yellow">yellow</string>
+    <string name="playlist_look_gray">gray</string>
+    <string name="playlist_look_violet">violet</string>
     <string name="playlist_delete_playlist_confirm">Are you sure you want to delete playlist \"{0}\"?</string>
     <string name="playlist_now_playing">Now playing \"{0}\"</string>
     <string name="playlist_no_playlists">There are no playlists to play. Add one first</string>
-    <string name="playlist_no_active_playlist">There are no active playlists, please select one first</string>
-    <string name="playlist_active_no_songs">Playlist \"{0}\" is active but there are no songs in it</string>
+    <string name="playlist_no_active_playlist">Playlist ist not active or there are not enough songs to play</string>
+    <string name="playlist_active_no_songs">Playlist \"{0}\" has no songs in it, and cannot be activated</string>
     <string name="playlist_name_atLeastOneChar">Please enter at least single character!</string>
     <string name="playlist_add_atLeastOneChar">Your playlist name must have at least single character!</string>
     <string name="playlist_add_created">New playlist \"{0}\" created</string>
@@ -49,7 +74,7 @@
     <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
-
     <string name="playlist_now_playing_notificatoin">Now playing</string>
+
 
 </resources>

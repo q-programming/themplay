@@ -17,6 +17,10 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.playlist.Song;
 
+/**
+ * Deprecated. For now left untill new solution proves to be better
+ */
+@Deprecated
 public class SongViewAdapter extends RecyclerView.Adapter<SongViewAdapter.ViewHolder> {
     public static final String MULTIPLE_SELECTED = "q-programming.themplay.playlist.multiple";
     @Setter
