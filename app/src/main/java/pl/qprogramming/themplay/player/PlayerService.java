@@ -136,6 +136,11 @@ public class PlayerService extends Service {
         }
     }
 
+    private boolean isFadeStop() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        return sp.getBoolean(Property.FADE_STOP, false);
+    }
+
     private int getDuration() {
         val sp = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
         return Integer.parseInt(sp.getString(Property.FADE_DURATION, "4")) * 1000;
@@ -178,8 +183,12 @@ public class PlayerService extends Service {
                             .subscribe();
                 }
             }
-            mediaPlayer.reset();
-            mediaPlayer.release();
+            if (isFadeStop()) {
+                fadeOut(mediaPlayer);
+            } else {
+                mediaPlayer.reset();
+                mediaPlayer.release();
+            }
             progressHandler.removeCallbacks(updateProgressTask);
         }
     }
@@ -505,7 +514,7 @@ public class PlayerService extends Service {
         if (args != null) {
             Optional.ofNullable(args.getSerializable(PLAYLIST))
                     .ifPresent(playlist -> {
-                        if (activePlaylist!=null && ((Playlist) playlist).getId().equals(activePlaylist.getId())) {
+                        if (activePlaylist != null && ((Playlist) playlist).getId().equals(activePlaylist.getId())) {
                             activePlaylist = (Playlist) playlist;
                             createPlaylist(activePlaylist, shuffle);
                             if (activePlaylist.getSongs().size() == 0) {

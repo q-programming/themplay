@@ -20,5 +20,10 @@
         android:defaultValue="true"
         android:summary="@string/settings_keep_screen_summary"
         app:title="@string/settings_keep_screen" />
+    <SwitchPreferenceCompat
+        app:key="app.fadeStop"
+        android:defaultValue="false"
+        android:summary="@string/settings_fadeStop_info"
+        app:title="@string/settings_fadeStop" />
 
 </PreferenceScreen>
