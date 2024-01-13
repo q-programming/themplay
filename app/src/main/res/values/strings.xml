@@ -75,6 +75,8 @@
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
     <string name="playlist_now_playing_notificatoin">Now playing</string>
+    <string name="settings_fadeStop">Fade out songs when stopping</string>
+    <string name="settings_fadeStop_info">When pressing stop button , song will be faded out instead of stopping right away</string>
 
 
 </resources>

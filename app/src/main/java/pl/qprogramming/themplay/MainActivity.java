@@ -92,6 +92,7 @@ public class MainActivity extends AppCompatActivity {
                 .replace(R.id.activity_fragment_layout, new PlaylistFragment())
                 .commit();
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_PLAY.getCode());
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_STOP.getCode());
@@ -383,6 +384,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case PLAYBACK_NOTIFICATION_PLAY:
                 case PLAYLIST_NOTIFICATION_ACTIVE:
+                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
                     renderPauseButton();
                     break;
                 case PLAYBACK_NOTIFICATION_STOP:

@@ -75,6 +75,8 @@
     <string name="playlist_copied">Skopiowano playlistę</string>
     <string name="playlist_paste_error">Wystąpił bład podczas próby wklejenia playlisty. Proszę spróbuj jeszcze raz</string>
     <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
+    <string name="settings_fadeStop">Wycisz utwór kiedy stopowane</string>
+    <string name="settings_fadeStop_info">Kiedy zostanie naciśnięty stop, piosenka zatrzyma się z wyciszeniem zamiast od razu</string>
 
 
 </resources>

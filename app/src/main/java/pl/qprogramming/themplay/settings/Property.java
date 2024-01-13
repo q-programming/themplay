@@ -29,6 +29,7 @@ public class Property extends Model implements Serializable {
     public static final String DARK_MODE = "app.dark.mode";
     public static final String SHUFFLE_MODE = "app.shuffle";
     public static final String FADE_DURATION = "app.fade";
+    public static final String FADE_STOP = "app.fadeStop";
     public static final String CURRENT_PRESET = "app.preset";
     public static final String KEEP_SCREEN_ON = "app.keepScreen";
     public static final String COPY_PLAYLIST = "app.copy";
