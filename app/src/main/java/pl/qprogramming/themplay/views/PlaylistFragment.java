@@ -1,34 +1,5 @@
 package pl.qprogramming.themplay.views;
 
-import android.annotation.SuppressLint;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.ServiceConnection;
-import android.os.Bundle;
-import android.os.IBinder;
-import android.util.Log;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.TextView;
-
-import java.util.Optional;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.ItemTouchHelper;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import lombok.val;
-import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.EventType;
-import pl.qprogramming.themplay.playlist.PlaylistService;
-import pl.qprogramming.themplay.settings.Property;
-
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_CHANGE_BACKGROUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION;
@@ -46,6 +17,37 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
+
+import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.Optional;
+
+import lombok.val;
+import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.settings.Property;
 
 /**
  * A fragment representing a list of Items.
@@ -100,6 +102,7 @@ public class PlaylistFragment extends Fragment {
         recyclerView = view.findViewById(R.id.playlist_item_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
+        intent.putExtra("Requester", TAG);
         context.bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
 
@@ -119,14 +122,14 @@ public class PlaylistFragment extends Fragment {
         filter.addAction(PLAYLIST_NOTIFICATION_NEXT.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_PREV.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_STOP.getCode());
-        requireActivity().registerReceiver(receiver, filter);
+        LocalBroadcastManager.getInstance(requireActivity()).registerReceiver(receiver, filter);
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         try {
-            requireActivity().unregisterReceiver(receiver);
+            LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Receiver not registered");
         }
@@ -140,6 +143,7 @@ public class PlaylistFragment extends Fragment {
             serviceIsBound = true;
             val adapter = new PlaylistItemRecyclerViewAdapter(playlistService, getActivity());
             recyclerView.setAdapter(adapter);
+            adapter.loadPlaylists();
             ItemTouchHelper.Callback callback =
                     new PlaylistItemMoveCallback(adapter);
             ItemTouchHelper touchHelper = new ItemTouchHelper(callback);
@@ -160,34 +164,36 @@ public class PlaylistFragment extends Fragment {
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 val adapter = (PlaylistItemRecyclerViewAdapter) recyclerView.getAdapter();
+                if (adapter == null) {
+                    Log.w(TAG, "Lost Adapter while receiving event");
+                    return;
+                }
                 switch (event) {
                     case PLAYLIST_CHANGE_BACKGROUND:
                     case PLAYLIST_NOTIFICATION_PLAY:
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_STOP:
                     case PLAYLIST_NOTIFICATION_PREV:
-                        Optional.ofNullable(args.getSerializable(POSITION))
+                        Optional.ofNullable(args.getSerializable(POSITION, Integer.class))
                                 .ifPresent(position -> {
-                                    int activated = (int) position;
+                                    int activated = position;
                                     adapter.reloadItemAt(activated);
                                     adapter.notifyItemChanged(activated);
                                 });
                         break;
                     case PLAYLIST_NOTIFICATION_ACTIVE:
                     case PLAYLIST_NOTIFICATION_ADD:
-                        adapter.reloadAll();
-                        adapter.notifyDataSetChanged();
+                        adapter.loadPlaylists();
                         break;
                     case PLAYLIST_NOTIFICATION_DELETE:
-                        Optional.ofNullable(args.getSerializable(POSITION))
+                        Optional.ofNullable(args.getSerializable(POSITION, Integer.class))
                                 .ifPresent(position -> {
-                                    int deletedPosition = (int) position;
-                                    adapter.notifyItemRemoved(deletedPosition);
-                                    adapter.reloadAll();
+                                    adapter.notifyItemRemoved(position);
+                                    adapter.loadPlaylists();
                                 });
                         break;
                     default:
-                        Log.d(TAG, "Processing event within playlistFragment " + intent.getAction());
+                        Log.d(TAG, "Processing event within playlistFragment, reloading  " + intent.getAction());
                         adapter.notifyDataSetChanged();
                 }
             }

@@ -5,18 +5,18 @@ import android.util.TypedValue;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Random;
 
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
 import lombok.val;
-import lombok.var;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.Playlist;
-import pl.qprogramming.themplay.playlist.Song;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.domain.Song;
 
 public class Utils {
 
@@ -99,7 +99,7 @@ public class Utils {
         val list = new ArrayList<>(playlist.getSongs());
         if (shuffle) {
             val shuffledPlaylist = new ArrayList<Song>();
-            while (list.size() > 0) {
+            while (!list.isEmpty()) {
                 var index = list.size() - 1;
                 if (index > 0) {
                     index = new Random().nextInt(list.size() - 1);

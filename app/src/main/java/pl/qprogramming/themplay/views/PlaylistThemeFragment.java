@@ -1,35 +1,5 @@
 package pl.qprogramming.themplay.views;
 
-import android.annotation.SuppressLint;
-import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.Bundle;
-import android.util.Base64;
-import android.view.LayoutInflater;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.FrameLayout;
-import android.widget.ImageView;
-import android.widget.TextView;
-
-import com.google.android.material.switchmaterial.SwitchMaterial;
-import com.reactiveandroid.query.Select;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.fragment.app.Fragment;
-import lombok.val;
-import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.activities.ChangeBackgroundActivity;
-import pl.qprogramming.themplay.playlist.EventType;
-import pl.qprogramming.themplay.playlist.Playlist;
-
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.HEIGHT;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
@@ -40,12 +10,51 @@ import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
 
+import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.util.Base64;
+import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.fragment.app.Fragment;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import com.google.android.material.switchmaterial.SwitchMaterial;
+
+import lombok.val;
+import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.activities.ChangeBackgroundActivity;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.PlaylistService;
+
 /**
  *
  */
 public class PlaylistThemeFragment extends Fragment {
     private static final String TAG = PlaylistThemeFragment.class.getSimpleName();
     private Playlist playlist;
+
+    private PlaylistService playlistService;
+    private boolean serviceIsBound;
     private int position;
     private View mView;
     private ImageView activeBackground;
@@ -84,16 +93,32 @@ public class PlaylistThemeFragment extends Fragment {
     @SuppressLint("CheckResult")
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        val context = this.requireContext();
+        val playlistServiceIntent = new Intent(context, PlaylistService.class);
+        context.bindService(playlistServiceIntent, mConnection, Context.BIND_AUTO_CREATE);
         if (playlist == null) {
             requireActivity().getSupportFragmentManager().popBackStack();
         } else {
-            val context = view.getContext();
             loadElements(view);
             loadColors();
             loadButtonsAndClickListeners(view, context);
             val filter = new IntentFilter(EventType.PLAYLIST_CHANGE_BACKGROUND.getCode());
-            context.registerReceiver(receiver, filter);
+            LocalBroadcastManager.getInstance(context).registerReceiver(receiver, filter);
             updatePreview();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        try {
+            LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
+            if (serviceIsBound) {
+                this.requireContext().unbindService(mConnection);
+                serviceIsBound = false;
+            }
+        } catch (IllegalArgumentException e) {
+            Log.d(TAG, "Receiver not registered");
         }
     }
 
@@ -101,19 +126,21 @@ public class PlaylistThemeFragment extends Fragment {
         view.findViewById(R.id.change_background).setOnClickListener(v -> {
             val intent = new Intent(context, ChangeBackgroundActivity.class);
             val args = new Bundle();
-            val width = view.getWidth();
-            val height = getResources().getDimension(R.dimen.playlist_max_height);
+            int width = view.getWidth();
+            int playlistMaxHeight = Math.round(getResources().getDimension(R.dimen.playlist_max_height));
             args.putSerializable(PLAYLIST, playlist);
-            args.putSerializable(POSITION, position);
-            args.putSerializable(WIDTH, width);
-            args.putSerializable(HEIGHT, Math.round(height));
+            args.putInt(POSITION, position);
+            args.putInt(WIDTH, width);
+            args.putInt(HEIGHT, playlistMaxHeight);
             intent.putExtra(ARGS, args);
             context.startActivity(intent);
         });
         view.findViewById(R.id.remove_background).setOnClickListener(v -> {
             playlist.setBackgroundImage(null);
-            playlist.save();
-            updatePreview();
+            playlistService.save(playlist,updated->{
+                playlist = updated;
+                updatePreview();
+            });
         });
         view.findViewById(R.id.change_text_color).setOnClickListener(v -> {
             String[] colors = {
@@ -127,13 +154,15 @@ public class PlaylistThemeFragment extends Fragment {
                     context.getString(R.string.playlist_look_gray),
                     context.getString(R.string.playlist_look_violet)
             };
-            colors[playlist.getTextColor()] = colors[playlist.getTextColor()] + " \u2713";
+            colors[playlist.getTextColor()] = colors[playlist.getTextColor()] + " ✓";
             AlertDialog.Builder builder = new AlertDialog.Builder(context);
             builder.setTitle(context.getString(R.string.playlist_look_change_text_color));
             builder.setItems(colors, (dialog, selected) -> {
                 playlist.setTextColor(selected);
-                playlist.save();
-                updatePreview();
+                playlistService.save(playlist,updated->{
+                    playlist = updated;
+                    updatePreview();
+                });
             });
             builder.show();
         });
@@ -143,8 +172,10 @@ public class PlaylistThemeFragment extends Fragment {
         }
         switchBtn.setOnCheckedChangeListener((buttonView, isChecked) -> {
             playlist.setTextOutline(isChecked);
-            playlist.save();
-            updatePreview();
+            playlistService.save(playlist,updated->{
+                playlist = updated;
+                updatePreview();
+            });
         });
     }
 
@@ -231,8 +262,22 @@ public class PlaylistThemeFragment extends Fragment {
         @SuppressLint("CheckResult")
         @Override
         public void onReceive(Context context, Intent intent) {
-            playlist = Select.from(Playlist.class).where("id = ?", playlist.getId()).fetchSingle();
-            updatePreview();
+            playlistService.findById(playlist.getId(), fetchedPlaylist -> {
+                playlist = fetchedPlaylist;
+                updatePreview();
+            }, throwable -> Log.e(TAG, "Error getting playlist", throwable));
+        }
+    };
+
+    private final ServiceConnection mConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            val binder = (PlaylistService.LocalBinder) service;
+            playlistService = binder.getService();
+            serviceIsBound = true;
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            playlistService = null;
         }
     };
 

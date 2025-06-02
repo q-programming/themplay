@@ -54,8 +54,12 @@
     <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna, lub wybrana lista nie ma wystarczająco piosenek</string>
     <string name="playlist_cant_play">Nie można odtworzyć piosenki \"{0}\"!</string>
     <string name="playlist_add_new_song">Dodaj nową piosenkę</string>
+    <string name="playlist_added_new_songs">Dodano nowe piosenki</string>
+    <string name="playlist_add_songs_error">Wystąpił bład podczas próby dodania piosenek do playlisty</string>
     <string name="playlist_remove_selected">Usuń zaznaczone piosenki</string>
     <string name="playlist_removed_selected_songs">Zaznaczone piosenki usunięte</string>
+    <string name="playlist_remove_songs_error">Wystąpił bład podczas próby usunięcia piosenek z playlisty</string>
+    <string name="media_playback_attribution_label">Odtwarzanie muzyki</string>
     <string name="theme">Wygląd</string>
     <string name="dark_mode">Tryb ciemny</string>
     <string name="goBack">goBack</string>
