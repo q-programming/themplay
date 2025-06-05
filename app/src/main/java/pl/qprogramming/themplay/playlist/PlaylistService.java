@@ -149,11 +149,11 @@ public class PlaylistService extends Service {
      */
     public void getAllByPresetName(String presetName, Consumer<List<Playlist>> onPlaylistsReceived, Consumer<Throwable> onError) {
         disposables.add(getAllByPresetName(presetName)
-                        .flatMapObservable(Observable::fromIterable)
-                        .flatMap(playlists -> loadSongs(playlists)
-                                .toObservable()
-                                .subscribeOn(Schedulers.io()))
-                        .toList()
+                .flatMapObservable(Observable::fromIterable)
+                .flatMap(playlists -> loadSongs(playlists)
+                        .toObservable()
+                        .subscribeOn(Schedulers.io()))
+                .toList()
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         onPlaylistsReceived::accept,
@@ -307,39 +307,49 @@ public class PlaylistService extends Service {
     /**
      * Adds new song into playlist
      *
-     * @param playlist playlists which will have new song added
-     * @param songs    list of song to be added
+     * @param playlist      playlists which will have new song added
+     * @param songsToInsert list of song to be added
      */
-    public void addSongToPlaylist(Playlist playlist, List<Song> songs, Consumer<Playlist> onPlaylistUpdated) {
-        if (playlist == null || playlist.getId() == null) {
-            Log.e(TAG, "Invalid playlist provided to addSongToPlaylist");
-            return;
-        }
+    public void addSongToPlaylist(Playlist playlist, List<Song> songsToInsert,
+                                  Consumer<Playlist> onPlaylistUpdated) {
         val playlistId = playlist.getId();
-        songs.forEach(song ->
-                {
-                    song.setPlaylistOwnerId(playlistId);
-                    Log.d(TAG, "Adding song: " + song.getFilename() + " to playlist ID: " + playlistId);
-                }
-        );
+        for (int i = 0; i < songsToInsert.size(); i++) {
+            songsToInsert.get(i).setPlaylistOwnerId(playlistId);
+        }
         disposables.add(
-                songRepository.createAll(songs)
-                        .andThen(songRepository.getSongCountForSpecificPlaylist(playlistId))
-                        .flatMap(count -> playlistRepository
-                                .updateSongCountForPlaylist(playlistId, count).doOnComplete(() -> {
-                                    Log.d(TAG, "Successfully updated song count for playlist ID: " + playlistId);
-                                    //update in memory playlists so that it can be used later on
-                                    playlist.setSongCount(count);
-                                    if (playlist.getSongs() == null) {
-                                        playlist.setSongs(new ArrayList<>());
-                                    }
-                                    playlist.getSongs().addAll(songs);
-                                    playlist.setUpdatedAt(new Date());
-                                })
-                                .toSingleDefault(playlist))
-                        .compose(RxSchedulers.singleOnMain())
+                songRepository.createAll(songsToInsert)
+                        .subscribeOn(Schedulers.io())
+                        .flatMap(insertedSongIds -> {
+                            Log.d(TAG, "Songs inserted. Received " + insertedSongIds.size() + " IDs.");
+                            if (insertedSongIds.size() != songsToInsert.size()) {
+                                Log.w(TAG, "Mismatch between songs to insert and returned IDs count.");
+                            }
+                            for (int i = 0; i < songsToInsert.size() && i < insertedSongIds.size(); i++) {
+                                songsToInsert.get(i).setId(insertedSongIds.get(i));
+                            }
+                            return songRepository.getSongCountForSpecificPlaylist(playlistId)
+                                    .subscribeOn(Schedulers.io())
+                                    .flatMap(count -> {
+                                        // Update the in-memory playlist object
+                                        playlist.setSongCount(count);
+                                        if (playlist.getSongs() == null) {
+                                            playlist.setSongs(new ArrayList<>());
+                                        }
+                                        playlist.getSongs().addAll(songsToInsert);
+                                        playlist.setUpdatedAt(new Date());
+                                        return playlistRepository
+                                                .updateSongCountForPlaylist(playlistId, count)
+                                                .subscribeOn(Schedulers.io())
+                                                .toSingleDefault(playlist);
+                                    });
+                        })
+                        .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(
-                                onPlaylistUpdated::accept
+                                updatedPl -> {
+                                    Log.d(TAG, "Playlist update successful in service. Passing to UI callback.");
+                                    onPlaylistUpdated.accept(playlist);
+                                },
+                                throwable -> Log.e(TAG, "Error in addSongToPlaylist RxJava chain", throwable)
                         )
         );
     }
@@ -535,31 +545,56 @@ public class PlaylistService extends Service {
      * Clones all songs belonging to original playlist with id , by first grabbing them from database,
      * making clone, clear original playlist owner id , and saving it to database
      *
-     * @param copyId     id of cloned playlist
-     * @param savedClone cloned playlist
+     * @param originalPlaylistId id of cloned playlist
+     * @param savedClone         cloned playlist
      * @return Single of cloned playlist
      */
-    private Single<Playlist> cloneSongs(long copyId, Playlist savedClone) {
-        return songRepository.getSongsForPlaylist(copyId)
+    private Single<Playlist> cloneSongs(long originalPlaylistId, Playlist savedClone) {
+        Log.d(TAG, "Cloning songs from original playlist ID: " + originalPlaylistId + " into new playlist: " + savedClone.getName());
+        return songRepository.getSongsForPlaylist(originalPlaylistId) // Assuming this returns Single<List<Song>>
+                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.computation())
                 .flatMap(originalSongs -> {
-                    List<Song> clonedSongs = new ArrayList<>();
+                    if (originalSongs.isEmpty()) {
+                        Log.d(TAG, "No songs to clone from playlist ID: " + originalPlaylistId);
+                        savedClone.setSongs(new ArrayList<>());
+                        savedClone.setSongCount(0);
+                        return Single.just(savedClone);
+                    }
+
+                    List<Song> clonedSongObjects = new ArrayList<>();
                     for (Song originalSong : originalSongs) {
                         try {
                             Song songCopy = originalSong.clone();
+                            songCopy.setId(null);
                             songCopy.setPlaylistOwnerId(savedClone.getId());
-                            clonedSongs.add(songCopy);
+                            clonedSongObjects.add(songCopy);
                         } catch (CloneNotSupportedException e) {
-                            return Single.error(new RuntimeException("Failed to clone song: " + originalSong.getFilename(), e));
+                            Log.e(TAG, "Failed to clone song: " + originalSong.getFilename(), e);
+                            return Single.error(new RuntimeException("Clone operation failed for song: " + originalSong.getFilename(), e));
                         }
                     }
-                    return songRepository.createAll(clonedSongs)
-                            .doOnComplete(() -> {
-                                Log.d(TAG, "Successfully saved " + clonedSongs.size() + " cloned songs for " + savedClone.getName());
-                                savedClone.setSongs(clonedSongs);
-                                savedClone.setSongCount(clonedSongs.size());
-                            })
-                            .andThen(Single.just(savedClone));
-                });
+                    Log.d(TAG, "Successfully prepared " + clonedSongObjects.size() + " songs for cloning.");
+
+                    // Now, insert these cloned songs into the database and get their new IDs
+                    return songRepository.createAll(clonedSongObjects) // Use the method that returns IDs
+                            .subscribeOn(Schedulers.io())
+                            .observeOn(Schedulers.computation())
+                            .map(insertedSongIds -> {
+                                if (insertedSongIds.size() != clonedSongObjects.size()) {
+                                    Log.w(TAG, "ID count mismatch during song cloning. Expected: " + clonedSongObjects.size() + ", Got: " + insertedSongIds.size());
+                                }
+                                Log.d(TAG, "Received " + insertedSongIds.size() + " new IDs for cloned songs.");
+                                for (int i = 0; i < clonedSongObjects.size() && i < insertedSongIds.size(); i++) {
+                                    clonedSongObjects.get(i).setId(insertedSongIds.get(i));
+                                }
+                                Log.d(TAG, "Successfully saved " + clonedSongObjects.size() + " cloned songs for " + savedClone.getName());
+                                savedClone.setSongs(clonedSongObjects);
+                                savedClone.setSongCount(clonedSongObjects.size());
+                                return savedClone;
+                            });
+                })
+                .observeOn(AndroidSchedulers.mainThread());
     }
 
     /**

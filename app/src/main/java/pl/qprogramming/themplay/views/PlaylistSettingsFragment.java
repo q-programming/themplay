@@ -95,7 +95,7 @@ public class PlaylistSettingsFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        val context = requireActivity().getApplicationContext();
+        val context = this.requireContext();
         val playlistServiceIntent = new Intent(context, PlaylistService.class);
         context.bindService(playlistServiceIntent, mConnection, Context.BIND_AUTO_CREATE);
         if (currentPlaylist == null) {
@@ -108,13 +108,13 @@ public class PlaylistSettingsFragment extends Fragment {
                 val songsToRemove = currentPlaylist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
                 playlistService.removeSongsFromPlaylist(currentPlaylist.getId(), songsToRemove, updatedPlaylist -> currentPlaylist = updatedPlaylist,
                         throwable -> Log.e(TAG, "Error removing songs from playlist", throwable), () -> {
-                    removeBtn.setVisibility(View.GONE);
-                    multiple = false;
-                    adapter.setMultiple(false);
-                    updateAndRenderSongList(false);
-                    adapter.clearSelections();
-                    Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
-                });
+                            removeBtn.setVisibility(View.GONE);
+                            multiple = false;
+                            adapter.setMultiple(false);
+                            updateAndRenderSongList(false);
+                            adapter.clearSelections();
+                            Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
+                        });
             });
             view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
             headerTitleTextView.setOnClickListener(clicked -> updateListAndGoBack());
@@ -181,6 +181,7 @@ public class PlaylistSettingsFragment extends Fragment {
     /**
      * Process selected song URIs.
      * All uris will be decoded, made readable upon app restart, and added to the playlist.
+     *
      * @param uris List of URIs to process
      */
     private void processSelectedSongUris(List<Uri> uris) {
@@ -191,7 +192,7 @@ public class PlaylistSettingsFragment extends Fragment {
         List<Song> newSongs = new ArrayList<>();
         for (Uri uri : uris) {
             try {
-                val context = requireActivity().getApplicationContext();
+                val context = this.requireContext();
                 context.getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 String displayName = getFileNameFromUri(context, uri);
                 val file = new File(uri.getPath());
@@ -231,8 +232,9 @@ public class PlaylistSettingsFragment extends Fragment {
     /**
      * Get the display name of a file from its URI.
      * This is more elaborate way , which will handle some weird names some files may have
+     *
      * @param context Context
-     * @param uri URI of the file
+     * @param uri     URI of the file
      * @return Display name of the file
      */
     private String getFileNameFromUri(Context context, Uri uri) {
@@ -300,16 +302,21 @@ public class PlaylistSettingsFragment extends Fragment {
 
     @Override
     public void onDestroy() {
-        super.onDestroy();
         try {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
-            if (serviceIsBound) {
-                this.requireContext().unbindService(mConnection);
-                serviceIsBound = false;
-            }
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Log.w(TAG, "Receiver not registered", e);
         }
+        super.onDestroy();
+    }
+
+    @Override
+    public void onStop() {
+        if (serviceIsBound) {
+            this.requireContext().unbindService(mConnection);
+            serviceIsBound = false;
+        }
+        super.onStop();
 
     }
 

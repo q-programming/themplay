@@ -113,13 +113,19 @@ public class PlaylistThemeFragment extends Fragment {
         super.onDestroy();
         try {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
-            if (serviceIsBound) {
-                this.requireContext().unbindService(mConnection);
-                serviceIsBound = false;
-            }
+
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Log.w(TAG, "Receiver not registered");
         }
+    }
+
+    @Override
+    public void onStop() {
+        if (serviceIsBound) {
+            this.requireContext().unbindService(mConnection);
+            serviceIsBound = false;
+        }
+        super.onStop();
     }
 
     private void loadButtonsAndClickListeners(@NonNull View view, Context context) {

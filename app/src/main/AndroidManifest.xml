@@ -6,7 +6,7 @@
 
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -35,26 +35,17 @@
             android:name="com.canhub.cropper.CropImageActivity"
             android:theme="@style/Base.Theme.AppCompat" />
         <activity android:name=".activities.ChangeBackgroundActivity" />
-
-        <meta-data
-            android:name="AA_DB_VERSION"
-            android:value="4" />
-        <meta-data
-            android:name="AA_MODELS"
-            android:value="pl.qprogramming.themplay.playlist.Playlist" />
-        <meta-data
-            android:name="AA_DB_NAME"
-            android:value="themplay" />
-
         <service
             android:name=".playlist.PlaylistService"
             android:foregroundServiceType="dataSync"
             android:exported="false" />
-
         <service
             android:name=".player.PlayerService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
         </service>
 
     </application>

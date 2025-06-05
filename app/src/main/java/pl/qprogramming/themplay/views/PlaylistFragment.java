@@ -73,7 +73,7 @@ public class PlaylistFragment extends Fragment {
 
     void doUnbindService() {
         if (serviceIsBound) {
-            requireActivity().getApplicationContext().unbindService(mConnection);
+            this.requireContext().unbindService(mConnection);
             serviceIsBound = false;
         }
     }
@@ -98,7 +98,7 @@ public class PlaylistFragment extends Fragment {
     }
 
     private void bindRecyclerViewAndService(@NonNull View view) {
-        val context = requireActivity().getApplicationContext();
+        val context = this.requireContext();
         recyclerView = view.findViewById(R.id.playlist_item_list);
         recyclerView.setLayoutManager(new LinearLayoutManager(context));
         val intent = new Intent(context, PlaylistService.class);
@@ -108,6 +108,7 @@ public class PlaylistFragment extends Fragment {
 
     @Override
     public void onResume() {
+        Log.d(TAG, "onResume CALLED. Activity instance: " + this.toString());
         super.onResume();
         val filter = new IntentFilter(PLAYLIST_NOTIFICATION.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
@@ -128,6 +129,7 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        Log.d(TAG, "onDestroy CALLED. Activity instance: " + this.toString());
         try {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
@@ -160,6 +162,7 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Log.d(TAG, "Processing event within playlistFragment, action: " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
@@ -174,9 +177,9 @@ public class PlaylistFragment extends Fragment {
                     case PLAYLIST_NOTIFICATION_NEXT:
                     case PLAYLIST_NOTIFICATION_STOP:
                     case PLAYLIST_NOTIFICATION_PREV:
-                        Optional.ofNullable(args.getSerializable(POSITION, Integer.class))
+                        Optional.ofNullable(args.getSerializable(POSITION))
                                 .ifPresent(position -> {
-                                    int activated = position;
+                                    int activated = (int) position;
                                     adapter.reloadItemAt(activated);
                                     adapter.notifyItemChanged(activated);
                                 });
@@ -186,9 +189,9 @@ public class PlaylistFragment extends Fragment {
                         adapter.loadPlaylists();
                         break;
                     case PLAYLIST_NOTIFICATION_DELETE:
-                        Optional.ofNullable(args.getSerializable(POSITION, Integer.class))
+                        Optional.ofNullable(args.getSerializable(POSITION))
                                 .ifPresent(position -> {
-                                    adapter.notifyItemRemoved(position);
+                                    adapter.notifyItemRemoved((Integer) position);
                                     adapter.loadPlaylists();
                                 });
                         break;

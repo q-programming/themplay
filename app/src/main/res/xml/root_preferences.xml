@@ -25,5 +25,10 @@
         android:defaultValue="false"
         android:summary="@string/settings_fadeStop_info"
         app:title="@string/settings_fadeStop" />
+    <SwitchPreferenceCompat
+        app:key="app.notifications"
+        android:defaultValue="false"
+        android:summary="@string/settings_notifications_info"
+        app:title="@string/settings_notifications" />
 
 </PreferenceScreen>

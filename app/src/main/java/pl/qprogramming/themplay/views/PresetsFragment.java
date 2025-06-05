@@ -52,6 +52,7 @@ import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.preset.AsyncPlaylistZipPacker;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
+import pl.qprogramming.themplay.settings.Property;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -162,8 +163,23 @@ public class PresetsFragment extends Fragment {
             val msg = MessageFormat.format(getString(R.string.presets_created), presetName);
             Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
             adapter.setPresets(presets);
+            //if there is only one preset , make it active
+            if (presets.size() == 1) {
+                setPresetAsActive(presets.get(0));
+            }
             adapter.notifyDataSetChanged();
         });
+    }
+
+    private void setPresetAsActive(Preset preset) {
+        val context = this.requireContext();
+        val spEdit = getDefaultSharedPreferences(context).edit();
+        spEdit.putString(Property.CURRENT_PRESET, preset.getName());
+        spEdit.apply();
+        val msg = MessageFormat.format(context.getString(R.string.presets_activated), preset.getName());
+        Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
+        Intent intent = new Intent(PRESET_ACTIVATED.getCode());
+        LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
@@ -173,9 +189,10 @@ public class PresetsFragment extends Fragment {
             val args = intent.getBundleExtra(ARGS);
             switch (event) {
                 case PRESET_REMOVED:
-                    Optional.ofNullable(args.getSerializable(PRESET, Preset.class))
-                            .ifPresent(removedPreset -> {
-                                int position = args.getSerializable(POSITION, Integer.class);
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .ifPresent(object -> {
+                                val removedPreset = (Preset) object;
+                                int position = (int) args.getSerializable(POSITION);
                                 val sp = getDefaultSharedPreferences(context);
                                 val currentPreset = sp.getString(CURRENT_PRESET, null);
                                 if (removedPreset.getName().equals(currentPreset)) {
@@ -188,8 +205,9 @@ public class PresetsFragment extends Fragment {
                             });
                     break;
                 case PRESET_SAVE:
-                    Optional.ofNullable(args.getSerializable(PRESET, Preset.class))
-                            .ifPresent(savedPreset -> {
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .ifPresent(object -> {
+                                val savedPreset = (Preset) object;
                                 presetContentBuffer = null;
                                 playlistService.getAllByPresetName(savedPreset.getName(),
                                         playlistList -> {

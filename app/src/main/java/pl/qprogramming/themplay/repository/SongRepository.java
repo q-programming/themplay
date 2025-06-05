@@ -21,7 +21,7 @@ public interface SongRepository {
     Single<Long> create(Song song);
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    Completable createAll(List<Song> songs);
+    Single<List<Long>> createAll(List<Song> songs);
 
     @Update
     Single<Integer> update(Song song);

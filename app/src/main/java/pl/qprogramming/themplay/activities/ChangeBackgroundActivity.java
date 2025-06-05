@@ -93,18 +93,18 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
             finish();
             return;
         }
-        playlist = args.getSerializable(PLAYLIST, Playlist.class);
+        playlist = (Playlist) args.getSerializable(PLAYLIST);
         if (playlist == null) {
             Log.d(TAG, "No playlist was passed into activity or type mismatch, finishing");
             finish();
             return;
         }
-        val posObj = args.getSerializable(POSITION, Integer.class);
-        itemPosition = (posObj != null) ? posObj : 0;
-        val widthObj = args.getSerializable(WIDTH, Integer.class);
-        targetWidth = (widthObj != null) ? widthObj : 0;
-        val heightObj = args.getSerializable(HEIGHT, Integer.class);
-        targetHeight = (heightObj != null) ? heightObj : 0;
+        val posObj = args.getSerializable(POSITION);
+        itemPosition = (posObj != null) ? (int) posObj : 0;
+        val widthObj = args.getSerializable(WIDTH);
+        targetWidth = (widthObj != null) ? (int) widthObj : 0;
+        val heightObj = args.getSerializable(HEIGHT);
+        targetHeight = (heightObj != null) ? (int) heightObj : 0;
         if (targetWidth <= 0 || targetHeight <= 0) {
             Log.e(TAG, "Invalid width or height passed. width: " + targetWidth + ", height: " + targetHeight + ". Finishing.");
             finish();

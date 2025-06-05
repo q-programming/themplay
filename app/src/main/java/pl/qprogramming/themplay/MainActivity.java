@@ -17,6 +17,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
@@ -28,10 +29,11 @@ import android.widget.PopupMenu;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -40,7 +42,10 @@ import androidx.preference.PreferenceManager;
 import com.google.android.material.color.MaterialColors;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import lombok.val;
@@ -67,41 +72,101 @@ public class MainActivity extends AppCompatActivity {
     private int activeColor;
     private ProgressBar loader;
 
+    private ActivityResultLauncher<String[]> multiplePermissionsLauncher;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        setupServices();
         setActiveColor();
         setupPreferences();
         setupMainMenu();
         setupLoader();
         setupMediaControls();
-        checkPermission(Manifest.permission.READ_MEDIA_AUDIO);
-        checkPermission(Manifest.permission.READ_MEDIA_IMAGES);
-        checkPermission(Manifest.permission.READ_MEDIA_VIDEO);
-        checkPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        checkPermission(Manifest.permission.POST_NOTIFICATIONS);
-        checkPermission(Manifest.permission.INTERNET);
-        //load playlist fragment
+        checkPermissions();
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.activity_fragment_layout, new PlaylistFragment())
                 .commit();
-        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
-        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PLAY.getCode());
-        filter.addAction(EventType.PLAYBACK_NOTIFICATION_STOP.getCode());
-        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PAUSE.getCode());
-        filter.addAction(EventType.PRESET_ACTIVATED.getCode());
-        filter.addAction(EventType.PRESET_REMOVED.getCode());
-        filter.addAction(EventType.OPERATION_STARTED.getCode());
-        filter.addAction(EventType.OPERATION_FINISHED.getCode());
-        filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
-        filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS.getCode());
-        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
+
+    }
+
+    /**
+     * Checks for required permissions and requests them if they are not granted
+     */
+    private void checkPermissions() {
+        multiplePermissionsLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                (Map<String, Boolean> grantedPermissionsMap) -> {
+                    Log.d(TAG, "Permissions result callback received: " + grantedPermissionsMap);
+                    for (Map.Entry<String, Boolean> entry : grantedPermissionsMap.entrySet()) {
+                        Log.d(TAG, "Permission: " + entry.getKey() + ", Granted in dialog: " + entry.getValue());
+                    }
+                    evaluateAndProceedBasedOnEssentialPermissions();
+                });
+        checkAndRequestRequiredPermissions();
+    }
+
+    private void checkAndRequestRequiredPermissions() {
+        val sp = PreferenceManager.getDefaultSharedPreferences(this);
+        val requestNotifications = sp.getBoolean(Property.NOTIFICATIONS, false);
+        List<String> permissionsToRequest = new ArrayList<>();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_AUDIO);
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES);
+            }
+            if (requestNotifications && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        } else { // API 30, 31, 32
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE);
+            }
+        }
+        //TODO need write extenral
+        if (!permissionsToRequest.isEmpty()) {
+            Log.d(TAG, "Requesting permissions: " + permissionsToRequest);
+            multiplePermissionsLauncher.launch(permissionsToRequest.toArray(new String[0]));
+        } else {
+            Log.d(TAG, "All initially checked permissions appear to be granted.");
+            evaluateAndProceedBasedOnEssentialPermissions();
+        }
+    }
+
+    private void evaluateAndProceedBasedOnEssentialPermissions() {
+        boolean allEssentialPermissionsCurrentlyGranted = true;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                allEssentialPermissionsCurrentlyGranted = false;
+                Log.w(TAG, Manifest.permission.READ_MEDIA_AUDIO + " is currently DENIED (Essential).");
+            }
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                allEssentialPermissionsCurrentlyGranted = false;
+                Log.w(TAG, Manifest.permission.READ_MEDIA_IMAGES + " is currently DENIED (Essential).");
+            }
+            val sp = PreferenceManager.getDefaultSharedPreferences(this);
+            val notificationsEnabledByUserPref = sp.getBoolean(Property.NOTIFICATIONS, false);
+            if (notificationsEnabledByUserPref && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.w(TAG, Manifest.permission.POST_NOTIFICATIONS + " is currently DENIED (user wants them but permission lacking).");
+            }
+        } else { // API 30-32
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                allEssentialPermissionsCurrentlyGranted = false;
+                Log.w(TAG, Manifest.permission.READ_EXTERNAL_STORAGE + " is currently DENIED (Essential).");
+            }
+        }
+        if (allEssentialPermissionsCurrentlyGranted) {
+            Log.d(TAG, "All essential media permissions are currently GRANTED. App can now load and play media.");
+        } else {
+            Log.e(TAG, "One or more essential permissions are NOT granted. App functionality will be limited.");
+            Toast.makeText(this, "Essential media permissions are required to use this app. Please grant them in app settings.", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void setupLoader() {
@@ -158,6 +223,25 @@ public class MainActivity extends AppCompatActivity {
         context.bindService(intent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
 
+    }
+
+    /**
+     * Setup receiver for events
+     */
+    private void setupReceiver() {
+        val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PLAY.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_STOP.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_PAUSE.getCode());
+        filter.addAction(EventType.PRESET_ACTIVATED.getCode());
+        filter.addAction(EventType.PRESET_REMOVED.getCode());
+        filter.addAction(EventType.OPERATION_STARTED.getCode());
+        filter.addAction(EventType.OPERATION_FINISHED.getCode());
+        filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS.getCode());
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
 
@@ -317,6 +401,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
+     * Binds to services and creates receiver upon starting of activity
+     */
+    @Override
+    protected void onStart() {
+        setupServices();
+        setupReceiver();
+        super.onStart();
+    }
+
+    /**
      * Unbinds from services upon stopping of activity
      */
     @Override
@@ -342,32 +436,9 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Checks if permission is granted , if not , request it
-     *
-     * @param permission name of permission
-     */
-    private void checkPermission(String permission) {
-        int permissionCheck = ContextCompat.checkSelfPermission(
-                this, permission);
-        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-            requestPermission(permission, permission.length());
-        }
-    }
-
-    /**
-     * Requests permission
-     *
-     * @param permissionName        name of permission
-     * @param permissionRequestCode code for permission request
-     */
-    private void requestPermission(String permissionName, int permissionRequestCode) {
-        ActivityCompat.requestPermissions(this,
-                new String[]{permissionName}, permissionRequestCode);
-    }
-
     private final ServiceConnection playlistServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.d(TAG, "Playlist service connected");
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
             serviceIsBound = true;
@@ -379,6 +450,7 @@ public class MainActivity extends AppCompatActivity {
     };
     private final ServiceConnection playerConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
+            Log.d(TAG, "Player service connected");
             val binder = (PlayerService.LocalBinder) service;
             playerService = binder.getService();
             playerServiceIsBound = true;
@@ -419,9 +491,11 @@ public class MainActivity extends AppCompatActivity {
                     renderPlayButton();
                     break;
                 case PRESET_REMOVED:
-                    Optional.ofNullable(args.getSerializable(PRESET, Preset.class))
-                            .ifPresent(preset ->
-                                    playlistService.removePreset(preset.getName()));
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .ifPresent(object -> {
+                                val preset = (Preset) object;
+                                playlistService.removePreset(preset.getName());
+                            });
                     break;
                 case PLAYBACK_NOTIFICATION_PLAY:
                 case PLAYLIST_NOTIFICATION_ACTIVE:
@@ -433,25 +507,27 @@ public class MainActivity extends AppCompatActivity {
                     renderPlayButton();
                     break;
                 case PLAYLIST_NOTIFICATION_PLAY_NO_SONGS:
-                    Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
-                            .ifPresent(playlist -> {
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent(object -> {
+                                        val playlist = (Playlist) object;
                                         val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
                                         Toast.makeText(getApplicationContext(), notActiveMsg, Toast.LENGTH_LONG).show();
                                     }
                             );
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
-                    Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((playlist -> {
-                                if (playerService.isActivePlaylist(playlist)) {
+                                if (playerService.isActivePlaylist((Playlist) playlist)) {
                                     renderPlayButton();
                                 }
                             }));
                     break;
                 case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
-                    Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
-                            .ifPresent((playlist -> {
-                                val song = args.getSerializable(SONG, Song.class);
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((object -> {
+                                val playlist = (Playlist) object;
+                                val song = (Song) args.getSerializable(SONG);
                                 playlistService.removeSongsFromPlaylist(playlist.getId(), Collections.singletonList(song),
                                         updated -> Log.w(TAG, "Song deleted from playlist as it was not found: " + playlist.getName()),
                                         throwable -> Log.e(TAG, "Error while deleting not found song from playlist" + song.getFilename() + " from playlist: " + playlist.getName(), throwable));

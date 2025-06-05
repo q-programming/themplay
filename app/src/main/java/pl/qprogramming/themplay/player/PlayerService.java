@@ -96,6 +96,7 @@ public class PlayerService extends Service {
 
     @Override
     public void onDestroy() {
+        Log.d(TAG, "onDestroy");
         super.onDestroy();
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
@@ -476,25 +477,24 @@ public class PlayerService extends Service {
                     break;
                 case PLAYLIST_NOTIFICATION_ADD:
                     if (args != null) {
-                        Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
                                 .ifPresent(playlist -> {
-
                                     if (playlist.equals(activePlaylist)) {
-                                        activePlaylist = playlist;
+                                        activePlaylist = (Playlist) playlist;
                                     }
                                 });
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_ACTIVE:
                     if (args != null) {
-                        Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
-                                .ifPresent((playlist -> fadeIntoNewPlaylist(playlist)));
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent((playlist -> fadeIntoNewPlaylist((Playlist) playlist)));
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
                     if (args != null) {
-                        Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
-                                .ifPresent(playlist -> activePlaylist = playlist);
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
+                                .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
@@ -502,7 +502,7 @@ public class PlayerService extends Service {
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
                     if (args != null) {
-                        Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
+                        Optional.ofNullable(args.getSerializable(PLAYLIST))
                                 .ifPresent(playlist -> {
                                     if (playlist.equals(activePlaylist)) {
                                         populateAndSend(PLAYBACK_NOTIFICATION_STOP, activePlaylist.getPosition());
@@ -520,8 +520,9 @@ public class PlayerService extends Service {
 
     private void handleSongDeleted(Bundle args, boolean shuffle) {
         if (args != null) {
-            Optional.ofNullable(args.getSerializable(PLAYLIST, Playlist.class))
-                    .ifPresent(playlist -> {
+            Optional.ofNullable(args.getSerializable(PLAYLIST))
+                    .ifPresent(object -> {
+                        val playlist = (Playlist) object;
                         if (activePlaylist != null && playlist.getId().equals(activePlaylist.getId())) {
                             activePlaylist = playlist;
                             createPlaylist(activePlaylist, shuffle);
