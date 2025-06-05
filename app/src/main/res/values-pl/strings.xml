@@ -75,6 +75,7 @@
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
     <string name="settings_notifications_info">Pokaż powiadomienia kiedy utwór jest odtwarzany z kontrolkami następny/poprzedni utwór. Pomoże to również aplikacji chodzić w tle i sterować na zablokowanym ekranie</string>
     <string name="settings_notifications">Pokaż powiadomienia</string>
+    <string name="notificatoin_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki</string>
     <string name="playlist_copy">Kopiuj playlistę</string>
     <string name="playlist_paste">Wklej playlistę</string>
     <string name="playlist_pasted">Utworzono kopię playlisty</string>

@@ -217,12 +217,14 @@ public class MainActivity extends AppCompatActivity {
      * Binds to services
      */
     private void setupServices() {
+        Log.d(TAG, "Setting up services");
         val context = getApplicationContext();
+        //playlist service
         val intent = new Intent(context, PlaylistService.class);
-        val playerIntent = new Intent(context, PlayerService.class);
         context.bindService(intent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
+        //player service
+        val playerIntent = new Intent(context, PlayerService.class);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
-
     }
 
     /**
@@ -415,13 +417,20 @@ public class MainActivity extends AppCompatActivity {
      */
     @Override
     protected void onStop() {
-        doUnbindService();
+        Log.d(TAG, "Stopping main activity");
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Receiver not registered");
         }
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        Log.d(TAG, "Destroying main activity");
+        super.onDestroy();
+        doUnbindService();
     }
 
     void doUnbindService() {

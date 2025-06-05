@@ -81,6 +81,7 @@
     <string name="settings_notifications_info">Show popup notifications when song is playing with next/previous media controls.It will also prevent application from being killed in background and control on locked screen</string>
     <string name="settings_notifications">Show notifications</string>
     <string name="playlist_now_playing_notificatoin">Now playing</string>
+    <string name="notificatoin_description">Shows which song now plays and shows controls</string>
     <string name="settings_fadeStop">Fade out songs when stopping</string>
     <string name="settings_fadeStop_info">When pressing stop button , song will be faded out instead of stopping right away</string>
 

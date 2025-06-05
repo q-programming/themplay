@@ -85,13 +85,28 @@ public class PlayerService extends Service {
     public void onCreate() {
         super.onCreate();
         val playlistServiceIntent = new Intent(this, PlaylistService.class);
-        bindService(playlistServiceIntent, mConnection, Context.BIND_AUTO_CREATE);
+        bindService(playlistServiceIntent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         mNotificationManager = new MediaNotificationManager(this);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        return Service.START_STICKY;
+        if (intent != null && intent.getAction() != null) {
+            String action = intent.getAction();
+            Log.d(TAG, "onStartCommand received action: " + action);
+            if (PLAYBACK_NOTIFICATION_PLAY.getCode().equals(action)) {
+                play();
+            } else if (PLAYBACK_NOTIFICATION_PAUSE.getCode().equals(action)) {
+                pause();
+            } else if (PLAYBACK_NOTIFICATION_NEXT.getCode().equals(action)) {
+                next();
+            } else if (PLAYBACK_NOTIFICATION_PREV.getCode().equals(action)) {
+                previous();
+            } else if (PLAYBACK_NOTIFICATION_STOP.getCode().equals(action)) {
+                stop();
+            }
+        }
+        return START_STICKY; // Or your preferred restart behavior
     }
 
     @Override
@@ -101,9 +116,10 @@ public class PlayerService extends Service {
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
             if (serviceIsBound) {
-                unbindService(mConnection);
+                unbindService(playlistServiceConnection);
                 serviceIsBound = false;
             }
+            mediaPlayer.stop();
         } catch (IllegalArgumentException e) {
             Log.d(TAG, "Receiver not registered");
         }
@@ -126,6 +142,7 @@ public class PlayerService extends Service {
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
+        Log.d(TAG, "Returning binder , player is playing ? " + mediaPlayer.isPlaying());
         return mBinder;
     }
 
@@ -180,7 +197,7 @@ public class PlayerService extends Service {
         val currentSong = activePlaylist.getCurrentSong();
         currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
         playlistService.updateSong(currentSong);
-        mNotificationManager.createMediaNotification(currentSong, true);
+        mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
         progressHandler.removeCallbacks(updateProgressTask);
     }
 
@@ -263,13 +280,13 @@ public class PlayerService extends Service {
      * @param songPosition from where next song should pickup
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
-        mNotificationManager.createMediaNotification(nextSong, false);
-        Log.d(TAG, "Fading into song from "+ nextSong.getFilename());
+        mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
+        Log.d(TAG, "Fading into song from " + nextSong.getFilename());
         try {
             val uri = Uri.parse(nextSong.getFileUri());
-            Log.d(TAG,"Opening file " + uri.toString());
+            Log.d(TAG, "Opening file " + uri.toString());
             if (isPlaying()) {
-                Log.d(TAG,"Already playing something, creating secondary player to fade in");
+                Log.d(TAG, "Already playing something, creating secondary player to fade in");
                 auxPlayer = new MediaPlayer();
                 auxPlayer.setDataSource(this, uri);
                 auxPlayer.prepare();
@@ -537,7 +554,7 @@ public class PlayerService extends Service {
     }
 
 
-    private final ServiceConnection mConnection = new ServiceConnection() {
+    private final ServiceConnection playlistServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
