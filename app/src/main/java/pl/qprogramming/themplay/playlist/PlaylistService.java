@@ -8,7 +8,6 @@ import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
-import android.annotation.SuppressLint;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
@@ -269,6 +268,7 @@ public class PlaylistService extends Service {
         disposables.add(
                 playlistRepository.update(playlist)
                         .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(() -> {
                             Log.d(TAG, "Playlist updated successfully: " + playlist.getName());
                             onPlaylistSaved.accept(playlist);
@@ -280,11 +280,17 @@ public class PlaylistService extends Service {
      *
      * @param playlist playlist to be created
      */
-    @SuppressLint("CheckResult")
     public void addPlaylist(Playlist playlist, Consumer<Playlist> onPlaylistCreated, Consumer<Throwable> onError) {
         Log.d(TAG, "Adding new playlist" + playlist);
-        val createTask = playlistRepository.countAllByPreset(playlist.getPreset())
+        val createTask = playlistRepository.countByPresetNameAndName(playlist.getPreset(), playlist.getName())
                 .subscribeOn(Schedulers.io())
+                .flatMap(exists -> {
+                    if (exists > 0) {
+                        return Single.error(new PresetAlreadyExistsException("Playlist with name " + playlist.getName() + " already exists for preset " + playlist.getPreset()));
+                    } else {
+                        return playlistRepository.countAllByPreset(playlist.getPreset());
+                    }
+                })
                 .flatMap(count -> {
                     playlist.setPosition(count);
                     return playlistRepository.create(playlist);
@@ -299,7 +305,11 @@ public class PlaylistService extends Service {
                 .doOnError(onError::accept)
                 .subscribe(
                         newPlaylistId -> Log.i(TAG, "Successfully added playlist ID: " + newPlaylistId + ", Name: " + playlist.getName()),
-                        throwable -> Log.e(TAG, "Error adding playlist: " + playlist.getName(), throwable)
+                        throwable -> {
+                            if (!(throwable instanceof PresetAlreadyExistsException)) {
+                                Log.e(TAG, "Error adding playlist: " + playlist.getName(), throwable);
+                            }
+                        }
                 );
         disposables.add(createTask);
     }
@@ -348,6 +358,7 @@ public class PlaylistService extends Service {
                                 updatedPl -> {
                                     Log.d(TAG, "Playlist update successful in service. Passing to UI callback.");
                                     onPlaylistUpdated.accept(playlist);
+                                    Toast.makeText(this, R.string.playlist_added_new_songs, Toast.LENGTH_SHORT).show();
                                 },
                                 throwable -> Log.e(TAG, "Error in addSongToPlaylist RxJava chain", throwable)
                         )
@@ -505,20 +516,28 @@ public class PlaylistService extends Service {
                 .flatMap(originalPlaylist -> {
                     val playlistCopy = originalPlaylist.clone();
                     playlistCopy.setPreset(currentPresetName);
-                    return playlistRepository.countAllByPreset(currentPresetName)
-                            .map(count -> {
-                                playlistCopy.setPosition(count);
+                    String baseName = playlistCopy.getName(); // Get the original name to use as base
+                    return findAvailableNameRecursive(baseName, currentPresetName, 0)
+                            .map(uniqueName -> {
+                                playlistCopy.setName(uniqueName); // Set the found unique name
+                                Log.d(TAG, "Found unique name for pasted playlist: " + uniqueName);
                                 return playlistCopy;
                             });
+
                 })
-                .flatMap(preparedPlaylist ->
-                        playlistRepository
-                                .create(preparedPlaylist)
-                                .map(newPlaylistId -> {
-                                    preparedPlaylist.setId(newPlaylistId);
-                                    Log.d(TAG, "Cloned playlist saved with new ID: " + newPlaylistId + ", Name: " + preparedPlaylist.getName());
-                                    return preparedPlaylist;
+                .flatMap(playlistWithUniqueName ->
+                        playlistRepository.countAllByPreset(currentPresetName)
+                                .map(count -> {
+                                    playlistWithUniqueName.setPosition(count);
+                                    return playlistWithUniqueName;
                                 }))
+                .flatMap(preparedPlaylist -> playlistRepository
+                        .create(preparedPlaylist)
+                        .map(newPlaylistId -> {
+                            preparedPlaylist.setId(newPlaylistId);
+                            Log.d(TAG, "Cloned playlist saved with new ID: " + newPlaylistId + ", Name: " + preparedPlaylist.getName());
+                            return preparedPlaylist;
+                        }))
                 .flatMap(savedClone ->
                         cloneSongs(copyId, savedClone)
                 )
@@ -526,9 +545,11 @@ public class PlaylistService extends Service {
                         .update(playlistWithSongs)
                         .andThen(Single.just(playlistWithSongs)))
                 .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread()).subscribe(
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
                         playlist -> {
-                            Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
+                            val context = getApplicationContext();
+                            Toast.makeText(context, getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
                             populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist);
                             val spEdit = sp.edit();
                             spEdit.putLong(COPY_PLAYLIST, -1L);
@@ -539,6 +560,40 @@ public class PlaylistService extends Service {
                 );
         //fire paste task
         disposables.add(pasteTask);
+    }
+
+    /**
+     * Finds an available unique name for a playlist within a preset.
+     * If baseName is "My Playlist", it will try:
+     * "My Playlist"
+     * "My Playlist (1)"
+     * "My Playlist (2)"
+     * ...
+     * until an unused name is found.
+     *
+     * @param baseName   The original name of the playlist.
+     * @param presetName The name of the preset.
+     * @param attempt    The current attempt number (starts at 0 for no suffix).
+     * @return Single emitting the first available unique name.
+     */
+    private Single<String> findAvailableNameRecursive(String baseName, String presetName, int attempt) {
+        String currentNameAttempt;
+        if (attempt == 0) {
+            currentNameAttempt = baseName;
+        } else {
+            currentNameAttempt = baseName + "_" + attempt;
+        }
+
+        return playlistRepository.countByPresetNameAndName(presetName, currentNameAttempt)
+                .flatMap(count -> {
+                    if (count > 0) {
+                        // Name exists, try the next one
+                        return findAvailableNameRecursive(baseName, presetName, attempt + 1);
+                    } else {
+                        // Name is available
+                        return Single.just(currentNameAttempt);
+                    }
+                });
     }
 
     /**
@@ -727,7 +782,7 @@ public class PlaylistService extends Service {
      * @param newPresetName   name of new preset
      * @param onPresetCreated callback when preset is created
      */
-    public void addPreset(String newPresetName, Consumer<List<Preset>> onPresetCreated) {
+    public void addPreset(String newPresetName, Consumer<List<Preset>> onPresetCreated, Consumer<Throwable> onError) {
         final String trimmedName = newPresetName.trim();
         Preset newPreset = Preset.builder()
                 .name(trimmedName)
@@ -750,8 +805,13 @@ public class PlaylistService extends Service {
                 .flatMap(createdPreset -> presetRepository.findAll())
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
+                .doOnError(onError::accept)
                 .subscribe(onPresetCreated::accept,
-                        throwable -> Log.e(TAG, "Error creating preset: " + trimmedName, throwable));
+                        throwable -> {
+                            if (!(throwable instanceof PresetAlreadyExistsException)) {
+                                Log.e(TAG, "Error creating preset: " + trimmedName, throwable);
+                            }
+                        });
         disposables.add(createAndFetchAllTask);
     }
 

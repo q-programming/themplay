@@ -90,7 +90,6 @@ public class PlaylistThemeFragment extends Fragment {
     }
 
     @Override
-    @SuppressLint("CheckResult")
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         val context = this.requireContext();

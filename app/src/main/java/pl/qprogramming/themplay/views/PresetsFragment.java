@@ -9,7 +9,6 @@ import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -122,12 +121,7 @@ public class PresetsFragment extends Fragment {
                         input.setError(getString(R.string.playlist_name_atLeastOneChar));
                     } else {
                         input.setError(null);
-                        try {
-                            createPreset(presetName);
-                        } catch (PresetAlreadyExistsException e) {
-                            val msg = MessageFormat.format(getString(R.string.presets_already_exists), presetName);
-                            Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
-                        }
+                        createPreset(presetName);
                     }
                 })
                 .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())
@@ -157,7 +151,6 @@ public class PresetsFragment extends Fragment {
         }
     }
 
-    @SuppressLint("CheckResult")
     private void createPreset(String presetName) throws PresetAlreadyExistsException {
         playlistService.addPreset(presetName, presets -> {
             val msg = MessageFormat.format(getString(R.string.presets_created), presetName);
@@ -168,6 +161,14 @@ public class PresetsFragment extends Fragment {
                 setPresetAsActive(presets.get(0));
             }
             adapter.notifyDataSetChanged();
+        }, throwable -> {
+            if (throwable instanceof PresetAlreadyExistsException) {
+                val msg = MessageFormat.format(getString(R.string.presets_already_exists), presetName);
+                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+            }else{
+                Log.e(TAG, "Error creating preset: " + presetName, throwable
+                );
+            }
         });
     }
 

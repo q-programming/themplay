@@ -13,6 +13,8 @@
     <string name="presets_add">Add new preset</string>
     <string name="presets_name">Unique preset name</string>
     <string name="presets_add_atLeastOneChar">Your preset name must have at least single character!</string>
+    <string name="playlist_already_exists">Playlist with name \"{0}\" already exists in this preset</string>
+    <string name="playlist_add_error">There was an error while trying to add playlist</string>
     <string name="presets_create_first">Please activate preset before creating playlist</string>
     <string name="presets_created">Preset \"{0}\" created</string>
     <string name="presets_activated">Preset \"{0}\" is now active</string>
@@ -40,7 +42,7 @@
     <string name="playlist_look_change_text_color">Change text color</string>
     <string name="playlist_look_change_background">Change background</string>
     <string name="playlist_look_remove_background">Remove background</string>
-    <string name="playlist_look_song">Jakaś fajna piosenka.mp3</string>
+    <string name="playlist_look_song">Some cool song.mp3</string>
     <string name="playlist_look_text_outline">Add shadow outline around text</string>
     <string name="playlist_look_default">default</string>
     <string name="playlist_look_white">white</string>
@@ -78,10 +80,8 @@
     <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
-    <string name="settings_notifications_info">Show popup notifications when song is playing with next/previous media controls.It will also prevent application from being killed in background and control on locked screen</string>
-    <string name="settings_notifications">Show notifications</string>
     <string name="playlist_now_playing_notificatoin">Now playing</string>
-    <string name="notificatoin_description">Shows which song now plays and shows controls</string>
+    <string name="notificatoin_description">Shows which song now plays and shows controls allowing to play/pause/stop/next/previous</string>
     <string name="settings_fadeStop">Fade out songs when stopping</string>
     <string name="settings_fadeStop_info">When pressing stop button , song will be faded out instead of stopping right away</string>
 

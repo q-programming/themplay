@@ -1,17 +1,11 @@
 package pl.qprogramming.themplay.views;
 
-import android.Manifest;
-import android.content.pm.PackageManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.TextWatcher;
 
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.preference.EditTextPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
@@ -85,22 +79,5 @@ public class SettingsFragment extends PreferenceFragmentCompat {
         //keep screen on
         val keepScreenOn = sp.getBoolean(Property.KEEP_SCREEN_ON, true);
         requireActivity().findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
-        //notifications
-        val notifications = sp.getBoolean(Property.NOTIFICATIONS, false);
-        if (notifications && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            checkAndRequestPermission();
-        }
     }
-
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private void checkAndRequestPermission() {
-        String permission = Manifest.permission.POST_NOTIFICATIONS;
-        int permissionCheck = ContextCompat.checkSelfPermission(
-                this.requireContext(), permission);
-        if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this.requireActivity(),
-                    new String[]{permission}, permission.length());
-        }
-    }
-
 }

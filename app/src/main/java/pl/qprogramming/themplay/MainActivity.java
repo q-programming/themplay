@@ -56,6 +56,7 @@ import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
+import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
@@ -109,10 +110,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void checkAndRequestRequiredPermissions() {
-        val sp = PreferenceManager.getDefaultSharedPreferences(this);
-        val requestNotifications = sp.getBoolean(Property.NOTIFICATIONS, false);
         List<String> permissionsToRequest = new ArrayList<>();
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) { // Android 13+
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.READ_MEDIA_AUDIO);
@@ -120,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES);
             }
-            if (requestNotifications && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS);
             }
         } else { // API 30, 31, 32
@@ -150,9 +148,7 @@ public class MainActivity extends AppCompatActivity {
                 allEssentialPermissionsCurrentlyGranted = false;
                 Log.w(TAG, Manifest.permission.READ_MEDIA_IMAGES + " is currently DENIED (Essential).");
             }
-            val sp = PreferenceManager.getDefaultSharedPreferences(this);
-            val notificationsEnabledByUserPref = sp.getBoolean(Property.NOTIFICATIONS, false);
-            if (notificationsEnabledByUserPref && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 Log.w(TAG, Manifest.permission.POST_NOTIFICATIONS + " is currently DENIED (user wants them but permission lacking).");
             }
         } else { // API 30-32
@@ -375,7 +371,7 @@ public class MainActivity extends AppCompatActivity {
                 .setTitle(getString(R.string.playlist_name))
                 .setView(input)
                 .setPositiveButton(getString(R.string.create), (dialog, which) -> {
-                    val playlistName = input.getText().toString();
+                    val playlistName = input.getText().toString().trim();
                     if (playlistName.isEmpty()) {
                         val msg = getString(R.string.playlist_add_atLeastOneChar);
                         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
@@ -395,7 +391,17 @@ public class MainActivity extends AppCompatActivity {
                                     val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
                                     Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                                 },
-                                throwable -> Log.e(TAG, "Error while adding new playlist", throwable));
+                                throwable -> {
+                                    if (throwable instanceof PresetAlreadyExistsException) {
+                                        val msg = MessageFormat.format(getString(R.string.playlist_already_exists), playlistName);
+                                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                                        input.setError(msg);
+                                    } else {
+                                        Log.e(TAG, "Error while adding new playlist", throwable);
+                                        val msg = getString(R.string.playlist_add_error);
+                                        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
+                                    }
+                                });
                     }
                 })
                 .setNegativeButton(getString(R.string.cancel), (dialog, which) -> dialog.cancel())

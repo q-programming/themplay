@@ -61,7 +61,7 @@ public class Playlist implements Serializable, Cloneable {
     private int songCount;
     private String preset;
     @ColumnInfo(name = BACKGROUND)
-    private transient String backgroundImage;//TODO verify ?
+    private transient String backgroundImage;
     @ColumnInfo(name = TEXT_COLOR)
     private int textColor;
     @ColumnInfo(name = TEXT_OUTLINE)

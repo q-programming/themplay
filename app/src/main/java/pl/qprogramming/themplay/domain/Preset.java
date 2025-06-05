@@ -2,7 +2,6 @@ package pl.qprogramming.themplay.domain;
 
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
-import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
@@ -21,11 +20,7 @@ import lombok.ToString;
 @NoArgsConstructor
 @Builder
 @ToString
-@Entity(tableName = Preset.PRESET_TABLE_NAME,
-        indices = {
-                @Index(value = {Preset.NAME}, unique = true)
-        }
-)
+@Entity(tableName = Preset.PRESET_TABLE_NAME)
 public class Preset implements Serializable {
 
     public static final String PRESET_TABLE_NAME = "presets";
@@ -36,7 +31,7 @@ public class Preset implements Serializable {
 
     @PrimaryKey
     private Long id;
-    @ColumnInfo(name = NAME)
+    @ColumnInfo(name = NAME, index = true)
     private String name;
     @ColumnInfo(name = CREATED_AT)
     @Builder.Default

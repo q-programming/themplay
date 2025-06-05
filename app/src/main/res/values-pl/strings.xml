@@ -22,6 +22,8 @@
     <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
+    <string name="playlist_already_exists">Plalista o nazwie \"{0}\" już istnieje w tym zestawie</string>
+    <string name="playlist_add_error">Wystąpił bład podczas próby dodania playlisty</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
@@ -73,9 +75,7 @@
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
     <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
-    <string name="settings_notifications_info">Pokaż powiadomienia kiedy utwór jest odtwarzany z kontrolkami następny/poprzedni utwór. Pomoże to również aplikacji chodzić w tle i sterować na zablokowanym ekranie</string>
-    <string name="settings_notifications">Pokaż powiadomienia</string>
-    <string name="notificatoin_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki</string>
+    <string name="notificatoin_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki pozwalające na odtwarzanie/pauzę/stop/następny/poprzedni utwór</string>
     <string name="playlist_copy">Kopiuj playlistę</string>
     <string name="playlist_paste">Wklej playlistę</string>
     <string name="playlist_pasted">Utworzono kopię playlisty</string>
