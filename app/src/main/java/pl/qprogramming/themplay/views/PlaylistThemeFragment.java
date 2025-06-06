@@ -142,10 +142,10 @@ public class PlaylistThemeFragment extends Fragment {
         });
         view.findViewById(R.id.remove_background).setOnClickListener(v -> {
             playlist.setBackgroundImage(null);
-            playlistService.save(playlist,updated->{
+            playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
-            });
+            }, throwable -> Log.e(TAG, "Error removing background image", throwable));
         });
         view.findViewById(R.id.change_text_color).setOnClickListener(v -> {
             String[] colors = {
@@ -164,10 +164,10 @@ public class PlaylistThemeFragment extends Fragment {
             builder.setTitle(context.getString(R.string.playlist_look_change_text_color));
             builder.setItems(colors, (dialog, selected) -> {
                 playlist.setTextColor(selected);
-                playlistService.save(playlist,updated->{
+                playlistService.save(playlist, updated -> {
                     playlist = updated;
                     updatePreview();
-                });
+                }, throwable -> Log.e(TAG, "Error changing text color", throwable));
             });
             builder.show();
         });
@@ -177,10 +177,10 @@ public class PlaylistThemeFragment extends Fragment {
         }
         switchBtn.setOnCheckedChangeListener((buttonView, isChecked) -> {
             playlist.setTextOutline(isChecked);
-            playlistService.save(playlist,updated->{
+            playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
-            });
+            }, throwable -> Log.e(TAG, "Error changing text outline", throwable));
         });
     }
 

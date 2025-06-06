@@ -44,6 +44,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
+import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -55,6 +56,7 @@ import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 
 /**
  * A simple {@link Fragment} subclass.
@@ -143,7 +145,16 @@ public class PlaylistSettingsFragment extends Fragment {
             val name = Objects.requireNonNull(playlistEditText.getText()).toString();
             if (!currentPlaylist.getName().equals(name)) {
                 currentPlaylist.setName(name);
-                playlistService.save(currentPlaylist);
+                playlistService.save(currentPlaylist,
+                        playlist -> Log.d(TAG, "Playlist updated successfully: " + currentPlaylist.getName()),
+                        throwable -> {
+                            if (throwable instanceof PlaylistNameExistsException) {
+                                val msg = MessageFormat.format(getString(R.string.playlist_already_exists), name);
+                                Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+                            }else{
+                                Log.e(TAG, "Error updating playlist", throwable);
+                            }
+                        });
             }
         }
         //hide virtual keyboard if open

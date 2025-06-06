@@ -55,8 +55,8 @@ import pl.qprogramming.themplay.domain.Song;
 import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
-import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
@@ -393,7 +393,7 @@ public class MainActivity extends AppCompatActivity {
                                     Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                                 },
                                 throwable -> {
-                                    if (throwable instanceof PresetAlreadyExistsException) {
+                                    if (throwable instanceof PlaylistNameExistsException) {
                                         val msg = MessageFormat.format(getString(R.string.playlist_already_exists), playlistName);
                                         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                                         input.setError(msg);

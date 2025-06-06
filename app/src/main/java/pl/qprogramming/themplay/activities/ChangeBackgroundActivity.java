@@ -169,6 +169,9 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
                             Log.d(TAG, "Playlist background updated successfully for  " + updated.getName());
                             sendUpdateBroadcast();
                             finish();
+                        }, throwable -> {
+                            Log.e(TAG, "Error updating playlist background for " + playlist.getName(), throwable);
+                            finish();
                         });
             } else {
                 Log.e(TAG, "Playlist became null before saving.");

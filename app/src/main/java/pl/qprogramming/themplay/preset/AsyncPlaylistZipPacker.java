@@ -3,13 +3,17 @@ package pl.qprogramming.themplay.preset;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Environment;
 import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
 import androidx.documentfile.provider.DocumentFile;
 
+import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.zip.ZipEntry;
@@ -81,13 +85,14 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
     protected void onPostExecute(ExportResult result) {
         super.onPostExecute(result);
         if (logs.length() > 0) {
-//            File logFile = new File(Environment.getExternalStorageDirectory() + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
-//            try (val bw = new BufferedWriter(new FileWriter(logFile))) {
-//                bw.write(logs.toString());
-//            }
-            //TODO this needs fix
-//            val msg = MessageFormat.format(context.getString(R.string.presets_saved_errors), documentFile.getName(), logFile.getName());
-//            Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
+            File externalFilesDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+            File logFile = new File(externalFilesDir + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
+            try (val bw = new BufferedWriter(new FileWriter(logFile))) {
+                bw.write(logs.toString());
+            }
+            Log.e(TAG, "Logs saved to " + logFile.getAbsolutePath());
+            val msg = MessageFormat.format(context.getString(R.string.presets_saved_errors), documentFile.getName(), logFile.getName());
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
         } else {
             val msg = MessageFormat.format(context.getString(R.string.presets_saved), documentFile.getName());
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show();

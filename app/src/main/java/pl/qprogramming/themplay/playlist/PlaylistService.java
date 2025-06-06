@@ -40,6 +40,7 @@ import pl.qprogramming.themplay.db.ThemplayDatabase;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
 import pl.qprogramming.themplay.repository.PlaylistRepository;
@@ -261,16 +262,33 @@ public class PlaylistService extends Service {
      *
      * @param playlist        playlist to be saved
      * @param onPlaylistSaved callback when playlist is saved
+     * @param onError         callback when error occurs
      */
-    public void save(Playlist playlist, Consumer<Playlist> onPlaylistSaved) {
-        disposables.add(
-                playlistRepository.update(playlist)
+    public void save(Playlist playlist, Consumer<Playlist> onPlaylistSaved, Consumer<Throwable> onError) {
+        val updateTask =
+                playlistRepository.countByPresetNameAndName(playlist.getPreset(), playlist.getName())
                         .subscribeOn(Schedulers.io())
+                        .flatMap(exists -> {
+                            if (exists > 0) {
+                                return Single.error(new PlaylistNameExistsException("Playlist with name " + playlist.getName() + " already exists for preset " + playlist.getPreset()));
+                            } else {
+                                return playlistRepository.update(playlist).toSingleDefault(playlist);
+                            }
+                        }).subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(() -> {
-                            Log.d(TAG, "Playlist updated successfully: " + playlist.getName());
-                            onPlaylistSaved.accept(playlist);
-                        }, throwable -> Log.e(TAG, "Error updating playlist: " + playlist.getName(), throwable)));
+                        .subscribe(
+                                savedPlaylist -> {
+                                    Log.d(TAG, "Playlist saved/updated successfully: " + savedPlaylist.getName());
+                                    if (onPlaylistSaved != null) {
+                                        onPlaylistSaved.accept(savedPlaylist);
+                                    }
+                                },
+                                throwable -> {
+                                    Log.e(TAG, "Error during save operation for playlist: " + playlist.getName(), throwable);
+                                    onError.accept(throwable);
+                                }
+                        );
+        disposables.add(updateTask);
     }
 
     /**
@@ -284,7 +302,7 @@ public class PlaylistService extends Service {
                 .subscribeOn(Schedulers.io())
                 .flatMap(exists -> {
                     if (exists > 0) {
-                        return Single.error(new PresetAlreadyExistsException("Playlist with name " + playlist.getName() + " already exists for preset " + playlist.getPreset()));
+                        return Single.error(new PlaylistNameExistsException("Playlist with name " + playlist.getName() + " already exists for preset " + playlist.getPreset()));
                     } else {
                         return playlistRepository.countAllByPreset(playlist.getPreset());
                     }
