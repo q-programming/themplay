@@ -319,14 +319,44 @@ public class PlayerService extends Service {
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         } catch (IOException | SecurityException e) {
-            Logger.e(TAG, "Error playing song", e);
-            Logger.d(TAG, e.getMessage());
-            val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
+            Logger.e(TAG, "Error playing song: " + nextSong.getFilename(), e);
+            if (e.getMessage() != null) { // Good practice to check if getMessage() is null
+                Logger.d(TAG, "Error details: " + e.getMessage());
+            }
+            String errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+            if (activePlaylist != null) {
+                activePlaylist.setCurrentSong(null);
+                boolean removedFromCurrentSequence;
+                if (activePlaylist.getPlaylist() != null) {
+                    removedFromCurrentSequence = activePlaylist.getPlaylist().remove(nextSong);
+                    if (removedFromCurrentSequence) {
+                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from current playback sequence (getPlaylist).");
+                    } else {
+                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in current playback sequence (getPlaylist).");
+                    }
+                } else {
+                    Logger.w(TAG, "activePlaylist.getPlaylist() was null. Cannot remove problematic song from sequence.");
+                }
+                boolean removedFromMasterList;
+                if (activePlaylist.getSongs() != null) {
+                    removedFromMasterList = activePlaylist.getSongs().remove(nextSong);
+                    if (removedFromMasterList) {
+                        activePlaylist.setSongCount(activePlaylist.getSongCount() - 1);
+                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from master song list (getSongs).");
+                    } else {
+                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in master song list (getSongs).");
+                    }
+                } else {
+                    Logger.w(TAG, "activePlaylist.getSongs() was null. Cannot remove problematic song from master list.");
+                }
+            } else {
+                Logger.w(TAG, "activePlaylist or nextSong was null. Cannot perform direct removal.");
+            }
             Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
-            val args = new Bundle();
+            Bundle args = new Bundle();
             args.putSerializable(Utils.SONG, nextSong);
-            args.putSerializable(PLAYLIST, activePlaylist);
+            args.putSerializable(PLAYLIST, activePlaylist); // Pass the context of the playlist
             intent.putExtra(ARGS, args);
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
             next();

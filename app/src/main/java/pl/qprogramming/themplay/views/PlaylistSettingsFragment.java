@@ -96,9 +96,10 @@ public class PlaylistSettingsFragment extends Fragment {
 
     /**
      * Creates all listeners and initializes views.
-     * @param view The View returned by {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}.
+     *
+     * @param view               The View returned by {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}.
      * @param savedInstanceState If non-null, this fragment is being re-constructed
-     * from a previous saved state as given here.
+     *                           from a previous saved state as given here.
      */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
@@ -142,7 +143,7 @@ public class PlaylistSettingsFragment extends Fragment {
         playlistInputLayout = view.findViewById(R.id.playlist_name_layout);
         view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
             Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
-                    .setData(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                    .setDataAndType(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, "audio/*")
                     .setFlags(FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
                     .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
             startActivityForSelectedFiles.launch(intent);
@@ -163,7 +164,7 @@ public class PlaylistSettingsFragment extends Fragment {
                             if (throwable instanceof PlaylistNameExistsException) {
                                 val msg = MessageFormat.format(getString(R.string.playlist_already_exists), name);
                                 Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
-                            }else{
+                            } else {
                                 Logger.e(TAG, "Error updating playlist", throwable);
                             }
                         });
