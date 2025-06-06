@@ -1,7 +1,6 @@
 package pl.qprogramming.themplay.util;
 
 import android.content.Context;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.TextView;
@@ -18,6 +17,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 
 public class Utils {
 
@@ -160,7 +160,7 @@ public class Utils {
      */
     public static VersionComparisonResult compareVersions(String version1, String version2) {
         if (version1 == null || version2 == null || version1.isEmpty() || version2.isEmpty()) {
-            Log.w(TAG, "Cannot compare versions: one or both are null/empty. V1: " + version1 + ", V2: " + version2);
+            Logger.w(TAG, "Cannot compare versions: one or both are null/empty. V1: " + version1 + ", V2: " + version2);
             return VersionComparisonResult.ERROR_PARSING;
         }
         if (version1.equals(version2)) {
@@ -194,7 +194,7 @@ public class Utils {
             // If all parsed numeric parts are identical
             return VersionComparisonResult.VERSIONS_ARE_SAME;
         } catch (NumberFormatException e) {
-            Log.e(TAG, "Failed to parse version parts after sanitization. V1: " + version1 + ", V2: " + version2, e);
+            Logger.e(TAG, "Failed to parse version parts after sanitization. V1: " + version1 + ", V2: " + version2, e);
             return VersionComparisonResult.ERROR_PARSING;
         }
     }

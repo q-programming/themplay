@@ -23,7 +23,6 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -54,6 +53,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
@@ -94,6 +94,12 @@ public class PlaylistSettingsFragment extends Fragment {
         return inflater.inflate(R.layout.playlist_settings, container, false);
     }
 
+    /**
+     * Creates all listeners and initializes views.
+     * @param view The View returned by {@link #onCreateView(LayoutInflater, ViewGroup, Bundle)}.
+     * @param savedInstanceState If non-null, this fragment is being re-constructed
+     * from a previous saved state as given here.
+     */
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
@@ -108,8 +114,11 @@ public class PlaylistSettingsFragment extends Fragment {
             removeBtn.setVisibility(View.GONE);
             removeBtn.setOnClickListener(clicked -> {
                 val songsToRemove = currentPlaylist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
-                playlistService.removeSongsFromPlaylist(currentPlaylist.getId(), songsToRemove, updatedPlaylist -> currentPlaylist = updatedPlaylist,
-                        throwable -> Log.e(TAG, "Error removing songs from playlist", throwable), () -> {
+                playlistService.removeSongsFromPlaylist(currentPlaylist.getId(), songsToRemove,
+                        updatedPlaylist -> currentPlaylist = updatedPlaylist,
+                        throwable -> Logger.e(TAG, "Error removing songs from playlist", throwable),
+                        () -> {
+                            //finally , regardless if success or fail
                             removeBtn.setVisibility(View.GONE);
                             multiple = false;
                             adapter.setMultiple(false);
@@ -140,19 +149,22 @@ public class PlaylistSettingsFragment extends Fragment {
         });
     }
 
+    /**
+     * Updates playlist name and saves it to database when user navigates back from this fragment.
+     */
     private void updateListAndGoBack() {
         if (playlistEditText != null) {
             val name = Objects.requireNonNull(playlistEditText.getText()).toString();
             if (!currentPlaylist.getName().equals(name)) {
                 currentPlaylist.setName(name);
                 playlistService.save(currentPlaylist,
-                        playlist -> Log.d(TAG, "Playlist updated successfully: " + currentPlaylist.getName()),
+                        playlist -> Logger.d(TAG, "Playlist updated successfully: " + currentPlaylist.getName()),
                         throwable -> {
                             if (throwable instanceof PlaylistNameExistsException) {
                                 val msg = MessageFormat.format(getString(R.string.playlist_already_exists), name);
                                 Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
                             }else{
-                                Log.e(TAG, "Error updating playlist", throwable);
+                                Logger.e(TAG, "Error updating playlist", throwable);
                             }
                         });
             }
@@ -197,7 +209,7 @@ public class PlaylistSettingsFragment extends Fragment {
      */
     private void processSelectedSongUris(List<Uri> uris) {
         if (playlistService == null || currentPlaylist == null || !isAdded()) {
-            Log.e(TAG, "Service or playlist null, or fragment not added. Cannot process URIs.");
+            Logger.e(TAG, "Service or playlist null, or fragment not added. Cannot process URIs.");
             return;
         }
         List<Song> newSongs = new ArrayList<>();
@@ -207,7 +219,7 @@ public class PlaylistSettingsFragment extends Fragment {
                 context.getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 String displayName = getFileNameFromUri(context, uri);
                 val file = new File(uri.getPath());
-                Log.d(TAG, "Processing URI: " + uri + " path: " + file.getPath() + " filename" + displayName);
+                Logger.d(TAG, "Processing URI: " + uri + " path: " + file.getPath() + " filename" + displayName);
                 val song = Song.builder()
                         .filename(displayName)
                         .fileUri(uri.toString())
@@ -215,12 +227,12 @@ public class PlaylistSettingsFragment extends Fragment {
                         .build();
                 newSongs.add(song);
             } catch (SecurityException e) {
-                Log.e(TAG, "Permission denial for URI: " + uri, e);
+                Logger.e(TAG, "Permission denial for URI: " + uri, e);
                 if (isAdded()) {
                     Toast.makeText(getContext(), "Permission denied for: " + uri.getLastPathSegment(), Toast.LENGTH_SHORT).show();
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Error processing URI: " + uri, e);
+                Logger.e(TAG, "Error processing URI: " + uri, e);
             }
         }
         if (!newSongs.isEmpty()) {
@@ -257,7 +269,7 @@ public class PlaylistSettingsFragment extends Fragment {
                     if (nameIndex != -1) fileName = cursor.getString(nameIndex);
                 }
             } catch (Exception e) {
-                Log.w(TAG, "Error getting display name from content URI: " + uri, e);
+                Logger.w(TAG, "Error getting display name from content URI: " + uri, e);
             }
         }
         if (fileName == null)
@@ -272,11 +284,11 @@ public class PlaylistSettingsFragment extends Fragment {
      */
     private void updateAndRenderSongList(boolean notify) {
         if (!isAdded() || currentPlaylist == null || songsListView == null) {
-            Log.w(TAG, "Cannot update/render song list, fragment not added, playlist null, or listView null.");
+            Logger.w(TAG, "Cannot update/render song list, fragment not added, playlist null, or listView null.");
             return;
         }
         List<Song> songs = currentPlaylist.getSongs() != null ? currentPlaylist.getSongs() : new ArrayList<>();
-        Log.d(TAG, "Rendering song list with " + songs.size() + " songs. Multiple selection: " + multiple);
+        Logger.d(TAG, "Rendering song list with " + songs.size() + " songs. Multiple selection: " + multiple);
         if (adapter == null) {
             adapter = new SongListViewAdapter(requireContext(), songs, multiple);
             songsListView.setAdapter(adapter);
@@ -316,7 +328,7 @@ public class PlaylistSettingsFragment extends Fragment {
         try {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Receiver not registered", e);
+            Logger.w(TAG, "Receiver not registered", e);
         }
         super.onDestroy();
     }
@@ -334,7 +346,7 @@ public class PlaylistSettingsFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Multiple selection started");
+            Logger.d(TAG, "Multiple selection started");
             removeBtn.setVisibility(View.VISIBLE);
             multiple = true;
             adapter.notifyDataSetChanged();
@@ -344,7 +356,7 @@ public class PlaylistSettingsFragment extends Fragment {
     private final ServiceConnection mConnection = new ServiceConnection() {
         @SuppressLint("CheckResult")
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(TAG, "Connected service within PlaylistFragment ");
+            Logger.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
             playlistService.loadSongs(currentPlaylist, playlistWithSongs -> {
@@ -352,7 +364,7 @@ public class PlaylistSettingsFragment extends Fragment {
                 headerTitleTextView.setText(currentPlaylist.getName());
                 playlistEditText.setText(currentPlaylist.getName());
                 updateAndRenderSongList(true);
-            }, throwable -> Log.e(TAG, "Error loading playlist", throwable));
+            }, throwable -> Logger.e(TAG, "Error loading playlist", throwable));
         }
 
         public void onServiceDisconnected(ComponentName className) {

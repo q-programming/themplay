@@ -27,7 +27,6 @@ import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -45,6 +44,7 @@ import java.util.Optional;
 
 import lombok.val;
 import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.settings.Property;
@@ -108,7 +108,7 @@ public class PlaylistFragment extends Fragment {
 
     @Override
     public void onResume() {
-        Log.d(TAG, "onResume CALLED. Activity instance: " + this.toString());
+        Logger.d(TAG, "onResume CALLED. Activity instance: " + this.toString());
         super.onResume();
         val filter = new IntentFilter(PLAYLIST_NOTIFICATION.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
@@ -129,18 +129,18 @@ public class PlaylistFragment extends Fragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        Log.d(TAG, "onDestroy CALLED. Activity instance: " + this.toString());
+        Logger.d(TAG, "onDestroy CALLED. Activity instance: " + this.toString());
         try {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Logger.d(TAG, "Receiver not registered");
         }
     }
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         @SuppressLint("CheckResult")
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(TAG, "Connected service within PlaylistFragment ");
+            Logger.d(TAG, "Connected service within PlaylistFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
             val adapter = new PlaylistItemRecyclerViewAdapter(playlistService, getActivity());
@@ -162,13 +162,13 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Processing event within playlistFragment, action: " + intent.getAction());
+            Logger.d(TAG, "Processing event within playlistFragment, action: " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 val adapter = (PlaylistItemRecyclerViewAdapter) recyclerView.getAdapter();
                 if (adapter == null) {
-                    Log.w(TAG, "Lost Adapter while receiving event");
+                    Logger.w(TAG, "Lost Adapter while receiving event");
                     return;
                 }
                 switch (event) {
@@ -196,7 +196,7 @@ public class PlaylistFragment extends Fragment {
                                 });
                         break;
                     default:
-                        Log.d(TAG, "Processing event within playlistFragment, reloading  " + intent.getAction());
+                        Logger.d(TAG, "Processing event within playlistFragment, reloading  " + intent.getAction());
                         adapter.notifyDataSetChanged();
                 }
             }

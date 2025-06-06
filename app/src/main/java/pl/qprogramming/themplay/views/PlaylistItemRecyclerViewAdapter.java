@@ -17,7 +17,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -46,6 +45,7 @@ import java.util.List;
 import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.util.Utils;
 
@@ -83,7 +83,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             this.playlists.addAll(updatedPlaylists);
             notifyDataSetChanged();
         }, throwable -> {
-            Log.e("Adapter", "Error loading playlists into adapter", throwable);
+            Logger.e("Adapter", "Error loading playlists into adapter", throwable);
             this.playlists.clear();
             notifyDataSetChanged();
         });
@@ -167,7 +167,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                 val itemId = item.getItemId();
                 val context = holder.mCardView.getContext();
                 if (itemId == R.id.editPlaylist) {
-                    Log.d(TAG, "Editing playlist " + playlist.getId());
+                    Logger.d(TAG, "Editing playlist " + playlist.getId());
                     navigateToFragment(
                             fmanager,
                             new PlaylistSettingsFragment(playlist),
@@ -221,7 +221,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         playlistService.findById(playlist.getId(), dbPlaylist -> {
             playlists.set(index, dbPlaylist);
             notifyItemChanged(index);
-        }, throwable -> Log.e(TAG, "Error loading playlist", throwable));
+        }, throwable -> Logger.e(TAG, "Error loading playlist", throwable));
     }
 
     @Override
@@ -259,7 +259,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                                     args.putSerializable(Utils.PLAYLIST, playlistWithSongs);
                                     intent.putExtra(ARGS, args);
                                     LocalBroadcastManager.getInstance(viewHolder.mView.getContext()).sendBroadcast(intent);
-                                }, throwable -> Log.e(TAG, "Error loading playlist", throwable)));
+                                }, throwable -> Logger.e(TAG, "Error loading playlist", throwable)));
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

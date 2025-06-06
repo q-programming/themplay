@@ -19,7 +19,6 @@ import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -47,6 +46,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.preset.AsyncPlaylistZipPacker;
@@ -102,7 +102,7 @@ public class PresetsFragment extends Fragment {
             val recyclerView = (RecyclerView) view.findViewById(R.id.preset_list);
             adapter = new PresetViewAdapter(presetsList);
             recyclerView.setAdapter(adapter);
-        }, throwable -> Log.e(TAG, "Error getting presets", throwable));
+        }, throwable -> Logger.e(TAG, "Error getting presets", throwable));
     }
 
 
@@ -147,7 +147,7 @@ public class PresetsFragment extends Fragment {
                 serviceIsBound = false;
             }
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Logger.d(TAG, "Receiver not registered");
         }
     }
 
@@ -166,7 +166,7 @@ public class PresetsFragment extends Fragment {
                 val msg = MessageFormat.format(getString(R.string.presets_already_exists), presetName);
                 Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
             }else{
-                Log.e(TAG, "Error creating preset: " + presetName, throwable
+                Logger.e(TAG, "Error creating preset: " + presetName, throwable
                 );
             }
         });
@@ -220,7 +220,7 @@ public class PresetsFragment extends Fragment {
                                             fileSaveActivityResultLauncher.launch(saveIntent);
                                         },
                                         throwable -> {
-                                            Log.e(TAG, "Error getting playlists for preset", throwable);
+                                            Logger.e(TAG, "Error getting playlists for preset", throwable);
                                         });
                             });
                     break;
@@ -248,7 +248,7 @@ public class PresetsFragment extends Fragment {
 
     private final ServiceConnection mConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(TAG, "Connected service within PresetsFragment ");
+            Logger.d(TAG, "Connected service within PresetsFragment ");
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
             serviceIsBound = true;

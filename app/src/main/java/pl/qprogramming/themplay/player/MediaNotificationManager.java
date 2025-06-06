@@ -23,6 +23,7 @@ import lombok.val;
 import pl.qprogramming.themplay.MainActivity;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 
 public class MediaNotificationManager {
@@ -68,6 +69,7 @@ public class MediaNotificationManager {
                 .setContentTitle(playlistTitle)
                 .setContentText(song.getFilename());
         mService.startForeground(NOTIFICATION_ID, builder.build());
+        Logger.d(TAG, "Notification created song " + song.getFilename());
     }
 
     private void createNotificationChannel() {
@@ -93,7 +95,8 @@ public class MediaNotificationManager {
     }
 
     public void removeNotification() {
-        mService.stopForeground(false);
+        Logger.d(TAG, "Removing notification");
+        mService.stopForeground(true);
         NotificationManagerCompat.from(mService).cancel(NOTIFICATION_ID);
     }
 }

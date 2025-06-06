@@ -34,7 +34,6 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.util.Log;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -51,6 +50,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.settings.Property;
@@ -93,7 +93,7 @@ public class PlayerService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
-            Log.d(TAG, "onStartCommand received action: " + action);
+            Logger.d(TAG, "onStartCommand received action: " + action);
             if (PLAYBACK_NOTIFICATION_PLAY.getCode().equals(action)) {
                 play();
             } else if (PLAYBACK_NOTIFICATION_PAUSE.getCode().equals(action)) {
@@ -106,12 +106,12 @@ public class PlayerService extends Service {
                 stop();
             }
         }
-        return START_STICKY; // Or your preferred restart behavior
+        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        Log.d(TAG, "onDestroy");
+        Logger.d(TAG, "onDestroy");
         super.onDestroy();
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
@@ -119,16 +119,18 @@ public class PlayerService extends Service {
                 unbindService(playlistServiceConnection);
                 serviceIsBound = false;
             }
-            mediaPlayer.stop();
+            if (mediaPlayer != null && isPlaying()) {
+                mediaPlayer.stop();
+            }
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Logger.d(TAG, "Receiver not registered");
         }
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent + "this:" + this);
+        Logger.d(TAG, "Binding service to " + intent + "this:" + this);
         val filter = new IntentFilter(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
@@ -142,7 +144,7 @@ public class PlayerService extends Service {
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
-        Log.d(TAG, "Returning binder , player is playing ? " + mediaPlayer.isPlaying());
+        Logger.d(TAG, "Returning binder , player is playing ? " + mediaPlayer.isPlaying());
         return mBinder;
     }
 
@@ -203,7 +205,7 @@ public class PlayerService extends Service {
 
     public void stop() {
         mNotificationManager.removeNotification();
-        Log.d(TAG, "Stop media player");
+        Logger.d(TAG, "Stop media player");
         if (isPlaying()) {
             if (activePlaylist != null) {
                 val currentSong = activePlaylist.getCurrentSong();
@@ -232,7 +234,7 @@ public class PlayerService extends Service {
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
             if (songIndex > activePlaylist.getPlaylist().size() - 1) {
-                Log.d(TAG, "Creating new playlist");
+                Logger.d(TAG, "Creating new playlist");
                 createPlaylist(activePlaylist, shuffle);
                 songIndex = 0;
             }
@@ -281,34 +283,34 @@ public class PlayerService extends Service {
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
         mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
-        Log.d(TAG, "Fading into song from " + nextSong.getFilename());
+        Logger.d(TAG, "Fading into song from " + nextSong.getFilename());
         try {
             val uri = Uri.parse(nextSong.getFileUri());
-            Log.d(TAG, "Opening file " + uri.toString());
+            Logger.d(TAG, "Opening file " + uri.toString());
             if (isPlaying()) {
-                Log.d(TAG, "Already playing something, creating secondary player to fade in");
+                Logger.d(TAG, "Already playing something, creating secondary player to fade in");
                 auxPlayer = new MediaPlayer();
                 auxPlayer.setDataSource(this, uri);
                 auxPlayer.prepare();
                 auxPlayer.seekTo(songPosition);
                 auxPlayer.setVolume(0, 0);
-                Log.d(TAG, "Fading out current song");
+                Logger.d(TAG, "Fading out current song");
                 fadeOut(mediaPlayer);
-                Log.d(TAG, "Fading in new song");
+                Logger.d(TAG, "Fading in new song");
                 fadeIn(auxPlayer);
-                Log.d(TAG, "Starting player");
+                Logger.d(TAG, "Starting player");
                 auxPlayer.start();
                 mediaPlayer = auxPlayer;
             } else {
-                Log.d(TAG, "Nothing is playing yet, creating new player");
+                Logger.d(TAG, "Nothing is playing yet, creating new player");
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer.setDataSource(this, uri);
                 mediaPlayer.prepare();
                 mediaPlayer.seekTo(songPosition);
                 mediaPlayer.setVolume(0, 0);
-                Log.d(TAG, "Fading in new song");
+                Logger.d(TAG, "Fading in new song");
                 fadeIn(mediaPlayer);
-                Log.d(TAG, "Starting player");
+                Logger.d(TAG, "Starting player");
                 mediaPlayer.start();
             }
             observeEnding(mediaPlayer);
@@ -317,8 +319,8 @@ public class PlayerService extends Service {
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         } catch (IOException | SecurityException e) {
-            Log.e(TAG, "Error playing song", e);
-            Log.d(TAG, e.getMessage());
+            Logger.e(TAG, "Error playing song", e);
+            Logger.d(TAG, e.getMessage());
             val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
             Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
@@ -347,7 +349,7 @@ public class PlayerService extends Service {
         try {
             return mediaPlayer.isPlaying();
         } catch (IllegalStateException e) {
-            Log.d(TAG, "media player is definitely not playing");
+            Logger.d(TAG, "media player is definitely not playing");
             return false;
         }
     }
@@ -372,7 +374,7 @@ public class PlayerService extends Service {
                         player.release();
                     }
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "FadeOut stopped due to error in MediaPlayer");
+                    Logger.d(TAG, "FadeOut stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -410,7 +412,7 @@ public class PlayerService extends Service {
                     if (time < duration)
                         h.postDelayed(this, 100);
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "FadeIn stopped due to error in MediaPlayer");
+                    Logger.d(TAG, "FadeIn stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -435,7 +437,7 @@ public class PlayerService extends Service {
                         }
                     }
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
+                    Logger.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
                 }
 
             }
@@ -467,7 +469,7 @@ public class PlayerService extends Service {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Received event for playback " + intent.getAction());
+            Logger.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             val sp = getDefaultSharedPreferences(context);

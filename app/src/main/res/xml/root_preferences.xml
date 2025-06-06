@@ -1,28 +1,48 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-
     <Preference
-        android:layout="@layout/header" android:key="@string/goBack"/>
-
-    <SwitchPreferenceCompat
-        app:key="app.dark.mode"
-        android:summary="@string/settings_darkmode_summary"
-        app:title="@string/settings_darkmode" />
-    <EditTextPreference
-        android:defaultValue="4"
-        android:key="app.fade"
-        android:selectAllOnFocus="true"
-        android:singleLine="true"
-        app:useSimpleSummaryProvider="true"
-        android:title="@string/settings_fade" />
-    <SwitchPreferenceCompat
-        app:key="app.keepScreen"
-        android:defaultValue="true"
-        android:summary="@string/settings_keep_screen_summary"
-        app:title="@string/settings_keep_screen" />
-    <SwitchPreferenceCompat
-        app:key="app.fadeStop"
-        android:defaultValue="false"
-        android:summary="@string/settings_fadeStop_info"
-        app:title="@string/settings_fadeStop" />
+        android:key="@string/goBack"
+        android:layout="@layout/header" />
+    <PreferenceCategory app:title="@string/settings_all">
+        <SwitchPreferenceCompat
+            android:summary="@string/settings_darkmode_summary"
+            app:key="app.dark.mode"
+            app:title="@string/settings_darkmode" />
+        <EditTextPreference
+            android:defaultValue="4"
+            android:key="app.fade"
+            android:selectAllOnFocus="true"
+            android:singleLine="true"
+            android:title="@string/settings_fade"
+            app:useSimpleSummaryProvider="true" />
+        <SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:summary="@string/settings_keep_screen_summary"
+            app:key="app.keepScreen"
+            app:title="@string/settings_keep_screen" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:summary="@string/settings_fadeStop_info"
+            app:key="app.fadeStop"
+            app:title="@string/settings_fadeStop" />
+    </PreferenceCategory>
+    <PreferenceCategory>
+        <Preference
+            app:key="app_version"
+            app:title="@string/app_version" />
+    </PreferenceCategory>
+    <!-- Debug Category - Initially Hidden -->
+    <PreferenceCategory
+        app:key="debug_category"
+        app:title="@string/settings_developer">
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:summary="@string/settings_enable_debug_info"
+            app:key="debug_logs_enabled"
+            app:title="@string/settings_enable_debug" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            app:key="debug_options_enabled_flag"
+            app:title="@string/settings_enable_developer_mode" />
+    </PreferenceCategory>
 </PreferenceScreen>

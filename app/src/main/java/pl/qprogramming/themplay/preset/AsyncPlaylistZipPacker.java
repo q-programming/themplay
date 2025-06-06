@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Base64;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.documentfile.provider.DocumentFile;
@@ -24,6 +23,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.util.AsyncTaskExecutorService;
 
 /**
@@ -70,7 +70,7 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
             zip.write(list.toString().getBytes());
             zip.closeEntry();
         } catch (IOException e) {
-            Log.e(TAG, "Failed to write to file ", e);
+            Logger.e(TAG, "Failed to write to file ", e);
             logs.append("\nFailed to save file ");
             logs.append(e);
         }
@@ -90,7 +90,7 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
             try (val bw = new BufferedWriter(new FileWriter(logFile))) {
                 bw.write(logs.toString());
             }
-            Log.e(TAG, "Logs saved to " + logFile.getAbsolutePath());
+            Logger.e(TAG, "Logs saved to " + logFile.getAbsolutePath());
             val msg = MessageFormat.format(context.getString(R.string.presets_saved_errors), documentFile.getName(), logFile.getName());
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
         } else {
@@ -132,8 +132,8 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
             }
             zip.closeEntry();
         } catch (IOException ex) {
-            Log.e(TAG, "Error while trying to save file " + song.getFilename());
-            Log.e(TAG, ex.toString());
+            Logger.e(TAG, "Error while trying to save file " + song.getFilename());
+            Logger.e(TAG, ex.toString());
             logs.append("\nFailed to save file ");
             logs.append(ex);
         }

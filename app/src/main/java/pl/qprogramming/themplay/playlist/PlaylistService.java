@@ -13,7 +13,6 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
@@ -40,6 +39,7 @@ import pl.qprogramming.themplay.db.ThemplayDatabase;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
@@ -69,7 +69,7 @@ public class PlaylistService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent + "this:" + this);
+        Logger.d(TAG, "Binding service to " + intent + "this:" + this);
         ensureOnlyOnePlaylistIsActive();
         return mBinder;
     }
@@ -83,7 +83,7 @@ public class PlaylistService extends Service {
                 .subscribeOn(Schedulers.io())
                 .flatMapCompletable(activePlaylists -> {
                     if (activePlaylists.size() > 1) {
-                        Log.w(TAG, "Found " + activePlaylists.size() + " active playlists. Deactivating extras.");
+                        Logger.w(TAG, "Found " + activePlaylists.size() + " active playlists. Deactivating extras.");
                         Playlist playlistToKeepActive = activePlaylists.get(0);
                         List<Playlist> playlistsToDeactivate = new ArrayList<>(activePlaylists);
                         playlistsToDeactivate.remove(playlistToKeepActive);
@@ -95,8 +95,8 @@ public class PlaylistService extends Service {
                     return Completable.complete();
                 }).observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
-                        () -> Log.i(TAG, "Active playlist cleanup check completed successfully."),
-                        throwable -> Log.e(TAG, "Error during active playlist cleanup check.", throwable)
+                        () -> Logger.i(TAG, "Active playlist cleanup check completed successfully."),
+                        throwable -> Logger.e(TAG, "Error during active playlist cleanup check.", throwable)
                 ));
     }
 
@@ -183,7 +183,7 @@ public class PlaylistService extends Service {
                         .subscribe(
                                 onPlaylistReceived::accept,
                                 onError::accept,
-                                () -> Log.w(TAG, "Playlist with ID " + id + " not found (completed without item).")
+                                () -> Logger.w(TAG, "Playlist with ID " + id + " not found (completed without item).")
 
                         )
         );
@@ -209,7 +209,7 @@ public class PlaylistService extends Service {
     public Single<Playlist> loadSongs(Playlist playlist) {
         return songRepository.getSongsForPlaylist(playlist.getId())
                 .map(songs -> {
-                    Log.d(TAG, "Fetched " + songs.size() + " songs for playlist: " + playlist.getName());
+                    Logger.d(TAG, "Fetched " + songs.size() + " songs for playlist: " + playlist.getName());
                     playlist.setSongs(songs);
                     return playlist;
                 });
@@ -225,7 +225,7 @@ public class PlaylistService extends Service {
         disposables.add(
                 loadSongs(playlist)
                         .compose(RxSchedulers.singleOnMain())
-                        .subscribe(onSongsLoaded::accept, throwable -> Log.e(TAG, "Error loading songs for playlist: " + playlist.getName(), throwable)));
+                        .subscribe(onSongsLoaded::accept, throwable -> Logger.e(TAG, "Error loading songs for playlist: " + playlist.getName(), throwable)));
     }
 
     /**
@@ -253,8 +253,8 @@ public class PlaylistService extends Service {
                 playlistRepository.update(playlist)
                         .subscribeOn(Schedulers.io())
                         .subscribe(
-                                () -> Log.d(TAG, "Playlist updated successfully: " + playlist.getName()),
-                                throwable -> Log.e(TAG, "Error updating playlist: " + playlist.getName(), throwable)));
+                                () -> Logger.d(TAG, "Playlist updated successfully: " + playlist.getName()),
+                                throwable -> Logger.e(TAG, "Error updating playlist: " + playlist.getName(), throwable)));
     }
 
     /**
@@ -289,16 +289,16 @@ public class PlaylistService extends Service {
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         savedPlaylist -> {
-                            Log.d(TAG, "Playlist saved/updated successfully: " + savedPlaylist.getName());
+                            Logger.d(TAG, "Playlist saved/updated successfully: " + savedPlaylist.getName());
                             if (onPlaylistSaved != null) {
                                 onPlaylistSaved.accept(savedPlaylist);
                             }
                         },
                         throwable -> {
                             if (throwable instanceof PlaylistNameExistsException) {
-                                Log.d(TAG, "Playlist with name '" + playlist.getName() + "' already exists for preset '" + playlist.getPreset() + "'. Skipping.");
+                                Logger.d(TAG, "Playlist with name '" + playlist.getName() + "' already exists for preset '" + playlist.getPreset() + "'. Skipping.");
                             } else {
-                                Log.e(TAG, "Error during save operation for playlist: " +
+                                Logger.e(TAG, "Error during save operation for playlist: " +
                                         (playlist != null && playlist.getName() != null ? playlist.getName() : "ID " + (playlist != null ? playlist.getId() : "null")), throwable);
                             }
                             onError.accept(throwable);
@@ -313,7 +313,7 @@ public class PlaylistService extends Service {
      * @param playlist playlist to be created
      */
     public void addPlaylist(Playlist playlist, Consumer<Playlist> onPlaylistCreated, Consumer<Throwable> onError) {
-        Log.d(TAG, "Adding new playlist" + playlist);
+        Logger.d(TAG, "Adding new playlist" + playlist);
         val createTask = playlistRepository.countByPresetNameAndName(playlist.getPreset(), playlist.getName())
                 .subscribeOn(Schedulers.io())
                 .flatMap(exists -> {
@@ -329,17 +329,17 @@ public class PlaylistService extends Service {
                 })
                 .observeOn(AndroidSchedulers.mainThread())
                 .doOnSuccess(newPlaylistId -> {
-                    Log.d(TAG, "Playlist created successfully with ID: " + newPlaylistId + ". Name: " + playlist.getName());
+                    Logger.d(TAG, "Playlist created successfully with ID: " + newPlaylistId + ". Name: " + playlist.getName());
                     playlist.setId(newPlaylistId);
                     onPlaylistCreated.accept(playlist);
                     populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist);
                 })
                 .doOnError(onError::accept)
                 .subscribe(
-                        newPlaylistId -> Log.i(TAG, "Successfully added playlist ID: " + newPlaylistId + ", Name: " + playlist.getName()),
+                        newPlaylistId -> Logger.i(TAG, "Successfully added playlist ID: " + newPlaylistId + ", Name: " + playlist.getName()),
                         throwable -> {
                             if (!(throwable instanceof PresetAlreadyExistsException)) {
-                                Log.e(TAG, "Error adding playlist: " + playlist.getName(), throwable);
+                                Logger.e(TAG, "Error adding playlist: " + playlist.getName(), throwable);
                             }
                         }
                 );
@@ -362,9 +362,9 @@ public class PlaylistService extends Service {
                 songRepository.createAll(songsToInsert)
                         .subscribeOn(Schedulers.io())
                         .flatMap(insertedSongIds -> {
-                            Log.d(TAG, "Songs inserted. Received " + insertedSongIds.size() + " IDs.");
+                            Logger.d(TAG, "Songs inserted. Received " + insertedSongIds.size() + " IDs.");
                             if (insertedSongIds.size() != songsToInsert.size()) {
-                                Log.w(TAG, "Mismatch between songs to insert and returned IDs count.");
+                                Logger.w(TAG, "Mismatch between songs to insert and returned IDs count.");
                             }
                             for (int i = 0; i < songsToInsert.size() && i < insertedSongIds.size(); i++) {
                                 songsToInsert.get(i).setId(insertedSongIds.get(i));
@@ -388,11 +388,11 @@ public class PlaylistService extends Service {
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(
                                 updatedPl -> {
-                                    Log.d(TAG, "Playlist update successful in service. Passing to UI callback.");
+                                    Logger.d(TAG, "Playlist update successful in service. Passing to UI callback.");
                                     onPlaylistUpdated.accept(playlist);
                                     Toast.makeText(this, R.string.playlist_added_new_songs, Toast.LENGTH_SHORT).show();
                                 },
-                                throwable -> Log.e(TAG, "Error in addSongToPlaylist RxJava chain", throwable)
+                                throwable -> Logger.e(TAG, "Error in addSongToPlaylist RxJava chain", throwable)
                         )
         );
     }
@@ -431,14 +431,14 @@ public class PlaylistService extends Service {
             final Consumer<Playlist> onSuccessCallback,
             final Consumer<Throwable> onErrorCallback,
             Action onCompleteCallback) {
-        Log.d(TAG, "Removing " + songsToRemove.size() + " songs from playlist ID: " + playlistId);
+        Logger.d(TAG, "Removing " + songsToRemove.size() + " songs from playlist ID: " + playlistId);
         Single<Playlist> updateOperation = Single.defer(() -> playlistRepository.findOneById(playlistId)
                 .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistId + " not found.")))
                 .flatMap(playlistFromDb ->
                         songRepository.getSongsForPlaylist(playlistFromDb.getId())
                                 .map(songsFromDb -> {
                                     playlistFromDb.setSongs(songsFromDb);
-                                    Log.d(TAG, "Fetched " + songsFromDb.size() + " songs for " + playlistFromDb.getName());
+                                    Logger.d(TAG, "Fetched " + songsFromDb.size() + " songs for " + playlistFromDb.getName());
                                     return playlistFromDb;
                                 })
                 )
@@ -448,7 +448,7 @@ public class PlaylistService extends Service {
                             .filter(Objects::nonNull)
                             .collect(Collectors.toList());
                     if (idsOfSongsMarkedForRemoval.isEmpty()) {
-                        Log.d(TAG, "No valid song IDs to remove for " + currentPlaylistState.getName());
+                        Logger.d(TAG, "No valid song IDs to remove for " + currentPlaylistState.getName());
                         return Single.just(currentPlaylistState);
                     }
                     List<Song> songsRemainingInPlaylist = new ArrayList<>();
@@ -474,7 +474,7 @@ public class PlaylistService extends Service {
                 updateOperation
                         .compose(RxSchedulers.singleOnMain())
                         .doOnSuccess(updatedPlaylist -> {
-                            Log.i(TAG, "Successfully removed songs for " + updatedPlaylist.getName());
+                            Logger.i(TAG, "Successfully removed songs for " + updatedPlaylist.getName());
                             populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS, updatedPlaylist);
                         })
                         .doFinally(onCompleteCallback)
@@ -495,8 +495,8 @@ public class PlaylistService extends Service {
                 .andThen(presetRepository.deleteByName(presetName))
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(() -> Log.i(TAG, "Successfully removed all playlists and preset: " + presetName),
-                        throwable -> Log.e(TAG, "Error removing all playlists and preset: " + presetName, throwable))
+                .subscribe(() -> Logger.i(TAG, "Successfully removed all playlists and preset: " + presetName),
+                        throwable -> Logger.e(TAG, "Error removing all playlists and preset: " + presetName, throwable))
         );
     }
 
@@ -506,7 +506,7 @@ public class PlaylistService extends Service {
      * @param removedPlaylist playlist to be removed
      */
     public void removePlaylist(Playlist removedPlaylist) {
-        Log.d(TAG, "Removing playlist: " + removedPlaylist.getName());
+        Logger.d(TAG, "Removing playlist: " + removedPlaylist.getName());
         val playlistId = removedPlaylist.getId();
         val removeTask = findById(playlistId)
                 .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistId + " not found.")))
@@ -525,7 +525,7 @@ public class PlaylistService extends Service {
                 })
                 .doOnComplete(() -> populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, removedPlaylist))
                 .subscribeOn(Schedulers.io())
-                .subscribe(() -> Log.i(TAG, "Successfully removed playlist ID: " + playlistId + ", Name: " + removedPlaylist.getName()));
+                .subscribe(() -> Logger.i(TAG, "Successfully removed playlist ID: " + playlistId + ", Name: " + removedPlaylist.getName()));
         disposables.add(removeTask);
     }
 
@@ -552,7 +552,7 @@ public class PlaylistService extends Service {
                     return findAvailableNameRecursive(baseName, currentPresetName, 0)
                             .map(uniqueName -> {
                                 playlistCopy.setName(uniqueName); // Set the found unique name
-                                Log.d(TAG, "Found unique name for pasted playlist: " + uniqueName);
+                                Logger.d(TAG, "Found unique name for pasted playlist: " + uniqueName);
                                 return playlistCopy;
                             });
 
@@ -567,7 +567,7 @@ public class PlaylistService extends Service {
                         .create(preparedPlaylist)
                         .map(newPlaylistId -> {
                             preparedPlaylist.setId(newPlaylistId);
-                            Log.d(TAG, "Cloned playlist saved with new ID: " + newPlaylistId + ", Name: " + preparedPlaylist.getName());
+                            Logger.d(TAG, "Cloned playlist saved with new ID: " + newPlaylistId + ", Name: " + preparedPlaylist.getName());
                             return preparedPlaylist;
                         }))
                 .flatMap(savedClone ->
@@ -584,10 +584,10 @@ public class PlaylistService extends Service {
                             val spEdit = sp.edit();
                             spEdit.putLong(COPY_PLAYLIST, -1L);
                             spEdit.apply();
-                            Log.i(TAG, "Paste operation for playlist ID " + copyId + " completed successfully.");
+                            Logger.i(TAG, "Paste operation for playlist ID " + copyId + " completed successfully.");
                             onPlaylistPasted.accept(playlist);
                         },
-                        throwable -> Log.e(TAG, "Error during paste operation for playlist ID " + copyId, throwable)
+                        throwable -> Logger.e(TAG, "Error during paste operation for playlist ID " + copyId, throwable)
                 );
         //fire paste task
         disposables.add(pasteTask);
@@ -636,13 +636,13 @@ public class PlaylistService extends Service {
      * @return Single of cloned playlist
      */
     private Single<Playlist> cloneSongs(long originalPlaylistId, Playlist savedClone) {
-        Log.d(TAG, "Cloning songs from original playlist ID: " + originalPlaylistId + " into new playlist: " + savedClone.getName());
+        Logger.d(TAG, "Cloning songs from original playlist ID: " + originalPlaylistId + " into new playlist: " + savedClone.getName());
         return songRepository.getSongsForPlaylist(originalPlaylistId) // Assuming this returns Single<List<Song>>
                 .subscribeOn(Schedulers.io())
                 .observeOn(Schedulers.computation())
                 .flatMap(originalSongs -> {
                     if (originalSongs.isEmpty()) {
-                        Log.d(TAG, "No songs to clone from playlist ID: " + originalPlaylistId);
+                        Logger.d(TAG, "No songs to clone from playlist ID: " + originalPlaylistId);
                         savedClone.setSongs(new ArrayList<>());
                         savedClone.setSongCount(0);
                         return Single.just(savedClone);
@@ -656,11 +656,11 @@ public class PlaylistService extends Service {
                             songCopy.setPlaylistOwnerId(savedClone.getId());
                             clonedSongObjects.add(songCopy);
                         } catch (CloneNotSupportedException e) {
-                            Log.e(TAG, "Failed to clone song: " + originalSong.getFilename(), e);
+                            Logger.e(TAG, "Failed to clone song: " + originalSong.getFilename(), e);
                             return Single.error(new RuntimeException("Clone operation failed for song: " + originalSong.getFilename(), e));
                         }
                     }
-                    Log.d(TAG, "Successfully prepared " + clonedSongObjects.size() + " songs for cloning.");
+                    Logger.d(TAG, "Successfully prepared " + clonedSongObjects.size() + " songs for cloning.");
 
                     // Now, insert these cloned songs into the database and get their new IDs
                     return songRepository.createAll(clonedSongObjects) // Use the method that returns IDs
@@ -668,13 +668,13 @@ public class PlaylistService extends Service {
                             .observeOn(Schedulers.computation())
                             .map(insertedSongIds -> {
                                 if (insertedSongIds.size() != clonedSongObjects.size()) {
-                                    Log.w(TAG, "ID count mismatch during song cloning. Expected: " + clonedSongObjects.size() + ", Got: " + insertedSongIds.size());
+                                    Logger.w(TAG, "ID count mismatch during song cloning. Expected: " + clonedSongObjects.size() + ", Got: " + insertedSongIds.size());
                                 }
-                                Log.d(TAG, "Received " + insertedSongIds.size() + " new IDs for cloned songs.");
+                                Logger.d(TAG, "Received " + insertedSongIds.size() + " new IDs for cloned songs.");
                                 for (int i = 0; i < clonedSongObjects.size() && i < insertedSongIds.size(); i++) {
                                     clonedSongObjects.get(i).setId(insertedSongIds.get(i));
                                 }
-                                Log.d(TAG, "Successfully saved " + clonedSongObjects.size() + " cloned songs for " + savedClone.getName());
+                                Logger.d(TAG, "Successfully saved " + clonedSongObjects.size() + " cloned songs for " + savedClone.getName());
                                 savedClone.setSongs(clonedSongObjects);
                                 savedClone.setSongCount(clonedSongObjects.size());
                                 return savedClone;
@@ -693,7 +693,7 @@ public class PlaylistService extends Service {
      */
     public void setActive(Playlist playlist) {
         val playlistToActivateId = playlist.getId();
-        Log.d(TAG, "Attempting to set playlist ID as active: " + playlistToActivateId);
+        Logger.d(TAG, "Attempting to set playlist ID as active: " + playlistToActivateId);
         LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
         val activeTask =
                 findActive()
@@ -707,14 +707,14 @@ public class PlaylistService extends Service {
                         ).andThen(playlistRepository.findOneById(playlistToActivateId))
                         .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")))
                         .flatMap(playlistToActivate -> {
-                            Log.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
+                            Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
                             return loadSongs(playlistToActivate);
                         })
                         .flatMapCompletable(this::buildPlaylistMakeActiveAndNotify)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(() -> {
-                            Log.d(TAG, "Playlist set as active successfully.");
+                            Logger.d(TAG, "Playlist set as active successfully.");
                             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
                         });
         disposables.add(activeTask);
@@ -736,13 +736,13 @@ public class PlaylistService extends Service {
         if (currentSongId == null && isEmpty(playlist.getPlaylist())) {
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
-            Log.d(TAG, "Playlist has no songs.");
+            Logger.d(TAG, "Playlist has no songs.");
             return Completable.complete();
         } else if (currentSongId == null && !isEmpty(playlist.getPlaylist())) {
             val currentSong = playlist.getPlaylist().get(0);
             playlist.setCurrentSongId(currentSong.getId());
             playlist.setCurrentSong(currentSong);
-            Log.d(TAG, "Setting current song to first in playlist");
+            Logger.d(TAG, "Setting current song to first in playlist");
         } else if (!isEmpty(playlist.getPlaylist())) {
             playlist.getPlaylist()
                     .stream()
@@ -751,14 +751,14 @@ public class PlaylistService extends Service {
                     .ifPresentOrElse(
                             playlist::setCurrentSong,
                             () -> {
-                                Log.d(TAG, "Song with ID " + currentSongId + " not found in playlist " + playlist.getName() + ". Picking first");
+                                Logger.d(TAG, "Song with ID " + currentSongId + " not found in playlist " + playlist.getName() + ". Picking first");
                                 playlist.setCurrentSong(playlist.getPlaylist().get(0));
                             });
 
         }
         playlist.setActive(true);
         return playlistRepository.update(playlist).doOnComplete(() -> {
-            Log.d(TAG, "Playlist set as active sending event to play");
+            Logger.d(TAG, "Playlist set as active sending event to play");
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, playlist);
         });
     }
@@ -769,12 +769,12 @@ public class PlaylistService extends Service {
                         .observeOn(Schedulers.io())
                         .flatMapCompletable(playlist -> {
                             playlist.setActive(false);
-                            Log.d(TAG, "Deactivating playlist (on IO thread): " + playlist.getName());
+                            Logger.d(TAG, "Deactivating playlist (on IO thread): " + playlist.getName());
                             return playlistRepository.update(playlist);
                         })
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(() -> Log.d(TAG, "resetActiveFromPreset operation completed successfully."),
-                                throwable -> Log.e(TAG, "resetActiveFromPreset operation failed.", throwable)
+                        .subscribe(() -> Logger.d(TAG, "resetActiveFromPreset operation completed successfully."),
+                                throwable -> Logger.e(TAG, "resetActiveFromPreset operation failed.", throwable)
                         ));
     }
 
@@ -789,8 +789,8 @@ public class PlaylistService extends Service {
                 playlistRepository.updateAll(playlists)
                         .subscribeOn(Schedulers.io())
                         .observeOn(Schedulers.io())
-                        .subscribe(() -> Log.d("PlaylistService", "Successfully saved/updated all " + playlists.size() + " playlists in the background."),
-                                throwable -> Log.e("PlaylistService", "Error saving/updating all playlists in the background", throwable))
+                        .subscribe(() -> Logger.d("PlaylistService", "Successfully saved/updated all " + playlists.size() + " playlists in the background."),
+                                throwable -> Logger.e("PlaylistService", "Error saving/updating all playlists in the background", throwable))
         );
     }
 
@@ -829,7 +829,7 @@ public class PlaylistService extends Service {
                     return presetRepository.create(newPreset)
                             .map(newId -> {
                                 newPreset.setId(newId);
-                                Log.i(TAG, "Preset created: ID " + newId + ", Name: " + newPreset.getName());
+                                Logger.i(TAG, "Preset created: ID " + newId + ", Name: " + newPreset.getName());
                                 return newPreset;
                             });
                 })
@@ -840,7 +840,7 @@ public class PlaylistService extends Service {
                 .subscribe(onPresetCreated::accept,
                         throwable -> {
                             if (!(throwable instanceof PresetAlreadyExistsException)) {
-                                Log.e(TAG, "Error creating preset: " + trimmedName, throwable);
+                                Logger.e(TAG, "Error creating preset: " + trimmedName, throwable);
                             }
                         });
         disposables.add(createAndFetchAllTask);
@@ -854,7 +854,7 @@ public class PlaylistService extends Service {
     public void updateSong(Song song) {
         disposables.add(songRepository.update(song)
                 .subscribeOn(Schedulers.io())
-                .subscribe(integer -> Log.d(TAG, "Song updated successfully: " + song.getFilename())));
+                .subscribe(integer -> Logger.d(TAG, "Song updated successfully: " + song.getFilename())));
     }
 
 
@@ -877,6 +877,6 @@ public class PlaylistService extends Service {
         args.putSerializable(PLAYLIST, playlist);
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        Log.d(TAG, "Playlist notification " + type.getCode() + " sent: " + playlist.getName());
+        Logger.d(TAG, "Playlist notification " + type.getCode() + " sent: " + playlist.getName());
     }
 }

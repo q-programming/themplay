@@ -20,7 +20,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.MediaStore;
 import android.util.Base64;
-import android.util.Log;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -38,6 +37,7 @@ import java.io.IOException;
 
 import lombok.val;
 import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 
 /**
@@ -67,7 +67,7 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
             if (uri != null) {
                 launchCropImage(uri);
             } else {
-                Log.d(TAG, "No image selected from gallery.");
+                Logger.d(TAG, "No image selected from gallery.");
                 finish();
             }
         });
@@ -77,25 +77,25 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
                 if (croppedUri != null) {
                     handleCroppedImage(croppedUri);
                 } else {
-                    Log.e(TAG, "Cropped URI is null.");
+                    Logger.e(TAG, "Cropped URI is null.");
                     finish();
                 }
             } else {
                 Exception exception = result.getError();
-                Log.e(TAG, "Image cropping failed: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
+                Logger.e(TAG, "Image cropping failed: " + (exception != null ? exception.getMessage() : "Unknown error"), exception);
                 finish();
             }
         });
         Intent launchingIntent = getIntent();
         Bundle args = launchingIntent.getBundleExtra(ARGS);
         if (args == null) {
-            Log.d(TAG, "No arguments passed into activity, finishing");
+            Logger.d(TAG, "No arguments passed into activity, finishing");
             finish();
             return;
         }
         playlist = (Playlist) args.getSerializable(PLAYLIST);
         if (playlist == null) {
-            Log.d(TAG, "No playlist was passed into activity or type mismatch, finishing");
+            Logger.d(TAG, "No playlist was passed into activity or type mismatch, finishing");
             finish();
             return;
         }
@@ -106,7 +106,7 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
         val heightObj = args.getSerializable(HEIGHT);
         targetHeight = (heightObj != null) ? (int) heightObj : 0;
         if (targetWidth <= 0 || targetHeight <= 0) {
-            Log.e(TAG, "Invalid width or height passed. width: " + targetWidth + ", height: " + targetHeight + ". Finishing.");
+            Logger.e(TAG, "Invalid width or height passed. width: " + targetWidth + ", height: " + targetHeight + ". Finishing.");
             finish();
             return;
         }
@@ -147,13 +147,13 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
                 bitmap = MediaStore.Images.Media.getBitmap(getApplicationContext().getContentResolver(), croppedUri);
             }
         } catch (IOException e) {
-            Log.e(TAG, "Error decoding bitmap from URI", e);
+            Logger.e(TAG, "Error decoding bitmap from URI", e);
             finish();
             return;
         }
 
         if (bitmap == null) {
-            Log.e(TAG, "Bitmap could not be decoded.");
+            Logger.e(TAG, "Bitmap could not be decoded.");
             finish();
             return;
         }
@@ -166,19 +166,19 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
                 playlist.setBackgroundImage(imageString);
                 playlistService.save(playlist,
                         updated -> {
-                            Log.d(TAG, "Playlist background updated successfully for  " + updated.getName());
+                            Logger.d(TAG, "Playlist background updated successfully for  " + updated.getName());
                             sendUpdateBroadcast();
                             finish();
                         }, throwable -> {
-                            Log.e(TAG, "Error updating playlist background for " + playlist.getName(), throwable);
+                            Logger.e(TAG, "Error updating playlist background for " + playlist.getName(), throwable);
                             finish();
                         });
             } else {
-                Log.e(TAG, "Playlist became null before saving.");
+                Logger.e(TAG, "Playlist became null before saving.");
                 finish();
             }
         } catch (Exception e) {
-            Log.e(TAG, "Error processing cropped image for Base64 conversion", e);
+            Logger.e(TAG, "Error processing cropped image for Base64 conversion", e);
             finish();
         }
     }
@@ -189,7 +189,7 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
         argsBundle.putInt(POSITION, itemPosition);
         intent.putExtra(ARGS, argsBundle);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        Log.d(TAG, "Playlist change background broadcast sent for position: " + itemPosition);
+        Logger.d(TAG, "Playlist change background broadcast sent for position: " + itemPosition);
     }
 
     private final ServiceConnection mConnection = new ServiceConnection() {

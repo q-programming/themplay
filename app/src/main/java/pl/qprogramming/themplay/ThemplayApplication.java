@@ -4,7 +4,6 @@ import android.app.Application;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.util.Log;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -17,11 +16,12 @@ import java.util.Date;
 import java.util.Locale;
 
 import lombok.val;
+import pl.qprogramming.themplay.logger.Logger;
 
-public class ThemplayApplication extends Application {
+public class ThemplayApplication extends Application  {
 
     private static final String TAG = "ThemplayAppCrashHandler";
-    public static final String CRASH_LOG_DIR_NAME = "crash_logs";
+    public static final String CRASH_LOG_DIR_NAME = "logs";
     public static final String CRASH_LOG_FILE_PREFIX = "crash_";
     public static final String CRASH_LOG_FILE_SUFFIX = ".txt";
 
@@ -29,6 +29,7 @@ public class ThemplayApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        Logger.initialize(this);
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
             // Get the stack trace.
             val sw = new StringWriter();
@@ -36,7 +37,7 @@ public class ThemplayApplication extends Application {
             e.printStackTrace(pw);
             String stackTraceString = sw.toString();
             saveCrashLogToFile(this, stackTraceString);
-            Log.e(TAG, "UNCAUGHT EXCEPTION on thread " + thread.getName() + ": ", e);
+            Logger.e(TAG, "UNCAUGHT EXCEPTION on thread " + thread.getName() + ": ", e);
             // Add it to the clip board and close the app
             val clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
             val clip = ClipData.newPlainText("Stack trace", sw.toString());
@@ -48,17 +49,17 @@ public class ThemplayApplication extends Application {
         try {
             File baseDir = context.getExternalFilesDir(null);
             if (baseDir == null) {
-                Log.w(TAG, "External storage not available, attempting to use internal storage for crash log.");
+                Logger.w(TAG, "External storage not available, attempting to use internal storage for crash log.");
                 baseDir = context.getFilesDir();
                 if (baseDir == null) {
-                    Log.e(TAG, "Internal storage also not available. Cannot save crash log.");
+                    Logger.e(TAG, "Internal storage also not available. Cannot save crash log.");
                     return;
                 }
             }
             File crashLogDir = new File(baseDir, CRASH_LOG_DIR_NAME);
             if (!crashLogDir.exists()) {
                 if (!crashLogDir.mkdirs()) {
-                    Log.e(TAG, "Failed to create crash log directory: " + crashLogDir.getAbsolutePath());
+                    Logger.e(TAG, "Failed to create crash log directory: " + crashLogDir.getAbsolutePath());
                     return; // Can't proceed if directory creation fails
                 }
             }
@@ -77,7 +78,7 @@ public class ThemplayApplication extends Application {
                             " (" + context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode() + ")");
                     bw.newLine();
                 } catch (Exception e) {
-                    Log.w(TAG, "Could not retrieve app version for crash log.", e);
+                    Logger.w(TAG, "Could not retrieve app version for crash log.", e);
                 }
                 bw.write("Device: " + android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL +
                         " (Android " + android.os.Build.VERSION.RELEASE + ", API " + android.os.Build.VERSION.SDK_INT + ")");
@@ -86,12 +87,13 @@ public class ThemplayApplication extends Application {
                 bw.newLine();
                 bw.write(stackTrace);
                 bw.newLine();
-                Log.i(TAG, "Crash log successfully saved to: " + logFile.getAbsolutePath());
+                Logger.i(TAG, "Crash log successfully saved to: " + logFile.getAbsolutePath());
+                Logger.shutdown();
             }
         } catch (IOException ioException) {
-            Log.e(TAG, "IOException while writing crash log to file.", ioException);
+            Logger.e(TAG, "IOException while writing crash log to file.", ioException);
         } catch (Exception ex) {
-            Log.e(TAG, "Unexpected critical error during crash log saving itself.", ex);
+            Logger.e(TAG, "Unexpected critical error during crash log saving itself.", ex);
         }
     }
 
@@ -101,4 +103,9 @@ public class ThemplayApplication extends Application {
     }
 
 
+    @Override
+    public void onTerminate() {
+        super.onTerminate();
+        Logger.shutdown();
+    }
 }

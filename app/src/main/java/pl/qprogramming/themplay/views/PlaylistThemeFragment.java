@@ -23,7 +23,6 @@ import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -43,6 +42,7 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.activities.ChangeBackgroundActivity;
 import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 
@@ -114,7 +114,7 @@ public class PlaylistThemeFragment extends Fragment {
             LocalBroadcastManager.getInstance(requireActivity()).unregisterReceiver(receiver);
 
         } catch (IllegalArgumentException e) {
-            Log.w(TAG, "Receiver not registered");
+            Logger.w(TAG, "Receiver not registered");
         }
     }
 
@@ -145,7 +145,7 @@ public class PlaylistThemeFragment extends Fragment {
             playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
-            }, throwable -> Log.e(TAG, "Error removing background image", throwable));
+            }, throwable -> Logger.e(TAG, "Error removing background image", throwable));
         });
         view.findViewById(R.id.change_text_color).setOnClickListener(v -> {
             String[] colors = {
@@ -167,7 +167,7 @@ public class PlaylistThemeFragment extends Fragment {
                 playlistService.save(playlist, updated -> {
                     playlist = updated;
                     updatePreview();
-                }, throwable -> Log.e(TAG, "Error changing text color", throwable));
+                }, throwable -> Logger.e(TAG, "Error changing text color", throwable));
             });
             builder.show();
         });
@@ -180,7 +180,7 @@ public class PlaylistThemeFragment extends Fragment {
             playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
-            }, throwable -> Log.e(TAG, "Error changing text outline", throwable));
+            }, throwable -> Logger.e(TAG, "Error changing text outline", throwable));
         });
     }
 
@@ -270,7 +270,7 @@ public class PlaylistThemeFragment extends Fragment {
             playlistService.findById(playlist.getId(), fetchedPlaylist -> {
                 playlist = fetchedPlaylist;
                 updatePreview();
-            }, throwable -> Log.e(TAG, "Error getting playlist", throwable));
+            }, throwable -> Logger.e(TAG, "Error getting playlist", throwable));
         }
     };
 

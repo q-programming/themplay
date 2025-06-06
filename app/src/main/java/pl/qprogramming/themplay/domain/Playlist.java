@@ -45,8 +45,8 @@ public class Playlist implements Serializable, Cloneable {
     public static final String POSITION = "position";
     @PrimaryKey
     private Long id;
-    private String name;//TODO make it unique in comibination with preset , add handling in create/copy playlist
-    @Ignore //TODO we have to remove it in migration ?
+    private String name;
+    @Ignore
     private Song currentSong;
     @ColumnInfo(name = CURRENT_SONG_ID)
     private Long currentSongId;

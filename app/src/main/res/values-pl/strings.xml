@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_version">Wersja aplikacji</string>
     <string name="app_upgraded">Aplikacja została zaktualizowana do wersji {0}. Sprawdź co nowego.</string>
     <string name="item_menu">Menu pozycji</string>
     <string name="song_name">Nazwa piosenki</string>
@@ -70,6 +71,7 @@
     <string name="cancel">Anuluj</string>
     <string name="create">Stwórz</string>
     <string name="delete">Usuń</string>
+    <string name="settings_all">Ustawienia aplikacji</string>
     <string name="settings_darkmode">Ciemny motyw</string>
     <string name="settings_darkmode_summary">Czy aplikacja powinna używać trybu ciemnego</string>
     <string name="settings_fade">Czas przejścia między utworami</string>
@@ -85,6 +87,11 @@
     <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
     <string name="settings_fadeStop">Wycisz utwór kiedy stopowane</string>
     <string name="settings_fadeStop_info">Kiedy zostanie naciśnięty stop, piosenka zatrzyma się z wyciszeniem zamiast od razu</string>
-
-
+    <string name="settings_developer">Debug</string>
+    <string name="settings_enable_developer_mode">Włącz tryb developerski</string>
+    <string name="settings_enable_developer_mode_clicks">Tapnij jeszcze razy {0} aby odblokować tryb developerski</string>
+    <string name="settings_enable_developer_mode_unlocked">Tryb developerski odblokowany</string>
+    <string name="settings_enable_debug">Włącz logi debug</string>
+    <string name="settings_developer_mode_hidden">Tryb developerski ukryty. Tapnij numer wersji 5 razy aby go odblokować.</string>
+    <string name="settings_enable_debug_info">Kiedy włączone, logi debug zostaną zapisane do pliku\nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt.\nPowinno być tylko używane przy próbie rozwiązania problemu razem z deweloperem</string>
 </resources>

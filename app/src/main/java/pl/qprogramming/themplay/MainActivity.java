@@ -24,7 +24,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.text.InputType;
-import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -55,6 +54,7 @@ import lombok.val;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.player.PlayerService;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
@@ -101,21 +101,21 @@ public class MainActivity extends AppCompatActivity {
             PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
             currentAppVersion = pInfo.versionName;
         } catch (PackageManager.NameNotFoundException e) {
-            Log.e(TAG, "Could not get current app version", e);
+            Logger.e(TAG, "Could not get current app version", e);
             if (lastLaunchVersion.isEmpty()) {
-                Log.i(TAG, "First launch (or no stored version) AND current version unknown. Navigating to About.");
+                Logger.i(TAG, "First launch (or no stored version) AND current version unknown. Navigating to About.");
                 navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
             } else {
-                Log.w(TAG, "Current version unknown, but not first launch. Loading default PlaylistFragment.");
+                Logger.w(TAG, "Current version unknown, but not first launch. Loading default PlaylistFragment.");
                 navigateToFragment(getSupportFragmentManager(), new PlaylistFragment(), "playlist_default");
             }
             return;
         }
 
-        Log.d(TAG, "Last launch version: '" + lastLaunchVersion + "', Current app version: '" + currentAppVersion + "'");
+        Logger.d(TAG, "Last launch version: '" + lastLaunchVersion + "', Current app version: '" + currentAppVersion + "'");
 
         if (lastLaunchVersion.isEmpty()) {
-            Log.i(TAG, "First launch detected. Navigating to About Fragment.");
+            Logger.i(TAG, "First launch detected. Navigating to About Fragment.");
             sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
             getSupportFragmentManager()
                     .beginTransaction()
@@ -126,7 +126,7 @@ public class MainActivity extends AppCompatActivity {
             boolean specialNavigationOccurred = false;
             switch (comparison) {
                 case CURRENT_IS_NEWER:
-                    Log.i(TAG, "App updated from " + lastLaunchVersion + " to " + currentAppVersion + ".");
+                    Logger.i(TAG, "App updated from " + lastLaunchVersion + " to " + currentAppVersion + ".");
                     // TODO: Navigate to a real ReleaseNotesFragment
                     // navigateToFragment(getSupportFragmentManager(), new ReleaseNotesFragment(), "releaseNotes");
                     // specialNavigationOccurred = true; // Set this if you navigate
@@ -135,14 +135,14 @@ public class MainActivity extends AppCompatActivity {
                     sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
                     break;
                 case STORED_IS_NEWER: // Downgrade
-                    Log.w(TAG, "Stored version (" + lastLaunchVersion + ") is newer than current (" + currentAppVersion + "). Updating stored version.");
+                    Logger.w(TAG, "Stored version (" + lastLaunchVersion + ") is newer than current (" + currentAppVersion + "). Updating stored version.");
                     sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
                     break;
                 case VERSIONS_ARE_SAME:
-                    Log.d(TAG, "Versions are the same. Loading default fragment.");
+                    Logger.d(TAG, "Versions are the same. Loading default fragment.");
                     break;
                 case ERROR_PARSING:
-                    Log.e(TAG, "Error parsing versions. Last: " + lastLaunchVersion + ", Current: " + currentAppVersion + ". Loading default fragment.");
+                    Logger.e(TAG, "Error parsing versions. Last: " + lastLaunchVersion + ", Current: " + currentAppVersion + ". Loading default fragment.");
                     break;
             }
             if (!specialNavigationOccurred) {
@@ -161,9 +161,9 @@ public class MainActivity extends AppCompatActivity {
         multiplePermissionsLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
                 (Map<String, Boolean> grantedPermissionsMap) -> {
-                    Log.d(TAG, "Permissions result callback received: " + grantedPermissionsMap);
+                    Logger.d(TAG, "Permissions result callback received: " + grantedPermissionsMap);
                     for (Map.Entry<String, Boolean> entry : grantedPermissionsMap.entrySet()) {
-                        Log.d(TAG, "Permission: " + entry.getKey() + ", Granted in dialog: " + entry.getValue());
+                        Logger.d(TAG, "Permission: " + entry.getKey() + ", Granted in dialog: " + entry.getValue());
                     }
                     evaluateAndProceedBasedOnEssentialPermissions();
                 });
@@ -188,10 +188,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         if (!permissionsToRequest.isEmpty()) {
-            Log.d(TAG, "Requesting permissions: " + permissionsToRequest);
+            Logger.d(TAG, "Requesting permissions: " + permissionsToRequest);
             multiplePermissionsLauncher.launch(permissionsToRequest.toArray(new String[0]));
         } else {
-            Log.d(TAG, "All initially checked permissions appear to be granted.");
+            Logger.d(TAG, "All initially checked permissions appear to be granted.");
             evaluateAndProceedBasedOnEssentialPermissions();
         }
     }
@@ -202,25 +202,25 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 allEssentialPermissionsCurrentlyGranted = false;
-                Log.w(TAG, Manifest.permission.READ_MEDIA_AUDIO + " is currently DENIED (Essential).");
+                Logger.w(TAG, Manifest.permission.READ_MEDIA_AUDIO + " is currently DENIED (Essential).");
             }
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 allEssentialPermissionsCurrentlyGranted = false;
-                Log.w(TAG, Manifest.permission.READ_MEDIA_IMAGES + " is currently DENIED (Essential).");
+                Logger.w(TAG, Manifest.permission.READ_MEDIA_IMAGES + " is currently DENIED (Essential).");
             }
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                Log.w(TAG, Manifest.permission.POST_NOTIFICATIONS + " is currently DENIED (user wants them but permission lacking).");
+                Logger.w(TAG, Manifest.permission.POST_NOTIFICATIONS + " is currently DENIED (user wants them but permission lacking).");
             }
         } else { // API 30-32
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 allEssentialPermissionsCurrentlyGranted = false;
-                Log.w(TAG, Manifest.permission.READ_EXTERNAL_STORAGE + " is currently DENIED (Essential).");
+                Logger.w(TAG, Manifest.permission.READ_EXTERNAL_STORAGE + " is currently DENIED (Essential).");
             }
         }
         if (allEssentialPermissionsCurrentlyGranted) {
-            Log.d(TAG, "All essential media permissions are currently GRANTED. App can now load and play media.");
+            Logger.d(TAG, "All essential media permissions are currently GRANTED. App can now load and play media.");
         } else {
-            Log.e(TAG, "One or more essential permissions are NOT granted. App functionality will be limited.");
+            Logger.e(TAG, "One or more essential permissions are NOT granted. App functionality will be limited.");
             Toast.makeText(this, "Essential media permissions are required to use this app. Please grant them in app settings.", Toast.LENGTH_LONG).show();
         }
     }
@@ -258,7 +258,7 @@ public class MainActivity extends AppCompatActivity {
                         playlistService.paste(copyId,
                                 playlist -> Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show());
                     } catch (PlaylistNotFoundException | CloneNotSupportedException e) {
-                        Log.e(TAG, "something went wrong while trying to paste playlist", e);
+                        Logger.e(TAG, "something went wrong while trying to paste playlist", e);
                         Toast.makeText(this, getString(R.string.playlist_paste_error), Toast.LENGTH_LONG).show();
                     }
                 } else {
@@ -274,7 +274,7 @@ public class MainActivity extends AppCompatActivity {
      * Binds to services
      */
     private void setupServices() {
-        Log.d(TAG, "Setting up services");
+        Logger.d(TAG, "Setting up services");
         val context = getApplicationContext();
         //playlist service
         val intent = new Intent(context, PlaylistService.class);
@@ -458,7 +458,7 @@ public class MainActivity extends AppCompatActivity {
                                         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                                         input.setError(msg);
                                     } else {
-                                        Log.e(TAG, "Error while adding new playlist", throwable);
+                                        Logger.e(TAG, "Error while adding new playlist", throwable);
                                         val msg = getString(R.string.playlist_add_error);
                                         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
                                     }
@@ -484,18 +484,18 @@ public class MainActivity extends AppCompatActivity {
      */
     @Override
     protected void onStop() {
-        Log.d(TAG, "Stopping main activity");
+        Logger.d(TAG, "Stopping main activity");
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Logger.d(TAG, "Receiver not registered");
         }
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        Log.d(TAG, "Destroying main activity");
+        Logger.d(TAG, "Destroying main activity");
         super.onDestroy();
         doUnbindService();
     }
@@ -514,7 +514,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final ServiceConnection playlistServiceConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(TAG, "Playlist service connected");
+            Logger.d(TAG, "Playlist service connected");
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
             serviceIsBound = true;
@@ -526,7 +526,7 @@ public class MainActivity extends AppCompatActivity {
     };
     private final ServiceConnection playerConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Log.d(TAG, "Player service connected");
+            Logger.d(TAG, "Player service connected");
             val binder = (PlayerService.LocalBinder) service;
             playerService = binder.getService();
             playerServiceIsBound = true;
@@ -554,7 +554,7 @@ public class MainActivity extends AppCompatActivity {
         public void onReceive(Context context, Intent intent) {
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
-            Log.d(TAG, "Received event of type " + event.name());
+            Logger.d(TAG, "Received event of type " + event.name());
             switch (event) {
                 case OPERATION_STARTED:
                     loader.setVisibility(View.VISIBLE);
@@ -605,8 +605,8 @@ public class MainActivity extends AppCompatActivity {
                                 val playlist = (Playlist) object;
                                 val song = (Song) args.getSerializable(SONG);
                                 playlistService.removeSongsFromPlaylist(playlist.getId(), Collections.singletonList(song),
-                                        updated -> Log.w(TAG, "Song deleted from playlist as it was not found: " + playlist.getName()),
-                                        throwable -> Log.e(TAG, "Error while deleting not found song from playlist" + song.getFilename() + " from playlist: " + playlist.getName(), throwable));
+                                        updated -> Logger.w(TAG, "Song deleted from playlist as it was not found: " + playlist.getName()),
+                                        throwable -> Logger.e(TAG, "Error while deleting not found song from playlist" + song.getFilename() + " from playlist: " + playlist.getName(), throwable));
                             }));
                     break;
             }
