@@ -195,7 +195,8 @@ public class MainActivity extends AppCompatActivity {
                     navigateToFragment(getSupportFragmentManager(), new PresetsFragment(), "presets");
                 } else if (itemId == R.id.pastePlaylist) {
                     try {
-                        playlistService.paste(copyId);
+                        playlistService.paste(copyId,
+                                playlist -> Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show());
                     } catch (PlaylistNotFoundException | CloneNotSupportedException e) {
                         Log.e(TAG, "something went wrong while trying to paste playlist", e);
                         Toast.makeText(this, getString(R.string.playlist_paste_error), Toast.LENGTH_LONG).show();

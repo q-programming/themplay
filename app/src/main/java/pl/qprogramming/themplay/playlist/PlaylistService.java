@@ -86,15 +86,13 @@ public class PlaylistService extends Service {
                         Playlist playlistToKeepActive = activePlaylists.get(0);
                         List<Playlist> playlistsToDeactivate = new ArrayList<>(activePlaylists);
                         playlistsToDeactivate.remove(playlistToKeepActive);
-                        List<Completable> updateOperations = new ArrayList<>();
                         for (Playlist playlist : playlistsToDeactivate) {
                             playlist.setActive(false);
-                            updateOperations.add(playlistRepository.update(playlist).subscribeOn(Schedulers.io()));
                         }
-                        return Completable.concat(updateOperations);
+                        return playlistRepository.updateAll(playlistsToDeactivate);
                     }
                     return Completable.complete();
-                }).observeOn(AndroidSchedulers.mainThread()) // Observe results/errors on main thread if needed
+                }).observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         () -> Log.i(TAG, "Active playlist cleanup check completed successfully."),
                         throwable -> Log.e(TAG, "Error during active playlist cleanup check.", throwable)
@@ -505,7 +503,7 @@ public class PlaylistService extends Service {
      * @throws PlaylistNotFoundException  if playlist with given ID does not exist
      * @throws CloneNotSupportedException if clone is not supported
      */
-    public void paste(long copyId) throws PlaylistNotFoundException, CloneNotSupportedException {
+    public void paste(long copyId, Consumer<Playlist> onPlaylistPasted) throws PlaylistNotFoundException, CloneNotSupportedException {
         val sp = getDefaultSharedPreferences(this);
         val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
         if (currentPresetName == null) {
@@ -548,13 +546,12 @@ public class PlaylistService extends Service {
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(
                         playlist -> {
-                            val context = getApplicationContext();
-                            Toast.makeText(context, getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
                             populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist);
                             val spEdit = sp.edit();
                             spEdit.putLong(COPY_PLAYLIST, -1L);
                             spEdit.apply();
                             Log.i(TAG, "Paste operation for playlist ID " + copyId + " completed successfully.");
+                            onPlaylistPasted.accept(playlist);
                         },
                         throwable -> Log.e(TAG, "Error during paste operation for playlist ID " + copyId, throwable)
                 );
