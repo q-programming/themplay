@@ -19,3 +19,15 @@ Your party ventures into woods? You have playlist for this!
 They were ambushed by some orcs and battle is starting, switch to "battle" and in matters of seconds , your theme music changes.
 
 Once enemy is slain , just tap back to woods playlist and continue with your quest just where you finished...
+
+------
+
+On first run  should show you about with detailed help about application and how to use it.
+
+Application is only supported in English and Polish, if you want you can help me to translate it to other languages.
+Open PR with translated strings.xml and about_<COUNTRY_CODE>.html file 
+
+-----
+<a href="https://www.buymeacoffee.com/q_programming" target="_blank">
+          <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 40px; width: 145px;">
+</a>

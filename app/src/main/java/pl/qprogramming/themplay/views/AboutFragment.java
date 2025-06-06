@@ -1,5 +1,8 @@
 package pl.qprogramming.themplay.views;
 
+import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
+
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.graphics.Color;
@@ -12,19 +15,19 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+
 import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Locale;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import lombok.val;
 import pl.qprogramming.themplay.BuildConfig;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.settings.Property;
-
-import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 
 /**
  * About fragment
@@ -52,11 +55,15 @@ public class AboutFragment extends Fragment {
         val textView = (TextView) view.findViewById(R.id.header_title);
         val locale = getResources().getConfiguration().getLocales().get(0);
         textView.setText(getString(R.string.about));
-        view
-                .findViewById(R.id.include)
-                .setOnClickListener(clicked -> requireActivity()
-                        .getSupportFragmentManager()
-                        .popBackStack());
+        view.findViewById(R.id.include)
+                .setOnClickListener(clickedView -> {
+                    FragmentManager fragmentManager = requireActivity().getSupportFragmentManager();
+                    if (fragmentManager.getBackStackEntryCount() <= 1) {
+                        navigateToFragment(fragmentManager, new PlaylistFragment(), "playlist_default");
+                    } else {
+                        fragmentManager.popBackStack();
+                    }
+                });
         val versionTxt = (TextView) requireView().findViewById(R.id.version);
         versionTxt.setText(String.format("v%s", BuildConfig.VERSION_NAME));
         val mWebView = (WebView) view.findViewById(R.id.help_content);

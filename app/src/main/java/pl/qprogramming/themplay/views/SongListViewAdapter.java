@@ -9,14 +9,16 @@ import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.TextView;
 
-import java.util.List;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import java.util.List;
+
 import lombok.Setter;
 import lombok.val;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.Song;
+import pl.qprogramming.themplay.domain.Song;
 
 public class SongListViewAdapter extends ArrayAdapter<Song> {
     public static final String MULTIPLE_SELECTED = "q-programming.themplay.playlist.multiple";
@@ -57,9 +59,23 @@ public class SongListViewAdapter extends ArrayAdapter<Song> {
             checkBox.setChecked(true);
             multiple = true;
             Intent intent = new Intent(MULTIPLE_SELECTED);
-            rowView.getContext().sendBroadcast(intent);
+            LocalBroadcastManager.getInstance(rowView.getContext()).sendBroadcast(intent);
             return true;
         });
         return rowView;
+    }
+
+    @Override
+    public int getCount() {
+        return this.songs != null ? this.songs.size() : 0;
+    }
+
+    public void clearSelections() {
+        if (songs != null) {
+            for (Song song : songs) {
+                song.setSelected(false);
+            }
+        }
+        notifyDataSetChanged();
     }
 }

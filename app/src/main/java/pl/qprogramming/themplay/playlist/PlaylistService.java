@@ -1,35 +1,5 @@
 package pl.qprogramming.themplay.playlist;
 
-import android.annotation.SuppressLint;
-import android.app.Service;
-import android.content.Intent;
-import android.os.Binder;
-import android.os.Bundle;
-import android.os.IBinder;
-import android.util.Log;
-import android.widget.Toast;
-
-import com.reactiveandroid.Model;
-import com.reactiveandroid.query.Select;
-
-import java.text.MessageFormat;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import androidx.annotation.Nullable;
-import io.reactivex.Observable;
-import io.reactivex.Single;
-import io.reactivex.android.schedulers.AndroidSchedulers;
-import io.reactivex.schedulers.Schedulers;
-import lombok.SneakyThrows;
-import lombok.val;
-import lombok.var;
-import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
-import pl.qprogramming.themplay.settings.Property;
-
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
@@ -38,71 +8,154 @@ import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
-public class PlaylistService extends Service {
-    private static final String TAG = PlaylistService.class.getSimpleName();
+import android.app.Service;
+import android.content.Intent;
+import android.os.Binder;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+
+import io.reactivex.Completable;
+import io.reactivex.Maybe;
+import io.reactivex.Observable;
+import io.reactivex.Single;
+import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.functions.Action;
+import io.reactivex.schedulers.Schedulers;
+import lombok.val;
+import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.db.ThemplayDatabase;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.domain.Preset;
+import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
+import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
+import pl.qprogramming.themplay.repository.PlaylistRepository;
+import pl.qprogramming.themplay.repository.PresetRepository;
+import pl.qprogramming.themplay.repository.SongRepository;
+import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.util.RxSchedulers;
+
+public class PlaylistService extends Service {
+    private final CompositeDisposable disposables = new CompositeDisposable();
+    private static final String TAG = PlaylistService.class.getSimpleName();
+    private PlaylistRepository playlistRepository;
+    private SongRepository songRepository;
+    private PresetRepository presetRepository;
     private final IBinder mBinder = new LocalBinder();
 
-    @SuppressLint("CheckResult")
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        val database = ThemplayDatabase.getDatabase(getApplicationContext());
+        playlistRepository = database.playlistRepository();
+        songRepository = database.songRepository();
+        presetRepository = database.presetRepository();
+    }
+
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent + "this:" + this);
-        findActive()
-                .ifPresent(playlist -> fetchSongsByPlaylistAsync(playlist)
-                        .subscribe(songs -> setSongsAndMakeActive(playlist, songs, false)));
+        Logger.d(TAG, "Binding service to " + intent + "this:" + this);
+        ensureOnlyOnePlaylistIsActive();
         return mBinder;
     }
 
     /**
-     * Returns all playlists. For each of those playlist try to fetch it's songs relation and store it into songs
-     *
-     * @return List of all Playlists
+     * Fire forget operation that will ensure only one playlists is active
      */
-    public List<Playlist> getAll() {
-        val sp = getDefaultSharedPreferences(this);
-        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-        val all = getAll(currentPresetName);
-        all.sort(Comparator.comparing(Playlist::getPosition));
-        return all;
-    }
-
-    public int countAll(String presetName) {
-        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", presetName).count();
-    }
-
-    public List<Playlist> getAll(String presetName) {
-        return Select.from(Playlist.class).where(Playlist.PRESET + " =?", presetName).fetch();
-    }
-
-    public Single<List<Playlist>> getAllAsync() {
-        val sp = getDefaultSharedPreferences(this);
-        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-        return getByPresetAsync(currentPresetName);
-    }
-
-    public Single<List<Playlist>> getByPresetAsync(String preset) {
-        return Select.from(Playlist.class)
-                .where(Playlist.PRESET + " =?", preset)
-                .fetchAsync()
+    private void ensureOnlyOnePlaylistIsActive() {
+        disposables.add(playlistRepository
+                .findAllByActive()
                 .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread());
+                .flatMapCompletable(activePlaylists -> {
+                    if (activePlaylists.size() > 1) {
+                        Logger.w(TAG, "Found " + activePlaylists.size() + " active playlists. Deactivating extras.");
+                        Playlist playlistToKeepActive = activePlaylists.get(0);
+                        List<Playlist> playlistsToDeactivate = new ArrayList<>(activePlaylists);
+                        playlistsToDeactivate.remove(playlistToKeepActive);
+                        for (Playlist playlist : playlistsToDeactivate) {
+                            playlist.setActive(false);
+                        }
+                        return playlistRepository.updateAll(playlistsToDeactivate);
+                    }
+                    return Completable.complete();
+                }).observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        () -> Logger.i(TAG, "Active playlist cleanup check completed successfully."),
+                        throwable -> Logger.e(TAG, "Error during active playlist cleanup check.", throwable)
+                ));
     }
 
     /**
-     * Load all playlists with their songs belonging to selected preset
+     * Returns all playlists for currently selected preset
      *
-     * @param preset Name of preset
-     * @return Map with Playlist and List of Songs
+     * @return List of all Playlists
      */
-    public Observable<Playlist> getByPresetWithPlaylists(String preset) {
-        return this.getByPresetAsync(preset)
-                .toObservable()
-                .flatMap(Observable::fromIterable)
-                .map(playlist -> {
-                    playlist.setSongs(this.fetchSongsByPlaylistSync(playlist));
-                    return playlist;
-                });
+    public Single<List<Playlist>> getAllByPresetName() {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        return getAllByPresetName(currentPresetName)
+                .compose(RxSchedulers.singleOnMain());
+    }
+
+    /**
+     * Returns all playlists.
+     * Upon completion , callback is called with list of playlists
+     * Upon error , callback is called with error
+     *
+     * @param onPlaylistsReceived callback when playlists are received
+     * @param onError             callback when error occurs
+     */
+    public void getAllByPresetName(Consumer<List<Playlist>> onPlaylistsReceived, Consumer<Throwable> onError) {
+        disposables.add(getAllByPresetName().subscribe(
+                onPlaylistsReceived::accept,
+                onError::accept));
+    }
+
+    /**
+     * Returns all playlists for currently selected preset
+     *
+     * @param presetName Name of preset
+     */
+    public Single<List<Playlist>> getAllByPresetName(String presetName) {
+        return playlistRepository.findAllByPreset(presetName);
+    }
+
+    /**
+     * Returns all playlists for currently selected preset
+     * Loads all songs for each of them
+     * Upon completion , callback is called with list of playlists
+     * Upon error , callback is called with error
+     *
+     * @param presetName          Name of preset
+     * @param onPlaylistsReceived callback when playlists are received
+     * @param onError             callback when error occurs
+     */
+    public void getAllByPresetName(String presetName, Consumer<List<Playlist>> onPlaylistsReceived, Consumer<Throwable> onError) {
+        disposables.add(getAllByPresetName(presetName)
+                .flatMapObservable(Observable::fromIterable)
+                .flatMap(playlists -> loadSongs(playlists)
+                        .toObservable()
+                        .subscribeOn(Schedulers.io()))
+                .toList()
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        onPlaylistsReceived::accept,
+                        onError::accept));
     }
 
     /**
@@ -111,8 +164,29 @@ public class PlaylistService extends Service {
      * @param id identifier of playlist
      * @return Optional of Playlist with potentially loaded songs
      */
-    public Optional<Playlist> findById(long id) {
-        return Optional.ofNullable(Select.from(Playlist.class).where("id = ?", id).fetchSingle());
+    public Maybe<Playlist> findById(long id) {
+        return playlistRepository.findOneById(id);
+    }
+
+    /**
+     * Find playlist by ID . If it's present , load all songs from that playlist
+     * Runs on Schedulers.io() and main thread
+     *
+     * @param id                 identifier of playlist
+     * @param onPlaylistReceived callback when playlist is found
+     * @param onError            callback when error occurs
+     */
+    public void findById(long id, Consumer<Playlist> onPlaylistReceived, Consumer<Throwable> onError) {
+        disposables.add(
+                findById(id)
+                        .compose(RxSchedulers.maybeOnMain())
+                        .subscribe(
+                                onPlaylistReceived::accept,
+                                onError::accept,
+                                () -> Logger.w(TAG, "Playlist with ID " + id + " not found (completed without item).")
+
+                        )
+        );
     }
 
     /**
@@ -120,36 +194,117 @@ public class PlaylistService extends Service {
      *
      * @return Optional of active Playlist with potentially loaded songs
      */
-
-    public Optional<Playlist> findActive() {
+    public Maybe<Playlist> findActive() {
         val sp = getDefaultSharedPreferences(this);
         val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-        return Optional.ofNullable(Select.from(Playlist.class).where(Playlist.ACTIVE + " = ? and " + Playlist.PRESET + "= ?", true, currentPresetName).fetchSingle());
+        return playlistRepository.findOneActiveByPreset(currentPresetName);
     }
 
-    public Single<List<Song>> fetchSongsByPlaylistAsync(Playlist playlist) {
-        return Select.from(PlaylistSongs.class)
-                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
-                .fetchAsync()
-                .flatMapObservable(Observable::fromIterable)
-                .map(PlaylistSongs::getSong)
-                .toList()
-                .subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread());
+    /**
+     * Loads all songs belonging to playlist
+     *
+     * @param playlist playlist to have songs loaded
+     * @return Single of playlist with loaded songs
+     */
+    public Single<Playlist> loadSongs(Playlist playlist) {
+        return songRepository.getSongsForPlaylist(playlist.getId())
+                .map(songs -> {
+                    Logger.d(TAG, "Fetched " + songs.size() + " songs for playlist: " + playlist.getName());
+                    playlist.setSongs(songs);
+                    return playlist;
+                });
     }
 
-    public List<Song> fetchSongsByPlaylistSync(Playlist playlist) {
-        return Select.from(PlaylistSongs.class)
-                .where(PlaylistSongs.PLAYLIST + " = ?", playlist.getId())
-                .fetch().stream()
-                .map(PlaylistSongs::getSong)
-                .collect(Collectors.toList());
+    /**
+     * Loads all songs belonging to playlist and runs on main thread
+     *
+     * @param playlist      playlist to have songs loaded
+     * @param onSongsLoaded callback when songs are loaded
+     */
+    public void loadSongs(Playlist playlist, Consumer<Playlist> onSongsLoaded) {
+        disposables.add(
+                loadSongs(playlist)
+                        .compose(RxSchedulers.singleOnMain())
+                        .subscribe(onSongsLoaded::accept, throwable -> Logger.e(TAG, "Error loading songs for playlist: " + playlist.getName(), throwable)));
     }
 
+    /**
+     * Loads all songs belonging to playlist and runs on main thread
+     *
+     * @param playlist      playlist to have songs loaded
+     * @param onSongsLoaded callback when songs are loaded
+     * @param onError       callback when error occurs
+     */
+    public void loadSongs(Playlist playlist, Consumer<Playlist> onSongsLoaded, Consumer<Throwable> onError) {
+        disposables.add(
+                loadSongs(playlist)
+                        .compose(RxSchedulers.singleOnMain())
+                        .subscribe(onSongsLoaded::accept, onError::accept));
+    }
+
+    /**
+     * Save playlist to database
+     * Fire forget mode
+     *
+     * @param playlist playlist to be saved
+     */
     public void save(Playlist playlist) {
-        playlist.saveAsync()
+        disposables.add(
+                playlistRepository.update(playlist)
+                        .subscribeOn(Schedulers.io())
+                        .subscribe(
+                                () -> Logger.d(TAG, "Playlist updated successfully: " + playlist.getName()),
+                                throwable -> Logger.e(TAG, "Error updating playlist: " + playlist.getName(), throwable)));
+    }
+
+    /**
+     * Save playlist to database
+     *
+     * @param playlist        playlist to be saved
+     * @param onPlaylistSaved callback when playlist is saved
+     * @param onError         callback when error occurs
+     */
+    public void save(Playlist playlist, Consumer<Playlist> onPlaylistSaved, Consumer<Throwable> onError) {
+        if (playlist == null) {
+            if (onError != null) {
+                onError.accept(new IllegalArgumentException("Playlist to save cannot be null."));
+            }
+            return;
+        }
+        val name = playlist.getName().trim();
+        val updateTask = playlistRepository.findByPresetNameAndName(playlist.getPreset(), name)
                 .subscribeOn(Schedulers.io())
-                .subscribe();
+                .flatMapSingleElement(conflictingPlaylist -> {
+                    if (playlist.getId() != null && playlist.getId().equals(conflictingPlaylist.getId())) {
+                        return playlistRepository.update(playlist).toSingleDefault(playlist);
+                    } else {
+                        return Single.error(new PlaylistNameExistsException(
+                                "Playlist with name '" + playlist.getName() +
+                                        "' already exists for preset '" + playlist.getPreset() + "'."));
+                    }
+                })
+                .switchIfEmpty(Single.defer(() ->
+                        playlistRepository.update(playlist).toSingleDefault(playlist)
+                ))
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        savedPlaylist -> {
+                            Logger.d(TAG, "Playlist saved/updated successfully: " + savedPlaylist.getName());
+                            if (onPlaylistSaved != null) {
+                                onPlaylistSaved.accept(savedPlaylist);
+                            }
+                        },
+                        throwable -> {
+                            if (throwable instanceof PlaylistNameExistsException) {
+                                Logger.d(TAG, "Playlist with name '" + playlist.getName() + "' already exists for preset '" + playlist.getPreset() + "'. Skipping.");
+                            } else {
+                                Logger.e(TAG, "Error during save operation for playlist: " +
+                                        (playlist != null && playlist.getName() != null ? playlist.getName() : "ID " + (playlist != null ? playlist.getId() : "null")), throwable);
+                            }
+                            onError.accept(throwable);
+                        }
+                );
+        disposables.add(updateTask);
     }
 
     /**
@@ -157,196 +312,549 @@ public class PlaylistService extends Service {
      *
      * @param playlist playlist to be created
      */
-    @SuppressLint("CheckResult")
-    public void addPlaylist(Playlist playlist) {
-        playlist.setPosition(countAll(playlist.getPreset()));
-        Log.d(TAG, "Adding new playlist" + playlist);
-        playlist.saveAsync()
+    public void addPlaylist(Playlist playlist, Consumer<Playlist> onPlaylistCreated, Consumer<Throwable> onError) {
+        Logger.d(TAG, "Adding new playlist" + playlist);
+        val createTask = playlistRepository.countByPresetNameAndName(playlist.getPreset(), playlist.getName())
                 .subscribeOn(Schedulers.io())
-                .subscribe(id -> populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist));
+                .flatMap(exists -> {
+                    if (exists > 0) {
+                        return Single.error(new PlaylistNameExistsException("Playlist with name " + playlist.getName() + " already exists for preset " + playlist.getPreset()));
+                    } else {
+                        return playlistRepository.countAllByPreset(playlist.getPreset());
+                    }
+                })
+                .flatMap(count -> {
+                    playlist.setPosition(count);
+                    return playlistRepository.create(playlist);
+                })
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnSuccess(newPlaylistId -> {
+                    Logger.d(TAG, "Playlist created successfully with ID: " + newPlaylistId + ". Name: " + playlist.getName());
+                    playlist.setId(newPlaylistId);
+                    onPlaylistCreated.accept(playlist);
+                    populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist);
+                })
+                .doOnError(onError::accept)
+                .subscribe(
+                        newPlaylistId -> Logger.i(TAG, "Successfully added playlist ID: " + newPlaylistId + ", Name: " + playlist.getName()),
+                        throwable -> {
+                            if (!(throwable instanceof PresetAlreadyExistsException)) {
+                                Logger.e(TAG, "Error adding playlist: " + playlist.getName(), throwable);
+                            }
+                        }
+                );
+        disposables.add(createTask);
     }
 
     /**
      * Adds new song into playlist
      *
-     * @param playlist playlists which will have new song added
-     * @param song     song to be added
+     * @param playlist      playlists which will have new song added
+     * @param songsToInsert list of song to be added
      */
-    public void addSongToPlaylist(Playlist playlist, Song song) {
-        Log.d(TAG, "Adding song to playlist ");
-        playlist.addSong(song);
-        val relation = PlaylistSongs.builder().playlist(playlist).song(song).build();
-        relation.saveAsync()
-                .subscribeOn(Schedulers.io())
-                .subscribe();
-        playlist.saveAsync()
-                .subscribeOn(Schedulers.io())
-                .subscribe();
+    public void addSongToPlaylist(Playlist playlist, List<Song> songsToInsert,
+                                  Consumer<Playlist> onPlaylistUpdated) {
+        val playlistId = playlist.getId();
+        for (int i = 0; i < songsToInsert.size(); i++) {
+            songsToInsert.get(i).setPlaylistOwnerId(playlistId);
+        }
+        disposables.add(
+                songRepository.createAll(songsToInsert)
+                        .subscribeOn(Schedulers.io())
+                        .flatMap(insertedSongIds -> {
+                            Logger.d(TAG, "Songs inserted. Received " + insertedSongIds.size() + " IDs.");
+                            if (insertedSongIds.size() != songsToInsert.size()) {
+                                Logger.w(TAG, "Mismatch between songs to insert and returned IDs count.");
+                            }
+                            for (int i = 0; i < songsToInsert.size() && i < insertedSongIds.size(); i++) {
+                                songsToInsert.get(i).setId(insertedSongIds.get(i));
+                            }
+                            return songRepository.getSongCountForSpecificPlaylist(playlistId)
+                                    .subscribeOn(Schedulers.io())
+                                    .flatMap(count -> {
+                                        // Update the in-memory playlist object
+                                        playlist.setSongCount(count);
+                                        if (playlist.getSongs() == null) {
+                                            playlist.setSongs(new ArrayList<>());
+                                        }
+                                        playlist.getSongs().addAll(songsToInsert);
+                                        playlist.setUpdatedAt(new Date());
+                                        return playlistRepository
+                                                .updateSongCountForPlaylist(playlistId, count)
+                                                .subscribeOn(Schedulers.io())
+                                                .toSingleDefault(playlist);
+                                    });
+                        })
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                                updatedPl -> {
+                                    Logger.d(TAG, "Playlist update successful in service. Passing to UI callback.");
+                                    onPlaylistUpdated.accept(playlist);
+                                    Toast.makeText(this, R.string.playlist_added_new_songs, Toast.LENGTH_SHORT).show();
+                                },
+                                throwable -> Logger.e(TAG, "Error in addSongToPlaylist RxJava chain", throwable)
+                        )
+        );
     }
 
     /**
-     * Remove songs from playlist
+     * Removes songs from playlist . First updates playlist and then removes, then goes through ids of songs to be deleted
+     * Those songs will be deleted from database, afterwards playlist will be updated with count of songs
+     * Upon completing all those operation , notify will be sent with updated playlist
      *
-     * @param playlist playlist which should be updated
-     * @param songs    list of songs to be deleted
+     * @param playlistId        playlist which should be updated
+     * @param songsToRemove     list of songs to be deleted
+     * @param onSuccessCallback callback when operation is successful
+     * @param onErrorCallback   callback when error occurs
      */
-    @SneakyThrows
-    public void removeSongFromPlaylist(Playlist playlist, List<Song> songs) {
-        removeSongFromPlaylist(playlist, songs, false);
+    public void removeSongsFromPlaylist(
+            final long playlistId,
+            final List<Song> songsToRemove,
+            final Consumer<Playlist> onSuccessCallback,
+            final Consumer<Throwable> onErrorCallback) {
+        removeSongsFromPlaylist(playlistId, songsToRemove, onSuccessCallback, onErrorCallback, () -> {/* No-op */});
     }
 
     /**
-     * Removes songs from playlist. If refresh parameter is pased, playlist will be first refreshed
-     * to have latest, db state of it ( for example if trigger comes from event and doesn't contain background information )
+     * Removes songs from playlist . First updates playlist and then removes,
+     * then goes through ids of songs to be deleted and removes them
      *
-     * @param playlist playlist which should be updated
-     * @param songs    list of songs to be deleted
-     * @param refresh  if playlist should be refreshed before delete operation ( for event trigger )
+     * @param playlistId         Id of playlist
+     * @param songsToRemove      List of songs to be removed
+     * @param onSuccessCallback  Callback when operation is successful
+     * @param onErrorCallback    Callback when error occurs
+     * @param onCompleteCallback Callback when operation is completed
      */
-    @SneakyThrows
-    public void removeSongFromPlaylist(Playlist playlist, List<Song> songs, boolean refresh) {
-        if (refresh) {
-            playlist = findById(playlist.getId()).orElseThrow(PlaylistNotFoundException::new);
-            val playlistSongs = fetchSongsByPlaylistSync(playlist);
-            playlist.setSongs(playlistSongs);
-        }
+    public void removeSongsFromPlaylist(
+            final long playlistId,
+            final List<Song> songsToRemove,
+            final Consumer<Playlist> onSuccessCallback,
+            final Consumer<Throwable> onErrorCallback,
+            Action onCompleteCallback) {
+        Logger.d(TAG, "Removing " + songsToRemove.size() + " songs from playlist ID: " + playlistId);
+        Single<Playlist> updateOperation = Single.defer(() -> playlistRepository.findOneById(playlistId)
+                .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistId + " not found.")))
+                .flatMap(playlistFromDb ->
+                        songRepository.getSongsForPlaylist(playlistFromDb.getId())
+                                .map(songsFromDb -> {
+                                    playlistFromDb.setSongs(songsFromDb);
+                                    Logger.d(TAG, "Fetched " + songsFromDb.size() + " songs for " + playlistFromDb.getName());
+                                    return playlistFromDb;
+                                })
+                )
+                .flatMap(currentPlaylistState -> {
+                    List<Long> idsOfSongsMarkedForRemoval = songsToRemove.stream()
+                            .map(Song::getId)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                    if (idsOfSongsMarkedForRemoval.isEmpty()) {
+                        Logger.d(TAG, "No valid song IDs to remove for " + currentPlaylistState.getName());
+                        return Single.just(currentPlaylistState);
+                    }
+                    List<Song> songsRemainingInPlaylist = new ArrayList<>();
+                    if (currentPlaylistState.getSongs() != null) {
+                        songsRemainingInPlaylist = currentPlaylistState.getSongs().stream()
+                                .filter(song -> !idsOfSongsMarkedForRemoval.contains(song.getId()))
+                                .collect(Collectors.toList());
+                    }
+                    currentPlaylistState.setSongs(songsRemainingInPlaylist);
+                    currentPlaylistState.setSongCount(songsRemainingInPlaylist.size());
+                    currentPlaylistState.setUpdatedAt(new Date());
+                    Long currentSongId = currentPlaylistState.getCurrentSongId();
+                    if (currentSongId != null && idsOfSongsMarkedForRemoval.contains(currentSongId)) {
+                        currentPlaylistState.setCurrentSongId(null);
+                    }
+                    Completable deleteDbSongsCompletable = songRepository.deleteSongsByIds(idsOfSongsMarkedForRemoval);
+                    Completable updateDbPlaylistCompletable = playlistRepository.update(currentPlaylistState);
+                    return deleteDbSongsCompletable
+                            .andThen(updateDbPlaylistCompletable)
+                            .andThen(Single.just(currentPlaylistState));
+                }));
+        disposables.add(
+                updateOperation
+                        .compose(RxSchedulers.singleOnMain())
+                        .doOnSuccess(updatedPlaylist -> {
+                            Logger.i(TAG, "Successfully removed songs for " + updatedPlaylist.getName());
+                            populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS, updatedPlaylist);
+                        })
+                        .doFinally(onCompleteCallback)
+                        .subscribe(
+                                onSuccessCallback::accept,
+                                onErrorCallback::accept
+                        )
+        );
+    }
 
-        playlist.getSongs().removeAll(songs);
-        playlist.setSongCount(playlist.getSongs().size());
-        for (Song song : songs) {
-            if (song.equals(playlist.getCurrentSong())) {
-                playlist.setCurrentSong(null);
-                playlist.save();
-            }
-            song.delete();
-        }
-        playlist.saveAsync()
+    /**
+     * Removes all playlists for selected preset, and then removes preset itself
+     *
+     * @param presetName name of preset for which playlists should be removed
+     */
+    public void removePreset(String presetName) {
+        disposables.add(playlistRepository.deleteAllByPresetName(presetName)
+                .andThen(presetRepository.deleteByName(presetName))
                 .subscribeOn(Schedulers.io())
-                .subscribe();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS, playlist);
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(() -> Logger.i(TAG, "Successfully removed all playlists and preset: " + presetName),
+                        throwable -> Logger.e(TAG, "Error removing all playlists and preset: " + presetName, throwable))
+        );
     }
 
-    public void removePlaylistsFromPreset(String presetName) {
-        getAll(presetName).forEach(playlist -> {
-            val songs = fetchSongsByPlaylistSync(playlist);
-            playlist.setCurrentSong(null);
-            playlist.deleteAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
-            songs.forEach(song -> song.deleteAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe());
-        });
-    }
-
-
-    @SuppressLint("CheckResult")
+    /**
+     * Removes playlist from database , reindex remaining playlists positions and notifies about removal
+     *
+     * @param removedPlaylist playlist to be removed
+     */
     public void removePlaylist(Playlist removedPlaylist) {
-        val songs = fetchSongsByPlaylistSync(removedPlaylist);
-        removedPlaylist.setCurrentSong(null);
-        removedPlaylist.delete();
-        songs.forEach(Model::delete);
-        getAllAsync()
-                .subscribe(playlists -> {
+        Logger.d(TAG, "Removing playlist: " + removedPlaylist.getName());
+        val playlistId = removedPlaylist.getId();
+        val removeTask = findById(playlistId)
+                .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistId + " not found.")))
+                .flatMap(playlist -> {
+                    val presetName = playlist.getPreset();
+                    return playlistRepository.delete(playlist)
+                            .andThen(Single.just(presetName));
+                })
+                .flatMap(this::getAllByPresetName)
+                .flatMapCompletable(playlists -> {
                     for (int i = 0; i < playlists.size(); i++) {
                         val playlist = playlists.get(i);
                         playlist.setPosition(i);
-                        if (playlist.isActive()) {
-                            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE, playlist);
-                        }
                     }
-                    Playlist.saveAll(Playlist.class, playlists);
-                    populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, removedPlaylist);
+                    return playlistRepository.updateAll(playlists);
+                })
+                .doOnComplete(() -> populateAndSend(EventType.PLAYLIST_NOTIFICATION_DELETE, removedPlaylist))
+                .subscribeOn(Schedulers.io())
+                .subscribe(() -> Logger.i(TAG, "Successfully removed playlist ID: " + playlistId + ", Name: " + removedPlaylist.getName()));
+        disposables.add(removeTask);
+    }
+
+    /**
+     * Paste playlist into new playlist , by making a direct clone of it, cloning all songs , and saving it to database
+     * While saving position will be also updated ( to be last )
+     *
+     * @param copyId id of playlist to be pasted
+     * @throws PlaylistNotFoundException  if playlist with given ID does not exist
+     * @throws CloneNotSupportedException if clone is not supported
+     */
+    public void paste(long copyId, Consumer<Playlist> onPlaylistPasted) throws PlaylistNotFoundException, CloneNotSupportedException {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+        if (currentPresetName == null) {
+            throw new IllegalStateException("Current preset name is not set.");
+        }
+        val pasteTask = findById(copyId)
+                .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + copyId + " not found to copy.")))
+                .flatMap(originalPlaylist -> {
+                    val playlistCopy = originalPlaylist.clone();
+                    playlistCopy.setPreset(currentPresetName);
+                    String baseName = playlistCopy.getName(); // Get the original name to use as base
+                    return findAvailableNameRecursive(baseName, currentPresetName, 0)
+                            .map(uniqueName -> {
+                                playlistCopy.setName(uniqueName); // Set the found unique name
+                                Logger.d(TAG, "Found unique name for pasted playlist: " + uniqueName);
+                                return playlistCopy;
+                            });
+
+                })
+                .flatMap(playlistWithUniqueName ->
+                        playlistRepository.countAllByPreset(currentPresetName)
+                                .map(count -> {
+                                    playlistWithUniqueName.setPosition(count);
+                                    return playlistWithUniqueName;
+                                }))
+                .flatMap(preparedPlaylist -> playlistRepository
+                        .create(preparedPlaylist)
+                        .map(newPlaylistId -> {
+                            preparedPlaylist.setId(newPlaylistId);
+                            Logger.d(TAG, "Cloned playlist saved with new ID: " + newPlaylistId + ", Name: " + preparedPlaylist.getName());
+                            return preparedPlaylist;
+                        }))
+                .flatMap(savedClone ->
+                        cloneSongs(copyId, savedClone)
+                )
+                .flatMap(playlistWithSongs -> playlistRepository
+                        .update(playlistWithSongs)
+                        .andThen(Single.just(playlistWithSongs)))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        playlist -> {
+                            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlist);
+                            val spEdit = sp.edit();
+                            spEdit.putLong(COPY_PLAYLIST, -1L);
+                            spEdit.apply();
+                            Logger.i(TAG, "Paste operation for playlist ID " + copyId + " completed successfully.");
+                            onPlaylistPasted.accept(playlist);
+                        },
+                        throwable -> Logger.e(TAG, "Error during paste operation for playlist ID " + copyId, throwable)
+                );
+        //fire paste task
+        disposables.add(pasteTask);
+    }
+
+    /**
+     * Finds an available unique name for a playlist within a preset.
+     * If baseName is "My Playlist", it will try:
+     * "My Playlist"
+     * "My Playlist (1)"
+     * "My Playlist (2)"
+     * ...
+     * until an unused name is found.
+     *
+     * @param baseName   The original name of the playlist.
+     * @param presetName The name of the preset.
+     * @param attempt    The current attempt number (starts at 0 for no suffix).
+     * @return Single emitting the first available unique name.
+     */
+    private Single<String> findAvailableNameRecursive(String baseName, String presetName, int attempt) {
+        String currentNameAttempt;
+        if (attempt == 0) {
+            currentNameAttempt = baseName;
+        } else {
+            currentNameAttempt = baseName + "_" + attempt;
+        }
+
+        return playlistRepository.countByPresetNameAndName(presetName, currentNameAttempt)
+                .flatMap(count -> {
+                    if (count > 0) {
+                        // Name exists, try the next one
+                        return findAvailableNameRecursive(baseName, presetName, attempt + 1);
+                    } else {
+                        // Name is available
+                        return Single.just(currentNameAttempt);
+                    }
                 });
     }
 
-    public void paste(long copyId) throws PlaylistNotFoundException, CloneNotSupportedException {
-        val sp = getDefaultSharedPreferences(this);
-        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
-        val copy = findById(copyId).orElseThrow(PlaylistNotFoundException::new);
-        val playlistCopy = copy.clone();
-        playlistCopy.setPreset(currentPresetName);
-        playlistCopy.setPosition(countAll(currentPresetName));
-        playlistCopy.save();
-        val songs = fetchSongsByPlaylistSync(copy);
-        for (Song song : songs) {
-            addSongToPlaylist(playlistCopy, song.clone());
-        }
-        Toast.makeText(getApplicationContext(), getString(R.string.playlist_pasted), Toast.LENGTH_LONG).show();
-        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ADD, playlistCopy);
-        val spEdit = sp.edit();
-        spEdit.putLong(COPY_PLAYLIST, -1L);
-        spEdit.apply();
-    }
+    /**
+     * Clones all songs belonging to original playlist with id , by first grabbing them from database,
+     * making clone, clear original playlist owner id , and saving it to database
+     *
+     * @param originalPlaylistId id of cloned playlist
+     * @param savedClone         cloned playlist
+     * @return Single of cloned playlist
+     */
+    private Single<Playlist> cloneSongs(long originalPlaylistId, Playlist savedClone) {
+        Logger.d(TAG, "Cloning songs from original playlist ID: " + originalPlaylistId + " into new playlist: " + savedClone.getName());
+        return songRepository.getSongsForPlaylist(originalPlaylistId) // Assuming this returns Single<List<Song>>
+                .subscribeOn(Schedulers.io())
+                .observeOn(Schedulers.computation())
+                .flatMap(originalSongs -> {
+                    if (originalSongs.isEmpty()) {
+                        Logger.d(TAG, "No songs to clone from playlist ID: " + originalPlaylistId);
+                        savedClone.setSongs(new ArrayList<>());
+                        savedClone.setSongCount(0);
+                        return Single.just(savedClone);
+                    }
 
-    @SneakyThrows
-    public void setActive(Playlist item) {
-        val optionalActive = findActive();
-        val optionalPlaylist = findById(item.getId());
-        val playlist = optionalPlaylist.orElseThrow(PlaylistNotFoundException::new);
-        if (!optionalActive.isPresent() || !optionalActive.get().getId().equals(playlist.getId())) {
-            if (optionalActive.isPresent()) {
-                val active = optionalActive.get();
-                active.setActive(false);
-                active.saveAsync()
-                        .subscribeOn(Schedulers.io())
-                        .subscribe();
-            }
-            makeActiveAndNotify(playlist);
-        }
+                    List<Song> clonedSongObjects = new ArrayList<>();
+                    for (Song originalSong : originalSongs) {
+                        try {
+                            Song songCopy = originalSong.clone();
+                            songCopy.setId(null);
+                            songCopy.setPlaylistOwnerId(savedClone.getId());
+                            clonedSongObjects.add(songCopy);
+                        } catch (CloneNotSupportedException e) {
+                            Logger.e(TAG, "Failed to clone song: " + originalSong.getFilename(), e);
+                            return Single.error(new RuntimeException("Clone operation failed for song: " + originalSong.getFilename(), e));
+                        }
+                    }
+                    Logger.d(TAG, "Successfully prepared " + clonedSongObjects.size() + " songs for cloning.");
+
+                    // Now, insert these cloned songs into the database and get their new IDs
+                    return songRepository.createAll(clonedSongObjects) // Use the method that returns IDs
+                            .subscribeOn(Schedulers.io())
+                            .observeOn(Schedulers.computation())
+                            .map(insertedSongIds -> {
+                                if (insertedSongIds.size() != clonedSongObjects.size()) {
+                                    Logger.w(TAG, "ID count mismatch during song cloning. Expected: " + clonedSongObjects.size() + ", Got: " + insertedSongIds.size());
+                                }
+                                Logger.d(TAG, "Received " + insertedSongIds.size() + " new IDs for cloned songs.");
+                                for (int i = 0; i < clonedSongObjects.size() && i < insertedSongIds.size(); i++) {
+                                    clonedSongObjects.get(i).setId(insertedSongIds.get(i));
+                                }
+                                Logger.d(TAG, "Successfully saved " + clonedSongObjects.size() + " cloned songs for " + savedClone.getName());
+                                savedClone.setSongs(clonedSongObjects);
+                                savedClone.setSongCount(clonedSongObjects.size());
+                                return savedClone;
+                            });
+                })
+                .observeOn(AndroidSchedulers.mainThread());
     }
 
     /**
-     * Loads all songs for selected playlist, once fetch is completed make all actions required to
-     * activate and play that playlist
+     * Set Playlist as active
+     * Attempt to find active playlist and deactivate it first,
+     * then find playlist by ID , load all songs for this playlist , set it as active
+     * And broadcast event to play
      *
      * @param playlist playlist to be made active
      */
-    @SuppressLint("CheckResult")
-    private void makeActiveAndNotify(Playlist playlist) {
-        sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
-        fetchSongsByPlaylistAsync(playlist).subscribe(songs -> setSongsAndMakeActive(playlist, songs, true));
+    public void setActive(Playlist playlist) {
+        val playlistToActivateId = playlist.getId();
+        Logger.d(TAG, "Attempting to set playlist ID as active: " + playlistToActivateId);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
+        val activeTask =
+                findActive()
+                        .flatMapCompletable(activePlaylist -> {
+                                    if (!activePlaylist.getId().equals(playlistToActivateId)) {
+                                        activePlaylist.setActive(false);
+                                        return playlistRepository.update(activePlaylist);
+                                    }
+                                    return Completable.complete();
+                                }
+                        ).andThen(playlistRepository.findOneById(playlistToActivateId))
+                        .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")))
+                        .flatMap(playlistToActivate -> {
+                            Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
+                            return loadSongs(playlistToActivate);
+                        })
+                        .flatMapCompletable(this::buildPlaylistMakeActiveAndNotify)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(() -> {
+                            Logger.d(TAG, "Playlist set as active successfully.");
+                            LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+                        });
+        disposables.add(activeTask);
     }
 
     /**
-     * Sets songs into playlist, and search for current song within. If none present, set first from list
+     * Creates playlist out of all available songs
+     * Search for current song within. If none present, set first from list
      *
      * @param playlist playlist to be made active and played
-     * @param songs    songs fetched from DB
-     * @param play     true if playback should be started ( it will publish other event )
+     * @return Completable that completes when playlist is made active
      */
-    private void setSongsAndMakeActive(Playlist playlist, List<Song> songs, boolean play) {
-        playlist.setSongs(songs);
+    private Completable buildPlaylistMakeActiveAndNotify(Playlist playlist) {
         val sp = getDefaultSharedPreferences(this);
         val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
         createPlaylist(playlist, shuffle);
-        var currentSong = playlist.getCurrentSong();
-        if (currentSong == null && isEmpty(playlist.getPlaylist())) {
-            val notActiveMsg = MessageFormat.format(getString(R.string.playlist_active_no_songs), playlist.getName());
-            Toast.makeText(getApplicationContext(), notActiveMsg, Toast.LENGTH_LONG).show();
-            sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
-            return;
-        } else if (currentSong == null && !isEmpty(playlist.getSongs())) {
-            currentSong = playlist.getPlaylist().get(0);
+        var currentSongId = playlist.getCurrentSongId();
+
+        if (currentSongId == null && isEmpty(playlist.getPlaylist())) {
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+            Logger.d(TAG, "Playlist has no songs.");
+            return Completable.complete();
+        } else if (currentSongId == null && !isEmpty(playlist.getPlaylist())) {
+            val currentSong = playlist.getPlaylist().get(0);
+            playlist.setCurrentSongId(currentSong.getId());
             playlist.setCurrentSong(currentSong);
+            Logger.d(TAG, "Setting current song to first in playlist");
+        } else if (!isEmpty(playlist.getPlaylist())) {
+            playlist.getPlaylist()
+                    .stream()
+                    .filter(song -> song.getId().equals(currentSongId))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            playlist::setCurrentSong,
+                            () -> {
+                                Logger.d(TAG, "Song with ID " + currentSongId + " not found in playlist " + playlist.getName() + ". Picking first");
+                                playlist.setCurrentSong(playlist.getPlaylist().get(0));
+                            });
+
         }
         playlist.setActive(true);
-        playlist.save();
-        if (play) {
+        return playlistRepository.update(playlist).doOnComplete(() -> {
+            Logger.d(TAG, "Playlist set as active sending event to play");
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, playlist);
-        } else {
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE, playlist);
-        }
-        sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+        });
     }
 
     public void resetActiveFromPreset() {
-        findActive().ifPresent(playlist -> {
-            playlist.setActive(false);
-            playlist.saveAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
-        });
+        disposables.add(
+                findActive()
+                        .observeOn(Schedulers.io())
+                        .flatMapCompletable(playlist -> {
+                            playlist.setActive(false);
+                            Logger.d(TAG, "Deactivating playlist (on IO thread): " + playlist.getName());
+                            return playlistRepository.update(playlist);
+                        })
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(() -> Logger.d(TAG, "resetActiveFromPreset operation completed successfully."),
+                                throwable -> Logger.e(TAG, "resetActiveFromPreset operation failed.", throwable)
+                        ));
+    }
+
+
+    /**
+     * Save all playlists in background
+     *
+     * @param playlists list of playlists to be saved
+     */
+    public void saveAll(List<Playlist> playlists) {
+        disposables.add(
+                playlistRepository.updateAll(playlists)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(Schedulers.io())
+                        .subscribe(() -> Logger.d("PlaylistService", "Successfully saved/updated all " + playlists.size() + " playlists in the background."),
+                                throwable -> Logger.e("PlaylistService", "Error saving/updating all playlists in the background", throwable))
+        );
+    }
+
+    /**
+     * Loads all presets
+     *
+     * @param onPresetCreated callback when presets are loaded
+     * @param onError         callback when error occurs
+     */
+    public void getAllPresets(Consumer<List<Preset>> onPresetCreated, Consumer<Throwable> onError) {
+        disposables.add(presetRepository.findAll()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(onPresetCreated::accept, onError::accept));
+    }
+
+    /**
+     * Creates new preset. Upon creation , get all and notify
+     *
+     * @param newPresetName   name of new preset
+     * @param onPresetCreated callback when preset is created
+     */
+    public void addPreset(String newPresetName, Consumer<List<Preset>> onPresetCreated, Consumer<Throwable> onError) {
+        final String trimmedName = newPresetName.trim();
+        Preset newPreset = Preset.builder()
+                .name(trimmedName)
+                .build();
+
+        val createAndFetchAllTask = presetRepository.countByName(trimmedName)
+                .flatMap(count -> {
+                    if (count > 0) {
+                        return Single.error(new PresetAlreadyExistsException(
+                                "A preset named '" + trimmedName + "' already exists."
+                        ));
+                    }
+                    return presetRepository.create(newPreset)
+                            .map(newId -> {
+                                newPreset.setId(newId);
+                                Logger.i(TAG, "Preset created: ID " + newId + ", Name: " + newPreset.getName());
+                                return newPreset;
+                            });
+                })
+                .flatMap(createdPreset -> presetRepository.findAll())
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .doOnError(onError::accept)
+                .subscribe(onPresetCreated::accept,
+                        throwable -> {
+                            if (!(throwable instanceof PresetAlreadyExistsException)) {
+                                Logger.e(TAG, "Error creating preset: " + trimmedName, throwable);
+                            }
+                        });
+        disposables.add(createAndFetchAllTask);
+    }
+
+    /**
+     * Updates song in database in fire forget mode
+     *
+     * @param song song to be updated
+     */
+    public void updateSong(Song song) {
+        disposables.add(songRepository.update(song)
+                .subscribeOn(Schedulers.io())
+                .subscribe(integer -> Logger.d(TAG, "Song updated successfully: " + song.getFilename())));
     }
 
 
@@ -356,12 +864,19 @@ public class PlaylistService extends Service {
         }
     }
 
+    /**
+     * Sends event to all listeners about playlist change
+     *
+     * @param type     type of event
+     * @param playlist playlist which was changed
+     */
     private void populateAndSend(EventType type, Playlist playlist) {
         Intent intent = new Intent(type.getCode());
         val args = new Bundle();
         args.putSerializable(POSITION, playlist.getPosition());
         args.putSerializable(PLAYLIST, playlist);
         intent.putExtra(ARGS, args);
-        sendBroadcast(intent);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        Logger.d(TAG, "Playlist notification " + type.getCode() + " sent: " + playlist.getName());
     }
 }

@@ -1,42 +1,5 @@
 package pl.qprogramming.themplay.player;
 
-import android.annotation.SuppressLint;
-import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.media.AudioManager;
-import android.media.MediaPlayer;
-import android.net.Uri;
-import android.os.Binder;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Looper;
-import android.util.Log;
-import android.widget.ProgressBar;
-import android.widget.Toast;
-
-import com.reactiveandroid.query.Select;
-
-import java.io.IOException;
-import java.text.MessageFormat;
-import java.util.Optional;
-
-import androidx.annotation.Nullable;
-import androidx.preference.PreferenceManager;
-import io.reactivex.schedulers.Schedulers;
-import lombok.Setter;
-import lombok.val;
-import lombok.var;
-import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.EventType;
-import pl.qprogramming.themplay.playlist.Playlist;
-import pl.qprogramming.themplay.playlist.Song;
-import pl.qprogramming.themplay.settings.Property;
-import pl.qprogramming.themplay.util.Utils;
-
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
@@ -56,6 +19,51 @@ import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
+import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
+import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.Binder;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.widget.ProgressBar;
+import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.preference.PreferenceManager;
+
+import java.io.IOException;
+import java.text.MessageFormat;
+import java.util.Optional;
+
+import lombok.Setter;
+import lombok.val;
+import pl.qprogramming.themplay.R;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
+import pl.qprogramming.themplay.playlist.EventType;
+import pl.qprogramming.themplay.playlist.PlaylistService;
+import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.util.Utils;
+
+/**
+ * Service responsible for music playback.
+ * <p>
+ * This service manages the playback of songs from a playlist. It utilizes two MediaPlayers
+ * to achieve seamless transitions between songs through fade-in and fade-out effects.
+ * One MediaPlayer handles the currently playing song, while the auxiliary MediaPlayer (auxPlayer)
+ * is used to prepare and fade in the next song.
+ */
 public class PlayerService extends Service {
 
     private static final String TAG = PlayerService.class.getSimpleName();
@@ -64,6 +72,8 @@ public class PlayerService extends Service {
     private ProgressBar progressBar;
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
 
+    private PlaylistService playlistService;
+    private boolean serviceIsBound;
 
     private final IBinder mBinder = new PlayerService.LocalBinder();
     private MediaPlayer mediaPlayer = new MediaPlayer();
@@ -74,29 +84,53 @@ public class PlayerService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        val playlistServiceIntent = new Intent(this, PlaylistService.class);
+        bindService(playlistServiceIntent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         mNotificationManager = new MediaNotificationManager(this);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        return Service.START_STICKY;
+        if (intent != null && intent.getAction() != null) {
+            String action = intent.getAction();
+            Logger.d(TAG, "onStartCommand received action: " + action);
+            if (PLAYBACK_NOTIFICATION_PLAY.getCode().equals(action)) {
+                play();
+            } else if (PLAYBACK_NOTIFICATION_PAUSE.getCode().equals(action)) {
+                pause();
+            } else if (PLAYBACK_NOTIFICATION_NEXT.getCode().equals(action)) {
+                next();
+            } else if (PLAYBACK_NOTIFICATION_PREV.getCode().equals(action)) {
+                previous();
+            } else if (PLAYBACK_NOTIFICATION_STOP.getCode().equals(action)) {
+                stop();
+            }
+        }
+        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
+        Logger.d(TAG, "onDestroy");
         super.onDestroy();
         try {
-            unregisterReceiver(receiver);
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(receiver);
+            if (serviceIsBound) {
+                unbindService(playlistServiceConnection);
+                serviceIsBound = false;
+            }
+            if (mediaPlayer != null && isPlaying()) {
+                mediaPlayer.stop();
+            }
         } catch (IllegalArgumentException e) {
-            Log.d(TAG, "Receiver not registered");
+            Logger.d(TAG, "Receiver not registered");
         }
-
     }
 
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        Log.d(TAG, "Binding service to " + intent + "this:" + this);
+        Logger.d(TAG, "Binding service to " + intent + "this:" + this);
         val filter = new IntentFilter(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
@@ -109,7 +143,8 @@ public class PlayerService extends Service {
         filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
-        getApplicationContext().registerReceiver(receiver, filter);
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
+        Logger.d(TAG, "Returning binder , player is playing ? " + mediaPlayer.isPlaying());
         return mBinder;
     }
 
@@ -118,9 +153,7 @@ public class PlayerService extends Service {
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
             currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
-            currentSong.saveAsync()
-                    .subscribeOn(Schedulers.io())
-                    .subscribe();
+            playlistService.updateSong(currentSong);
         }
         activePlaylist = playlist;
         val song = activePlaylist.getCurrentSong();
@@ -156,6 +189,7 @@ public class PlayerService extends Service {
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
         }
     }
 
@@ -164,23 +198,19 @@ public class PlayerService extends Service {
         mediaPlayer.pause();
         val currentSong = activePlaylist.getCurrentSong();
         currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
-        currentSong.saveAsync()
-                .subscribeOn(Schedulers.io())
-                .subscribe();
-        mNotificationManager.createMediaNotification(currentSong, true);
+        playlistService.updateSong(currentSong);
+        mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
         progressHandler.removeCallbacks(updateProgressTask);
     }
 
     public void stop() {
         mNotificationManager.removeNotification();
-        Log.d(TAG, "Stop media player");
+        Logger.d(TAG, "Stop media player");
         if (isPlaying()) {
             if (activePlaylist != null) {
                 val currentSong = activePlaylist.getCurrentSong();
                 if (currentSong != null) {
-                    currentSong.saveAsync()
-                            .subscribeOn(Schedulers.io())
-                            .subscribe();
+                    playlistService.updateSong(currentSong);
                 }
             }
             if (isFadeStop()) {
@@ -199,35 +229,24 @@ public class PlayerService extends Service {
         if (isEmpty(activePlaylist.getPlaylist())) {
             createPlaylist(activePlaylist, shuffle);
         }
-        if (activePlaylist != null && activePlaylist.getPlaylist().size() > 0) {
+        if (activePlaylist != null && !activePlaylist.getPlaylist().isEmpty()) {
             // get current song index and increase ,
             // if no song found it will be 0 as indexOf returns -1 in that case
             var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
             if (songIndex > activePlaylist.getPlaylist().size() - 1) {
-                Log.d(TAG, "Creating new playlist");
+                Logger.d(TAG, "Creating new playlist");
                 createPlaylist(activePlaylist, shuffle);
                 songIndex = 0;
             }
             val song = activePlaylist.getPlaylist().get(songIndex);
             activePlaylist.setCurrentSong(song);
-            saveActivePlaylist();
+            playlistService.save(activePlaylist);
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
         }
-    }
-
-    @SuppressLint("CheckResult")
-    private void saveActivePlaylist() {
-        Select.from(Playlist.class).where("id = ?", activePlaylist.getId())
-                .fetchSingleAsync()
-                .subscribeOn(Schedulers.io())
-                .subscribe(playlist -> {
-                    activePlaylist.setBackgroundImage(playlist.getBackgroundImage());
-                    activePlaylist.save();
-                });
-
     }
 
     public void previous() {
@@ -246,11 +265,12 @@ public class PlayerService extends Service {
             }
             val song = songs.get(songIndex);
             activePlaylist.setCurrentSong(song);
-            saveActivePlaylist();
+            playlistService.save(activePlaylist);
             fadeIntoNewSong(song, 0);
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
         } else {
             Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
         }
     }
 
@@ -258,32 +278,39 @@ public class PlayerService extends Service {
     /**
      * Fades into new song
      *
-     * @param nextSong     current song playling/active
+     * @param nextSong     current song playing/active
      * @param songPosition from where next song should pickup
      */
     private void fadeIntoNewSong(Song nextSong, int songPosition) {
-        mNotificationManager.createMediaNotification(nextSong, false);
-        Log.d(TAG, "Fading into song from " + this);
+        mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
+        Logger.d(TAG, "Fading into song from " + nextSong.getFilename());
         try {
             val uri = Uri.parse(nextSong.getFileUri());
-            val fileDescriptor = getContentResolver().openFileDescriptor(uri, "r");
+            Logger.d(TAG, "Opening file " + uri.toString());
             if (isPlaying()) {
+                Logger.d(TAG, "Already playing something, creating secondary player to fade in");
                 auxPlayer = new MediaPlayer();
-                auxPlayer.setDataSource(fileDescriptor.getFileDescriptor());
+                auxPlayer.setDataSource(this, uri);
                 auxPlayer.prepare();
                 auxPlayer.seekTo(songPosition);
                 auxPlayer.setVolume(0, 0);
+                Logger.d(TAG, "Fading out current song");
                 fadeOut(mediaPlayer);
+                Logger.d(TAG, "Fading in new song");
                 fadeIn(auxPlayer);
+                Logger.d(TAG, "Starting player");
                 auxPlayer.start();
                 mediaPlayer = auxPlayer;
             } else {
+                Logger.d(TAG, "Nothing is playing yet, creating new player");
                 mediaPlayer = new MediaPlayer();
-                mediaPlayer.setDataSource(fileDescriptor.getFileDescriptor());
+                mediaPlayer.setDataSource(this, uri);
                 mediaPlayer.prepare();
                 mediaPlayer.seekTo(songPosition);
                 mediaPlayer.setVolume(0, 0);
+                Logger.d(TAG, "Fading in new song");
                 fadeIn(mediaPlayer);
+                Logger.d(TAG, "Starting player");
                 mediaPlayer.start();
             }
             observeEnding(mediaPlayer);
@@ -292,8 +319,8 @@ public class PlayerService extends Service {
             val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
             Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
         } catch (IOException | SecurityException e) {
-            e.printStackTrace();
-            Log.d(TAG, e.getMessage());
+            Logger.e(TAG, "Error playing song", e);
+            Logger.d(TAG, e.getMessage());
             val errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
             Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
             Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
@@ -301,7 +328,7 @@ public class PlayerService extends Service {
             args.putSerializable(Utils.SONG, nextSong);
             args.putSerializable(PLAYLIST, activePlaylist);
             intent.putExtra(ARGS, args);
-            sendBroadcast(intent);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
             next();
         }
     }
@@ -322,7 +349,7 @@ public class PlayerService extends Service {
         try {
             return mediaPlayer.isPlaying();
         } catch (IllegalStateException e) {
-            Log.d(TAG, "media player is definitely not playing");
+            Logger.d(TAG, "media player is definitely not playing");
             return false;
         }
     }
@@ -347,7 +374,7 @@ public class PlayerService extends Service {
                         player.release();
                     }
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "FadeOut stopped due to error in MediaPlayer");
+                    Logger.d(TAG, "FadeOut stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -385,7 +412,7 @@ public class PlayerService extends Service {
                     if (time < duration)
                         h.postDelayed(this, 100);
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "FadeIn stopped due to error in MediaPlayer");
+                    Logger.d(TAG, "FadeIn stopped due to error in MediaPlayer");
                 }
             }
         }, 100);
@@ -410,7 +437,7 @@ public class PlayerService extends Service {
                         }
                     }
                 } catch (IllegalStateException e) {
-                    Log.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
+                    Logger.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
                 }
 
             }
@@ -436,13 +463,13 @@ public class PlayerService extends Service {
         val args = new Bundle();
         args.putSerializable(Utils.POSITION, position);
         intent.putExtra(ARGS, args);
-        sendBroadcast(intent);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "Received event for playback " + intent.getAction());
+            Logger.d(TAG, "Received event for playback " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             val sp = getDefaultSharedPreferences(context);
@@ -513,18 +540,33 @@ public class PlayerService extends Service {
     private void handleSongDeleted(Bundle args, boolean shuffle) {
         if (args != null) {
             Optional.ofNullable(args.getSerializable(PLAYLIST))
-                    .ifPresent(playlist -> {
-                        if (activePlaylist != null && ((Playlist) playlist).getId().equals(activePlaylist.getId())) {
-                            activePlaylist = (Playlist) playlist;
+                    .ifPresent(object -> {
+                        val playlist = (Playlist) object;
+                        if (activePlaylist != null && playlist.getId().equals(activePlaylist.getId())) {
+                            activePlaylist = playlist;
                             createPlaylist(activePlaylist, shuffle);
-                            if (activePlaylist.getSongs().size() == 0) {
+                            if (activePlaylist.getSongs().isEmpty()) {
                                 populateAndSend(PLAYBACK_NOTIFICATION_STOP, activePlaylist.getPosition());
-                            } else if (activePlaylist.getCurrentSong() == null && activePlaylist.getSongs().size() > 0) {
+                            } else if (activePlaylist.getCurrentSong() == null && !activePlaylist.getSongs().isEmpty()) {
                                 populateAndSend(PLAYBACK_NOTIFICATION_NEXT, activePlaylist.getPosition());
                             }
                         }
                     });
         }
     }
+
+
+    private final ServiceConnection playlistServiceConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className, IBinder service) {
+            val binder = (PlaylistService.LocalBinder) service;
+            playlistService = binder.getService();
+            serviceIsBound = true;
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            playlistService = null;
+        }
+    };
+
 
 }

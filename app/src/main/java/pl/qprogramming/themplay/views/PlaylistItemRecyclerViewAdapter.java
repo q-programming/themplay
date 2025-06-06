@@ -1,5 +1,14 @@
 package pl.qprogramming.themplay.views;
 
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
+import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
+import static pl.qprogramming.themplay.util.Utils.getThemeColor;
+import static pl.qprogramming.themplay.util.Utils.isEmpty;
+import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
+import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
@@ -8,7 +17,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Base64;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,34 +27,27 @@ import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.text.MessageFormat;
-import java.util.Collections;
-import java.util.List;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.cardview.widget.CardView;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.fragment.app.FragmentManager;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 import lombok.val;
-import lombok.var;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.EventType;
-import pl.qprogramming.themplay.playlist.Playlist;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.util.Utils;
-
-import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
-import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
-import static pl.qprogramming.themplay.util.Utils.ARGS;
-import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
-import static pl.qprogramming.themplay.util.Utils.getThemeColor;
-import static pl.qprogramming.themplay.util.Utils.isEmpty;
-import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
-import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
 /**
  * {@link RecyclerView.Adapter} that can display a {@link Playlist}.
@@ -54,24 +55,39 @@ import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<PlaylistItemRecyclerViewAdapter.ViewHolder> implements PlaylistItemMoveCallback.ItemTouchHelperContract {
 
     private static final String TAG = PlaylistItemRecyclerViewAdapter.class.getSimpleName();
-    private List<Playlist> playlists;
+    private final List<Playlist> playlists = new ArrayList<>();
     private int activeColor;
     private int cardBackgroundColor;
 
 
     private final PlaylistService playlistService;
-    private FragmentManager fmanager;
+    private final FragmentManager fmanager;
     private int[] colorArray;
 
     @SuppressLint("CheckResult")
     public PlaylistItemRecyclerViewAdapter(PlaylistService playlistService, FragmentActivity activity) {
         this.playlistService = playlistService;
-        playlists = playlistService.getAll();
         if (activity != null) {
             this.fmanager = activity.getSupportFragmentManager();
+        } else {
+            this.fmanager = null;
         }
     }
 
+    /**
+     * Loads all playlists into adapter.
+     */
+    public void loadPlaylists() {
+        playlistService.getAllByPresetName(updatedPlaylists -> {
+            this.playlists.clear();
+            this.playlists.addAll(updatedPlaylists);
+            notifyDataSetChanged();
+        }, throwable -> {
+            Logger.e("Adapter", "Error loading playlists into adapter", throwable);
+            this.playlists.clear();
+            notifyDataSetChanged();
+        });
+    }
 
     @Override
     @NonNull
@@ -151,18 +167,11 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                 val itemId = item.getItemId();
                 val context = holder.mCardView.getContext();
                 if (itemId == R.id.editPlaylist) {
-                    context.sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
-                    playlistService.fetchSongsByPlaylistAsync(playlist)
-                            .subscribe(songs -> {
-                                context.sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
-                                playlist.setSongs(songs);
-                                navigateToFragment(
-                                        fmanager,
-                                        new PlaylistSettingsFragment(playlistService, playlist),
-                                        playlist.getName() + playlist.getId());
-
-                            });
-                    Log.d(TAG, "Editing playlist " + playlist.getId());
+                    Logger.d(TAG, "Editing playlist " + playlist.getId());
+                    navigateToFragment(
+                            fmanager,
+                            new PlaylistSettingsFragment(playlist),
+                            playlist.getName() + playlist.getId());
                 } else if (itemId == R.id.deletePlaylist) {
                     val msg = MessageFormat.format(context.getString(R.string.playlist_delete_playlist_confirm), playlist.getName());
                     new AlertDialog.Builder(context)
@@ -204,19 +213,15 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     @Override
     public int getItemCount() {
-        if (playlistService != null && isEmpty(playlists)) {
-            playlists = playlistService.getAll();
-        }
-        return playlists.size();
+        return playlists != null ? playlists.size() : 0;
     }
 
     public void reloadItemAt(int index) {
         var playlist = playlists.get(index);
-        playlistService.findById(playlist.getId()).ifPresent(dbPlaylist -> playlists.set(index, dbPlaylist));
-    }
-
-    public void reloadAll() {
-        playlists = playlistService.getAll();
+        playlistService.findById(playlist.getId(), dbPlaylist -> {
+            playlists.set(index, dbPlaylist);
+            notifyItemChanged(index);
+        }, throwable -> Logger.e(TAG, "Error loading playlist", throwable));
     }
 
     @Override
@@ -232,7 +237,6 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         }
     }
 
-    @SuppressLint("CheckResult")
     @Override
     public void onRowClear(ViewHolder viewHolder) {
         if (!viewHolder.playlist.isActive()) {
@@ -242,22 +246,20 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             val playlist = playlists.get(i);
             playlist.setPosition(i);
         }
-        Playlist.saveAll(Playlist.class, playlists);
+        playlistService.saveAll(playlists);
         playlists
                 .stream()
                 .filter(Playlist::isActive)
                 .findFirst()
                 .ifPresent(playlist ->
                         playlistService
-                                .fetchSongsByPlaylistAsync(playlist)
-                                .subscribe(songs -> {
-                                    playlist.setSongs(songs);
+                                .loadSongs(playlist, playlistWithSongs -> {
                                     val intent = new Intent(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
                                     val args = new Bundle();
-                                    args.putSerializable(Utils.PLAYLIST, playlist);
+                                    args.putSerializable(Utils.PLAYLIST, playlistWithSongs);
                                     intent.putExtra(ARGS, args);
-                                    viewHolder.mView.getContext().sendBroadcast(intent);
-                                }));
+                                    LocalBroadcastManager.getInstance(viewHolder.mView.getContext()).sendBroadcast(intent);
+                                }, throwable -> Logger.e(TAG, "Error loading playlist", throwable)));
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {

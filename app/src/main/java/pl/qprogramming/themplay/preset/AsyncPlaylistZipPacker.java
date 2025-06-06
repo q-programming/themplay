@@ -5,8 +5,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.util.Base64;
-import android.util.Log;
 import android.widget.Toast;
+
+import androidx.documentfile.provider.DocumentFile;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -17,22 +18,23 @@ import java.text.MessageFormat;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import androidx.documentfile.provider.DocumentFile;
 import lombok.SneakyThrows;
 import lombok.val;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.Playlist;
-import pl.qprogramming.themplay.playlist.Song;
+import pl.qprogramming.themplay.domain.Playlist;
+import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.util.AsyncTaskExecutorService;
 
 /**
  * Async Task to save all playlists into zip file
  */
-public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, Void, Boolean> {
+public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, Void, ExportResult> {
     private static final String TAG = AsyncPlaylistZipPacker.class.getSimpleName();
     private static final String BACKGROUND = "background.jpg";
     private final Uri uri;
     private final DocumentFile documentFile;
+
 
     public AsyncPlaylistZipPacker(Uri uri, StringBuilder logs, Context context) {
         super(logs, context);
@@ -45,7 +47,8 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
      */
     @Override
     @SneakyThrows
-    protected Boolean doInBackground(Playlist... entries) {
+    protected ExportResult doInBackground(Playlist... entries) {
+        boolean overallSuccess = true;
         try (val outputStream = context.getContentResolver().openOutputStream(uri); val zip = new ZipOutputStream(outputStream)) {
             val list = new StringBuilder();
             //create zip and list preset with it's songs
@@ -66,12 +69,12 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
             zip.putNextEntry(bgEntry);
             zip.write(list.toString().getBytes());
             zip.closeEntry();
-
         } catch (IOException e) {
-            Log.e(TAG, "Failed to write to file ", e);
-            throw new IOException(e);
+            Logger.e(TAG, "Failed to write to file ", e);
+            logs.append("\nFailed to save file ");
+            logs.append(e);
         }
-        return true;
+        return new ExportResult(overallSuccess, logs.length() > 0 ? logs.toString() : null);
     }
 
     /**
@@ -79,13 +82,15 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
      */
     @Override
     @SneakyThrows
-    protected void onPostExecute(Boolean result) {
+    protected void onPostExecute(ExportResult result) {
         super.onPostExecute(result);
         if (logs.length() > 0) {
-            File logFile = new File(Environment.getExternalStorageDirectory() + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
+            File externalFilesDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+            File logFile = new File(externalFilesDir + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
             try (val bw = new BufferedWriter(new FileWriter(logFile))) {
                 bw.write(logs.toString());
             }
+            Logger.e(TAG, "Logs saved to " + logFile.getAbsolutePath());
             val msg = MessageFormat.format(context.getString(R.string.presets_saved_errors), documentFile.getName(), logFile.getName());
             Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
         } else {
@@ -127,8 +132,8 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
             }
             zip.closeEntry();
         } catch (IOException ex) {
-            Log.e(TAG, "Error while trying to save file " + song.getFilename());
-            Log.e(TAG, ex.toString());
+            Logger.e(TAG, "Error while trying to save file " + song.getFilename());
+            Logger.e(TAG, ex.toString());
             logs.append("\nFailed to save file ");
             logs.append(ex);
         }

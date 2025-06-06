@@ -1,10 +1,11 @@
-package pl.qprogramming.themplay.playlist;
+package pl.qprogramming.themplay.domain;
 
 
-import com.reactiveandroid.Model;
-import com.reactiveandroid.annotation.Column;
-import com.reactiveandroid.annotation.PrimaryKey;
-import com.reactiveandroid.annotation.Table;
+import androidx.annotation.NonNull;
+import androidx.room.ColumnInfo;
+import androidx.room.Entity;
+import androidx.room.Ignore;
+import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -12,8 +13,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-import androidx.annotation.NonNull;
-import io.reactivex.Single;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -24,14 +23,15 @@ import lombok.val;
 
 @Getter
 @Setter
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @Builder
 @ToString
-@Table(name = Playlist.PLAYLIST_TABLE_NAME, database = ThemPlayDatabase.class)
-public class Playlist extends Model implements Serializable, Cloneable {
+@Entity(tableName = Playlist.PLAYLIST_TABLE_NAME)
+public class Playlist implements Serializable, Cloneable {
+    public static final String COLUMN_ID = "id";
     public static final String CURRENT_SONG = "currentSong";
-
+    public static final String CURRENT_SONG_ID = "current_song_Id";
     public static final String PLAYLIST_TABLE_NAME = "playlists";
     public static final String ACTIVE = "active";
     public static final String CREATED_AT = "created_at";
@@ -45,33 +45,41 @@ public class Playlist extends Model implements Serializable, Cloneable {
     public static final String POSITION = "position";
     @PrimaryKey
     private Long id;
-    @Column(name = NAME)
     private String name;
-    @Column(name = CURRENT_SONG)
+    @Ignore
     private Song currentSong;
-
-    @Column(name = ACTIVE)
+    @ColumnInfo(name = CURRENT_SONG_ID)
+    private Long currentSongId;
     private boolean active;
-    @Column(name = CREATED_AT)
-    private Date createdAt;
-    @Column(name = UPDATED_AT)
-    private Date updatedAt;
-    @Column(name = SONG_COUNT)
+    @ColumnInfo(name = CREATED_AT)
+    @Builder.Default
+    private Date createdAt = new Date();
+    @ColumnInfo(name = UPDATED_AT)
+    @Builder.Default
+    private Date updatedAt = new Date();
+    @ColumnInfo(name = SONG_COUNT)
     private int songCount;
-    @Column(name = PRESET)
     private String preset;
-    @Column(name = BACKGROUND)
+    @ColumnInfo(name = BACKGROUND)
     private transient String backgroundImage;
-    @Column(name = TEXT_COLOR)
+    @ColumnInfo(name = TEXT_COLOR)
     private int textColor;
-    @Column(name = TEXT_OUTLINE)
+    @ColumnInfo(name = TEXT_OUTLINE)
     private boolean textOutline;
-    @Column(name = POSITION)
+    @ColumnInfo(name = POSITION)
     private int position;
 
-
+    /**
+     * All songs in this playlist
+     */
+    @Ignore
     private List<Song> songs;
-
+    /**
+     * Contains all songs which were shuffled or ordered upon loading this playlist
+     * Application will consume this list to play songs one by one, upon reaching end ,
+     * new playlists will be generated accordingly
+     */
+    @Ignore
     private List<Song> playlist;
 
     public List<Song> getSongs() {
@@ -79,31 +87,6 @@ public class Playlist extends Model implements Serializable, Cloneable {
             songs = new ArrayList<>();
         }
         return songs;
-    }
-
-    public void addSong(Song song) {
-        getSongs().add(song);
-        songCount = getSongs().size();
-    }
-
-    @NonNull
-    @Override
-    public Long save() {
-        if (id == null) {
-            createdAt = new Date();
-        }
-        updatedAt = new Date();
-        return super.save();
-    }
-
-    @NonNull
-    @Override
-    public Single<Long> saveAsync() {
-        if (id == null) {
-            createdAt = new Date();
-        }
-        updatedAt = new Date();
-        return super.saveAsync();
     }
 
     @Override
@@ -132,8 +115,9 @@ public class Playlist extends Model implements Serializable, Cloneable {
     public Playlist clone() throws CloneNotSupportedException {
         val playlist = (Playlist) super.clone();
         playlist.setId(null);
+        playlist.setCurrentSongId(null);
         playlist.setCurrentSong(null);
-        playlist.setCreatedAt(null);
+        playlist.setCreatedAt(new Date());
         playlist.setActive(false);
         return playlist;
     }
