@@ -207,14 +207,12 @@ public class SettingsFragment extends PreferenceFragmentCompat {
     @Override
     public void onStop() {
         super.onStop();
-        if (!isAdded() || getContext() == null) return;
+        val sp = PreferenceManager.getDefaultSharedPreferences(requireContext());
         //dark mode
-        final boolean darkMode = sharedPreferences.getBoolean(Property.DARK_MODE, false);
+        val darkMode = sp.getBoolean(Property.DARK_MODE, false);
         AppCompatDelegate.setDefaultNightMode(darkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
         //keep screen on
-        final boolean keepScreenOn = sharedPreferences.getBoolean(Property.KEEP_SCREEN_ON, true);
-        if (getActivity() != null && getActivity().findViewById(R.id.activity_fragment_layout) != null) {
-            getActivity().findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
-        }
+        val keepScreenOn = sp.getBoolean(Property.KEEP_SCREEN_ON, true);
+        requireActivity().findViewById(R.id.activity_fragment_layout).setKeepScreenOn(keepScreenOn);
     }
 }
