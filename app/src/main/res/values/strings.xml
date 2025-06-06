@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_upgraded">Application upgraded to version {0}. Check out what\'s new.</string>
+
     <string name="item_menu">Item menu</string>
     <string name="song_name">Song name</string>
     <string name="settings">Settings</string>

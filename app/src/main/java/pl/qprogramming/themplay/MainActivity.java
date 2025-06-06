@@ -116,8 +116,11 @@ public class MainActivity extends AppCompatActivity {
 
         if (lastLaunchVersion.isEmpty()) {
             Log.i(TAG, "First launch detected. Navigating to About Fragment.");
-            navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
             sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
+            getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.activity_fragment_layout, new AboutFragment())
+                    .commit();
         } else {
             val comparison = Utils.compareVersions(lastLaunchVersion, currentAppVersion);
             boolean specialNavigationOccurred = false;
@@ -125,10 +128,10 @@ public class MainActivity extends AppCompatActivity {
                 case CURRENT_IS_NEWER:
                     Log.i(TAG, "App updated from " + lastLaunchVersion + " to " + currentAppVersion + ".");
                     // TODO: Navigate to a real ReleaseNotesFragment
-                    // Example:
-                    // Utils.navigateToFragment(getSupportFragmentManager(), new ReleaseNotesFragment(), "releaseNotes");
+                    // navigateToFragment(getSupportFragmentManager(), new ReleaseNotesFragment(), "releaseNotes");
                     // specialNavigationOccurred = true; // Set this if you navigate
-                    Toast.makeText(this, "App updated to version " + currentAppVersion + "! Check out what's new.", Toast.LENGTH_LONG).show();
+                    val msg = MessageFormat.format(getString(R.string.app_upgraded), currentAppVersion);
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
                     sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
                     break;
                 case STORED_IS_NEWER: // Downgrade
@@ -143,7 +146,10 @@ public class MainActivity extends AppCompatActivity {
                     break;
             }
             if (!specialNavigationOccurred) {
-                Utils.navigateToFragment(getSupportFragmentManager(), new PlaylistFragment(), "playlist_default");
+                getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.activity_fragment_layout, new PlaylistFragment())
+                        .commit();
             }
         }
     }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_upgraded">Aplikacja została zaktualizowana do wersji {0}. Sprawdź co nowego.</string>
     <string name="item_menu">Menu pozycji</string>
     <string name="song_name">Nazwa piosenki</string>
     <string name="settings">Ustawienia</string>
