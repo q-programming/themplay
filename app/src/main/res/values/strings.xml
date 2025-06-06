@@ -1,5 +1,7 @@
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_upgraded">Application upgraded to version {0}. Check out what\'s new.</string>
+    <string name="app_version">Application version</string>
     <string name="item_menu">Item menu</string>
     <string name="song_name">Song name</string>
     <string name="settings">Settings</string>
@@ -13,6 +15,8 @@
     <string name="presets_add">Add new preset</string>
     <string name="presets_name">Unique preset name</string>
     <string name="presets_add_atLeastOneChar">Your preset name must have at least single character!</string>
+    <string name="playlist_already_exists">Playlist with name \"{0}\" already exists in this preset</string>
+    <string name="playlist_add_error">There was an error while trying to add playlist</string>
     <string name="presets_create_first">Please activate preset before creating playlist</string>
     <string name="presets_created">Preset \"{0}\" created</string>
     <string name="presets_activated">Preset \"{0}\" is now active</string>
@@ -40,7 +44,7 @@
     <string name="playlist_look_change_text_color">Change text color</string>
     <string name="playlist_look_change_background">Change background</string>
     <string name="playlist_look_remove_background">Remove background</string>
-    <string name="playlist_look_song">Jakaś fajna piosenka.mp3</string>
+    <string name="playlist_look_song">Some cool song.mp3</string>
     <string name="playlist_look_text_outline">Add shadow outline around text</string>
     <string name="playlist_look_default">default</string>
     <string name="playlist_look_white">white</string>
@@ -61,13 +65,18 @@
     <string name="playlist_add_created">New playlist \"{0}\" created</string>
     <string name="playlist_cant_play">Cannot Play Song \"{0}\"!</string>
     <string name="playlist_add_new_song">Add new song</string>
+    <string name="playlist_added_new_songs">New song(s) were added</string>
+    <string name="playlist_add_songs_error">Error while trying to add songs to playlist</string>
     <string name="playlist_remove_selected">Remove selected songs</string>
     <string name="playlist_removed_selected_songs">Selected songs removed</string>
+    <string name="playlist_remove_songs_error">Error while trying to remove songs from playlist</string>
+    <string name="media_playback_attribution_label">Music Playback</string>
     <!-- Preference Titles -->
     <string name="theme">Theme</string>
     <string name="dark_mode">Dark mode</string>
     <string name="goBack">goBack</string>
     <string name="back_arrow">back arrow</string>
+    <string name="settings_all">Application settings</string>
     <string name="settings_darkmode">Dark mode</string>
     <string name="settings_darkmode_summary">Should application use dark mode</string>
     <string name="settings_fade">Fade between songs duration</string>
@@ -75,8 +84,14 @@
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
     <string name="playlist_now_playing_notificatoin">Now playing</string>
+    <string name="notificatoin_description">Shows which song now plays and shows controls allowing to play/pause/stop/next/previous</string>
     <string name="settings_fadeStop">Fade out songs when stopping</string>
     <string name="settings_fadeStop_info">When pressing stop button , song will be faded out instead of stopping right away</string>
-
-
+    <string name="settings_developer">Developer</string>
+    <string name="settings_enable_debug">Enable debug</string>
+    <string name="settings_enable_developer_mode">Enable developer mode</string>
+    <string name="settings_enable_developer_mode_clicks">Tap {0} times to reveal developer mode</string>
+    <string name="settings_enable_developer_mode_unlocked">Developer mode enabled</string>
+    <string name="settings_developer_mode_hidden">Developer mode hidden. Tap version 5 times to re-enable.</string>
+    <string name="settings_enable_debug_info">When enabled debug logs will be saved to file  under \nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt. \nShould be used only when trying to solve issue together with app developer</string>
 </resources>

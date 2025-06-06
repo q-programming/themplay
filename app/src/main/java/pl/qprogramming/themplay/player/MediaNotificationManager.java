@@ -1,5 +1,11 @@
 package pl.qprogramming.themplay.player;
 
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -10,23 +16,18 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 
-import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+
 import lombok.val;
 import pl.qprogramming.themplay.MainActivity;
 import pl.qprogramming.themplay.R;
-import pl.qprogramming.themplay.playlist.Song;
-import pl.qprogramming.themplay.settings.Property;
-
-import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
+import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.logger.Logger;
+import pl.qprogramming.themplay.playlist.EventType;
 
 public class MediaNotificationManager {
+    private static final String TAG = MediaNotificationManager.class.getSimpleName();
 
     private static final int NOTIFICATION_ID = 7;
     private static final String CHANNEL_ID = "themplay_player";
@@ -46,42 +47,56 @@ public class MediaNotificationManager {
      * @param song  Song that will be played now/paused etc
      * @param pause if true , pause button be rendered, otherwise play
      */
-    public void createMediaNotification(Song song, boolean pause) {
+    public void createMediaNotification(Song song, String playlistTitle, boolean pause) {
         Intent openAppIntent = new Intent(mService, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0,
-                openAppIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        val sp = getDefaultSharedPreferences(mService);
-        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
+                openAppIntent, PendingIntent.FLAG_MUTABLE);
+//        val sp = getDefaultSharedPreferences(mService);
+//        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
         val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
                 .setContentIntent(pendingIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setSmallIcon(R.drawable.ic_logo)
-                .addAction(R.drawable.ic_previous_32, "Previous", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_PREV.getCode()), PendingIntent.FLAG_UPDATE_CURRENT))
-                .addAction(R.drawable.ic_stop_32, "Stop", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_STOP.getCode()), PendingIntent.FLAG_UPDATE_CURRENT));
+                .addAction(R.drawable.ic_previous_32, "Previous", createServiceActionIntent(PLAYBACK_NOTIFICATION_PREV))
+                .addAction(R.drawable.ic_stop_32, "Stop", createServiceActionIntent(PLAYBACK_NOTIFICATION_STOP));
         if (pause) {
-            builder.addAction(R.drawable.ic_play_32, "Play", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_PLAY.getCode()), PendingIntent.FLAG_UPDATE_CURRENT));
+            builder.addAction(R.drawable.ic_play_32, "Play", createServiceActionIntent(PLAYBACK_NOTIFICATION_PLAY));
         } else {
-            builder.addAction(R.drawable.ic_pause_32, "Pause", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_PAUSE.getCode()), PendingIntent.FLAG_UPDATE_CURRENT));
+            builder.addAction(R.drawable.ic_pause_32, "Pause", createServiceActionIntent(PLAYBACK_NOTIFICATION_PAUSE));
         }
-        builder.addAction(R.drawable.ic_next_32, "Next", PendingIntent.getBroadcast(mService, NOTIFICATION_ID, new Intent(PLAYBACK_NOTIFICATION_NEXT.getCode()), PendingIntent.FLAG_UPDATE_CURRENT))
+        builder.addAction(R.drawable.ic_next_32, "Next", createServiceActionIntent(PLAYBACK_NOTIFICATION_NEXT))
                 .setStyle(new androidx.media.app.NotificationCompat.MediaStyle())
-                .setContentTitle(currentPresetName)
+                .setContentTitle(playlistTitle)
                 .setContentText(song.getFilename());
         mService.startForeground(NOTIFICATION_ID, builder.build());
+        Logger.d(TAG, "Notification created song " + song.getFilename());
     }
 
-
-    @RequiresApi(Build.VERSION_CODES.O)
     private void createNotificationChannel() {
         val chan = new NotificationChannel(CHANNEL_ID,
-                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_HIGH);
+                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_LOW);
+        chan.setDescription(mService.getString(R.string.notificatoin_description));
         chan.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        chan.setSound(null, null);
+        chan.enableVibration(false);
         chan.setLightColor(Color.BLUE);
         notificationManager.createNotificationChannel(chan);
     }
 
+    private PendingIntent createServiceActionIntent(EventType eventType) {
+        Intent intent = new Intent(mService, PlayerService.class);
+        intent.setAction(eventType.getCode());
+        int requestCode = eventType.ordinal();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return PendingIntent.getService(mService, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        } else {
+            return PendingIntent.getService(mService, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        }
+    }
+
     public void removeNotification() {
-        mService.stopForeground(false);
+        Logger.d(TAG, "Removing notification");
+        mService.stopForeground(true);
         NotificationManagerCompat.from(mService).cancel(NOTIFICATION_ID);
     }
 }

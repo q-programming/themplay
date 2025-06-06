@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_version">Wersja aplikacji</string>
+    <string name="app_upgraded">Aplikacja została zaktualizowana do wersji {0}. Sprawdź co nowego.</string>
     <string name="item_menu">Menu pozycji</string>
     <string name="song_name">Nazwa piosenki</string>
     <string name="settings">Ustawienia</string>
@@ -22,6 +24,8 @@
     <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
+    <string name="playlist_already_exists">Plalista o nazwie \"{0}\" już istnieje w tym zestawie</string>
+    <string name="playlist_add_error">Wystąpił bład podczas próby dodania playlisty</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
@@ -54,8 +58,12 @@
     <string name="playlist_no_active_playlist">Wybierz najpierw, która lista ma być aktywna, lub wybrana lista nie ma wystarczająco piosenek</string>
     <string name="playlist_cant_play">Nie można odtworzyć piosenki \"{0}\"!</string>
     <string name="playlist_add_new_song">Dodaj nową piosenkę</string>
+    <string name="playlist_added_new_songs">Dodano nowe piosenki</string>
+    <string name="playlist_add_songs_error">Wystąpił bład podczas próby dodania piosenek do playlisty</string>
     <string name="playlist_remove_selected">Usuń zaznaczone piosenki</string>
     <string name="playlist_removed_selected_songs">Zaznaczone piosenki usunięte</string>
+    <string name="playlist_remove_songs_error">Wystąpił bład podczas próby usunięcia piosenek z playlisty</string>
+    <string name="media_playback_attribution_label">Odtwarzanie muzyki</string>
     <string name="theme">Wygląd</string>
     <string name="dark_mode">Tryb ciemny</string>
     <string name="goBack">goBack</string>
@@ -63,12 +71,14 @@
     <string name="cancel">Anuluj</string>
     <string name="create">Stwórz</string>
     <string name="delete">Usuń</string>
+    <string name="settings_all">Ustawienia aplikacji</string>
     <string name="settings_darkmode">Ciemny motyw</string>
     <string name="settings_darkmode_summary">Czy aplikacja powinna używać trybu ciemnego</string>
     <string name="settings_fade">Czas przejścia między utworami</string>
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
     <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
+    <string name="notificatoin_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki pozwalające na odtwarzanie/pauzę/stop/następny/poprzedni utwór</string>
     <string name="playlist_copy">Kopiuj playlistę</string>
     <string name="playlist_paste">Wklej playlistę</string>
     <string name="playlist_pasted">Utworzono kopię playlisty</string>
@@ -77,6 +87,11 @@
     <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
     <string name="settings_fadeStop">Wycisz utwór kiedy stopowane</string>
     <string name="settings_fadeStop_info">Kiedy zostanie naciśnięty stop, piosenka zatrzyma się z wyciszeniem zamiast od razu</string>
-
-
+    <string name="settings_developer">Debug</string>
+    <string name="settings_enable_developer_mode">Włącz tryb developerski</string>
+    <string name="settings_enable_developer_mode_clicks">Tapnij jeszcze razy {0} aby odblokować tryb developerski</string>
+    <string name="settings_enable_developer_mode_unlocked">Tryb developerski odblokowany</string>
+    <string name="settings_enable_debug">Włącz logi debug</string>
+    <string name="settings_developer_mode_hidden">Tryb developerski ukryty. Tapnij numer wersji 5 razy aby go odblokować.</string>
+    <string name="settings_enable_debug_info">Kiedy włączone, logi debug zostaną zapisane do pliku\nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt.\nPowinno być tylko używane przy próbie rozwiązania problemu razem z deweloperem</string>
 </resources>

@@ -1,31 +1,6 @@
 package pl.qprogramming.themplay.settings;
 
-import com.reactiveandroid.Model;
-import com.reactiveandroid.annotation.Column;
-import com.reactiveandroid.annotation.PrimaryKey;
-import com.reactiveandroid.annotation.Table;
-import com.reactiveandroid.query.Select;
-
-import java.io.Serializable;
-import java.util.Optional;
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import pl.qprogramming.themplay.playlist.ThemPlayDatabase;
-
-@Getter
-@Setter
-@ToString
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-@Table(name = "properties", database = ThemPlayDatabase.class)
-public class Property extends Model implements Serializable {
-
+public class Property {
     public static final String DARK_MODE = "app.dark.mode";
     public static final String SHUFFLE_MODE = "app.shuffle";
     public static final String FADE_DURATION = "app.fade";
@@ -33,19 +8,11 @@ public class Property extends Model implements Serializable {
     public static final String CURRENT_PRESET = "app.preset";
     public static final String KEEP_SCREEN_ON = "app.keepScreen";
     public static final String COPY_PLAYLIST = "app.copy";
+    public static final String LAST_LAUNCH_VERSION = "app.version";
+    public static final String ENABLE_DEBUG_LOGS = "debug_logs_enabled";
+    public static final String TOGGLE_DEBUG_SECTION = "debug_options_enabled_flag";
+    public static final String DEBUG_TAPS_COUNT = "debug_taps_count";
+    public static final String DEBUG_SECTION_UNLOCKED = "debug_section_unlocked_by_taps";
     public static final String LANGUAGE = "app.lang";
 
-    @PrimaryKey
-    private Long id;
-
-    @Column
-    private String name;
-
-    @Column
-    private String value;
-
-
-    public static Property getProperty(String name) {
-        return Optional.ofNullable(Select.from(Property.class).where("name = ?", name).fetchSingle()).orElse(Property.builder().name(name).build());
-    }
 }
