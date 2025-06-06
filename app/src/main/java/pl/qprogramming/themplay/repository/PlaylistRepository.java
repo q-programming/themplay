@@ -46,6 +46,8 @@ public interface PlaylistRepository {
 
     @Query("SELECT COUNT(*) FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE " + Playlist.PRESET + " = :presetName AND " + Playlist.NAME + " = :name")
     Single<Integer> countByPresetNameAndName(String presetName, String name);
+    @Query("SELECT * FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE " + Playlist.PRESET + " = :presetName AND " + Playlist.NAME + " = :name")
+    Maybe<Playlist> findByPresetNameAndName(String presetName, String name);
 
     @Query("SELECT COUNT(*) FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE " + Playlist.PRESET + " = :presetName")
     Single<Integer> countAllByPreset(String presetName);

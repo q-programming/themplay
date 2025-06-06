@@ -8,6 +8,7 @@ public class Property {
     public static final String CURRENT_PRESET = "app.preset";
     public static final String KEEP_SCREEN_ON = "app.keepScreen";
     public static final String COPY_PLAYLIST = "app.copy";
+    public static final String LAST_LAUNCH_VERSION = "app.version";
     public static final String LANGUAGE = "app.lang";
 
 }

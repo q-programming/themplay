@@ -2,6 +2,7 @@ package pl.qprogramming.themplay;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
+import static pl.qprogramming.themplay.settings.Property.LAST_LAUNCH_VERSION;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
@@ -16,6 +17,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -58,6 +61,7 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.settings.Property;
+import pl.qprogramming.themplay.util.Utils;
 import pl.qprogramming.themplay.views.AboutFragment;
 import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
@@ -86,11 +90,62 @@ public class MainActivity extends AppCompatActivity {
         setupLoader();
         setupMediaControls();
         checkPermissions();
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.activity_fragment_layout, new PlaylistFragment())
-                .commit();
+        onLaunch();
+    }
 
+    private void onLaunch() {
+        SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
+        String lastLaunchVersion = sp.getString(LAST_LAUNCH_VERSION, "");
+        String currentAppVersion = "";
+        try {
+            PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            currentAppVersion = pInfo.versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Could not get current app version", e);
+            if (lastLaunchVersion.isEmpty()) {
+                Log.i(TAG, "First launch (or no stored version) AND current version unknown. Navigating to About.");
+                navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
+            } else {
+                Log.w(TAG, "Current version unknown, but not first launch. Loading default PlaylistFragment.");
+                navigateToFragment(getSupportFragmentManager(), new PlaylistFragment(), "playlist_default");
+            }
+            return;
+        }
+
+        Log.d(TAG, "Last launch version: '" + lastLaunchVersion + "', Current app version: '" + currentAppVersion + "'");
+
+        if (lastLaunchVersion.isEmpty()) {
+            Log.i(TAG, "First launch detected. Navigating to About Fragment.");
+            navigateToFragment(getSupportFragmentManager(), new AboutFragment(), "about");
+            sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
+        } else {
+            val comparison = Utils.compareVersions(lastLaunchVersion, currentAppVersion);
+            boolean specialNavigationOccurred = false;
+            switch (comparison) {
+                case CURRENT_IS_NEWER:
+                    Log.i(TAG, "App updated from " + lastLaunchVersion + " to " + currentAppVersion + ".");
+                    // TODO: Navigate to a real ReleaseNotesFragment
+                    // Example:
+                    // Utils.navigateToFragment(getSupportFragmentManager(), new ReleaseNotesFragment(), "releaseNotes");
+                    // specialNavigationOccurred = true; // Set this if you navigate
+                    Toast.makeText(this, "App updated to version " + currentAppVersion + "! Check out what's new.", Toast.LENGTH_LONG).show();
+                    sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
+                    break;
+                case STORED_IS_NEWER: // Downgrade
+                    Log.w(TAG, "Stored version (" + lastLaunchVersion + ") is newer than current (" + currentAppVersion + "). Updating stored version.");
+                    sp.edit().putString(LAST_LAUNCH_VERSION, currentAppVersion).apply();
+                    break;
+                case VERSIONS_ARE_SAME:
+                    Log.d(TAG, "Versions are the same. Loading default fragment.");
+                    break;
+                case ERROR_PARSING:
+                    Log.e(TAG, "Error parsing versions. Last: " + lastLaunchVersion + ", Current: " + currentAppVersion + ". Loading default fragment.");
+                    break;
+            }
+            if (!specialNavigationOccurred) {
+                Utils.navigateToFragment(getSupportFragmentManager(), new PlaylistFragment(), "playlist_default");
+            }
+        }
     }
 
     /**
@@ -126,7 +181,6 @@ public class MainActivity extends AppCompatActivity {
                 permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE);
             }
         }
-        //TODO need write extenral
         if (!permissionsToRequest.isEmpty()) {
             Log.d(TAG, "Requesting permissions: " + permissionsToRequest);
             multiplePermissionsLauncher.launch(permissionsToRequest.toArray(new String[0]));

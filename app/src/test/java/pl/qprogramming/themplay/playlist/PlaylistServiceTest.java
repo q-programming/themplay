@@ -54,6 +54,7 @@ import lombok.val;
 import pl.qprogramming.themplay.db.ThemplayDatabase;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Song;
+import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.repository.PlaylistRepository;
 import pl.qprogramming.themplay.repository.PresetRepository;
@@ -142,7 +143,7 @@ public class PlaylistServiceTest {
         }
     }
 
-    private Playlist createDummyPlaylist(long id, String name, String preset, int position) {
+    private Playlist createDummyPlaylist(Long id, String name, String preset, int position) {
         return Playlist.builder()
                 .id(id)
                 .name(name)
@@ -512,5 +513,174 @@ public class PlaylistServiceTest {
         Playlist createdPlaylist = result.get();
         Assert.assertEquals("Unique Original", createdPlaylist.getName()); // Should use original name
         Assert.assertEquals(2, createdPlaylist.getPosition());
+    }
+
+    // save operation
+
+    @Test
+    public void save_whenPlaylistIsNull_shouldCallOnError() throws InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorResult = new AtomicReference<>();
+
+        Consumer<Throwable> onError = throwable -> {
+            errorResult.set(throwable);
+            latch.countDown();
+        };
+
+        playlistService.save(null, playlist -> fail("onPlaylistSaved should not be called"), onError);
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onError callback was not invoked in time.");
+        }
+
+        Assert.assertTrue(errorResult.get() instanceof IllegalArgumentException);
+        verify(mockPlaylistRepository, never()).findByPresetNameAndName(anyString(), anyString());
+    }
+
+    @Test
+    public void save_newPlaylist_nameIsUnique_shouldSucceed() throws InterruptedException {
+        Playlist newPlaylist = createDummyPlaylist(null, "New Unique Playlist", "TestPreset",1);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Playlist> savedResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "New Unique Playlist")).thenReturn(Maybe.empty());
+        when(mockPlaylistRepository.update(newPlaylist)).thenReturn(Completable.complete());
+
+        playlistService.save(newPlaylist,
+                playlist -> {
+                    savedResult.set(playlist);
+                    latch.countDown();
+                },
+                throwable -> fail("onError should not be called: " + throwable.getMessage()));
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onPlaylistSaved callback was not invoked in time.");
+        }
+
+        verify(mockPlaylistRepository).update(newPlaylist);
+        assertEquals(newPlaylist, savedResult.get());
+    }
+
+    @Test
+    public void save_newPlaylist_nameIsNotUnique_shouldFail() throws InterruptedException {
+        Playlist newPlaylist = createDummyPlaylist(null, "Existing Playlist", "TestPreset",2);
+        Playlist conflictingPlaylist = createDummyPlaylist(1L, "Existing Playlist", "TestPreset",1);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "Existing Playlist")).thenReturn(Maybe.just(conflictingPlaylist));
+
+        playlistService.save(newPlaylist,
+                playlist -> fail("onPlaylistSaved should not be called"),
+                throwable -> {
+                    errorResult.set(throwable);
+                    latch.countDown();
+                });
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onError callback was not invoked in time.");
+        }
+
+        Assert.assertTrue(errorResult.get() instanceof PlaylistNameExistsException);
+        verify(mockPlaylistRepository, never()).update(any(Playlist.class));
+    }
+
+    @Test
+    public void save_existingPlaylist_nameUnchanged_shouldSucceed() throws InterruptedException {
+        Playlist existingPlaylist = createDummyPlaylist(1L, "My Playlist", "TestPreset",1);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Playlist> savedResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "My Playlist")).thenReturn(Maybe.just(existingPlaylist));
+        when(mockPlaylistRepository.update(existingPlaylist)).thenReturn(Completable.complete());
+
+        playlistService.save(existingPlaylist,
+                playlist -> {
+                    savedResult.set(playlist);
+                    latch.countDown();
+                },
+                throwable -> fail("onError should not be called: " + throwable.getMessage()));
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onPlaylistSaved callback was not invoked in time.");
+        }
+
+        verify(mockPlaylistRepository).update(existingPlaylist);
+        assertEquals(existingPlaylist, savedResult.get());
+    }
+
+    @Test
+    public void save_existingPlaylist_nameChangedToUnique_shouldSucceed() throws InterruptedException {
+        Playlist playlistToUpdate = createDummyPlaylist(1L, "Old Name", "TestPreset",1);
+        playlistToUpdate.setName("New Unique Name");
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Playlist> savedResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "New Unique Name")).thenReturn(Maybe.empty());
+        when(mockPlaylistRepository.update(playlistToUpdate)).thenReturn(Completable.complete());
+
+        playlistService.save(playlistToUpdate,
+                playlist -> {
+                    savedResult.set(playlist);
+                    latch.countDown();
+                },
+                throwable -> fail("onError should not be called: " + throwable.getMessage()));
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onPlaylistSaved callback was not invoked in time.");
+        }
+
+        verify(mockPlaylistRepository).update(playlistToUpdate);
+        assertEquals(playlistToUpdate, savedResult.get());
+    }
+
+    @Test
+    public void save_existingPlaylist_nameChangedToConflictWithAnother_shouldFail() throws InterruptedException {
+        Playlist playlistToUpdate = createDummyPlaylist(1L, "My Original Name", "TestPreset",1);
+        playlistToUpdate.setName("Taken Name");
+        Playlist conflictingOtherPlaylist = createDummyPlaylist(2L, "Taken Name", "TestPreset",2);
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "Taken Name")).thenReturn(Maybe.just(conflictingOtherPlaylist));
+
+        playlistService.save(playlistToUpdate,
+                playlist -> fail("onPlaylistSaved should not be called"),
+                throwable -> {
+                    errorResult.set(throwable);
+                    latch.countDown();
+                });
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onError callback was not invoked in time.");
+        }
+
+        Assert.assertTrue(errorResult.get() instanceof PlaylistNameExistsException);
+        verify(mockPlaylistRepository, never()).update(any(Playlist.class));
+    }
+
+    @Test
+    public void save_repositoryUpdateFails_shouldCallOnError() throws InterruptedException {
+        Playlist playlist = createDummyPlaylist(1l, "Good Name", "TestPreset",1);
+        RuntimeException dbError = new RuntimeException("Database update failed");
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> errorResult = new AtomicReference<>();
+
+        when(mockPlaylistRepository.findByPresetNameAndName("TestPreset", "Good Name")).thenReturn(Maybe.empty());
+        when(mockPlaylistRepository.update(playlist)).thenReturn(Completable.error(dbError));
+
+        playlistService.save(playlist,
+                p -> fail("onPlaylistSaved should not be called"),
+                throwable -> {
+                    errorResult.set(throwable);
+                    latch.countDown();
+                });
+
+        if (!latch.await(2, TimeUnit.SECONDS)) {
+            fail("onError callback was not invoked in time.");
+        }
+
+        assertEquals(dbError, errorResult.get());
+        verify(mockPlaylistRepository).update(playlist);
     }
 }
