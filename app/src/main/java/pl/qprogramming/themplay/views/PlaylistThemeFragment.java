@@ -10,7 +10,6 @@ import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
 
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -264,9 +263,9 @@ public class PlaylistThemeFragment extends Fragment {
     }
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
-        @SuppressLint("CheckResult")
         @Override
         public void onReceive(Context context, Intent intent) {
+            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             playlistService.findById(playlist.getId(), fetchedPlaylist -> {
                 playlist = fetchedPlaylist;
                 updatePreview();

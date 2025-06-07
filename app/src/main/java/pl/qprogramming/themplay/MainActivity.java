@@ -288,6 +288,7 @@ public class MainActivity extends AppCompatActivity {
      * Setup receiver for events
      */
     private void setupReceiver() {
+        Logger.d(TAG, "Setting up receiver");
         val filter = new IntentFilter(EventType.PLAYLIST_NOTIFICATION_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_DELETE.getCode());
@@ -331,24 +332,24 @@ public class MainActivity extends AppCompatActivity {
         val shuffle_btn = (ImageView) findViewById(R.id.shuffle);
         play_pause_btn.setOnClickListener(play -> {
             if (playerService.isPlaying()) {
-                playerService.pause();
+                populateAndSend(EventType.PLAYBACK_NOTIFICATION_PAUSE);
                 play_pause_btn.setImageResource(R.drawable.ic_play_32);
             } else {
-                playerService.play();
+                populateAndSend(EventType.PLAYBACK_NOTIFICATION_PLAY);
                 renderPauseButton();
             }
         });
         findViewById(R.id.next).setOnClickListener(next -> {
-            playerService.next();
+            populateAndSend(EventType.PLAYBACK_NOTIFICATION_NEXT);
             renderPauseButton();
         });
         findViewById(R.id.previous).setOnClickListener(prev -> {
-            playerService.previous();
+            populateAndSend(EventType.PLAYBACK_NOTIFICATION_PREV);
             renderPauseButton();
         });
         findViewById(R.id.stop).setOnClickListener(stop -> {
-            playerService.stop();
-            play_pause_btn.setImageResource(R.drawable.ic_play_32);
+            populateAndSend(EventType.PLAYBACK_NOTIFICATION_STOP);
+            renderPlayButton();
         });
 
         val sp = getDefaultSharedPreferences(this);
@@ -360,12 +361,26 @@ public class MainActivity extends AppCompatActivity {
             editor.putBoolean(Property.SHUFFLE_MODE, newRandom);
             editor.apply();
             renderShuffle(newRandom);
-            val notify = new Intent(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
-            val args = new Bundle();
-            notify.putExtra(ARGS, args);
-            LocalBroadcastManager.getInstance(this).sendBroadcast(notify);
+            populateAndSend(EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST);
         });
 
+    }
+
+    private void populateAndSend(EventType playbackNotificationNext) {
+        val notify = new Intent(playbackNotificationNext.getCode());
+        val args = new Bundle();
+        notify.putExtra(ARGS, args);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(notify);
+    }
+
+    public void repaintMediaControls() {
+        if (playerService != null && playerService.isPlaying()) {
+            Logger.d(TAG,"Repainting media controls - pause");
+            renderPauseButton();
+        } else {
+            Logger.d(TAG,"Repainting media controls - play");
+            renderPlayButton();
+        }
     }
 
     /**
@@ -474,9 +489,17 @@ public class MainActivity extends AppCompatActivity {
      */
     @Override
     protected void onStart() {
+        Logger.d(TAG, "Resuming main activity");
         setupServices();
         setupReceiver();
+        repaintMediaControls();
         super.onStart();
+    }
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        Logger.d(TAG,"Resuming main activity");
     }
 
     /**
@@ -530,6 +553,13 @@ public class MainActivity extends AppCompatActivity {
             val binder = (PlayerService.LocalBinder) service;
             playerService = binder.getService();
             playerServiceIsBound = true;
+            binder.setCallbacks(type -> {
+                //recived communication from player , can repaint buttons etc.
+                Logger.d(TAG, "[CALLBACK] Received event " + type);
+                if (type.equals(EventType.PLAYBACK_NOTIFICATION_STOP)) {
+                    renderPlayButton();
+                }
+            });
             val playBtn = (ImageView) findViewById(R.id.play_pause);
             val progressBar = (ProgressBar) findViewById(R.id.progressBar);
             playerService.setProgressBar(progressBar);
@@ -552,9 +582,9 @@ public class MainActivity extends AppCompatActivity {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
-            Logger.d(TAG, "Received event of type " + event.name());
             switch (event) {
                 case OPERATION_STARTED:
                     loader.setVisibility(View.VISIBLE);
@@ -575,7 +605,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case PLAYBACK_NOTIFICATION_PLAY:
                 case PLAYLIST_NOTIFICATION_ACTIVE:
-                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
+//                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
                     renderPauseButton();
                     break;
                 case PLAYBACK_NOTIFICATION_STOP:

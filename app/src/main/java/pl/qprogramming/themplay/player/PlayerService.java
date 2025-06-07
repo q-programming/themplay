@@ -76,6 +76,7 @@ public class PlayerService extends Service {
     private boolean serviceIsBound;
 
     private final IBinder mBinder = new PlayerService.LocalBinder();
+    private PlayerServiceCallbacks mClientCallbacks;
     private MediaPlayer mediaPlayer = new MediaPlayer();
     private MediaPlayer auxPlayer;
     private MediaNotificationManager mNotificationManager;
@@ -89,22 +90,27 @@ public class PlayerService extends Service {
         mNotificationManager = new MediaNotificationManager(this);
     }
 
+    /**
+     * Listens to intent coming from Notifications which are targeting this service directly
+     *
+     */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getAction() != null) {
-            String action = intent.getAction();
-            Logger.d(TAG, "onStartCommand received action: " + action);
-            if (PLAYBACK_NOTIFICATION_PLAY.getCode().equals(action)) {
+            Logger.d(TAG, "[NOTIFICATION] Player service received action: " + intent.getAction());
+            val action = EventType.getType(intent.getAction());
+            if (PLAYBACK_NOTIFICATION_PLAY.equals(action)) {
                 play();
-            } else if (PLAYBACK_NOTIFICATION_PAUSE.getCode().equals(action)) {
+            } else if (PLAYBACK_NOTIFICATION_PAUSE.equals(action)) {
                 pause();
-            } else if (PLAYBACK_NOTIFICATION_NEXT.getCode().equals(action)) {
+            } else if (PLAYBACK_NOTIFICATION_NEXT.equals(action)) {
                 next();
-            } else if (PLAYBACK_NOTIFICATION_PREV.getCode().equals(action)) {
+            } else if (PLAYBACK_NOTIFICATION_PREV.equals(action)) {
                 previous();
-            } else if (PLAYBACK_NOTIFICATION_STOP.getCode().equals(action)) {
+            } else if (PLAYBACK_NOTIFICATION_STOP.equals(action)) {
                 stop();
             }
+            notifyClientPlaybackStateChanged(action);
         }
         return START_STICKY;
     }
@@ -167,6 +173,10 @@ public class PlayerService extends Service {
         public PlayerService getService() {
             return PlayerService.this;
         }
+
+        public void setCallbacks(PlayerServiceCallbacks callbacks) {
+            PlayerService.this.mClientCallbacks = callbacks;
+        }
     }
 
     private boolean isFadeStop() {
@@ -181,6 +191,7 @@ public class PlayerService extends Service {
 
     /**
      * Plays current playlist
+     * If there is no active playlist in service , attempt to load one from db and play it , otherwise show toast msg
      */
     public void play() {
         if (activePlaylist != null) {
@@ -188,8 +199,14 @@ public class PlayerService extends Service {
             fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
             populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
         } else {
-            Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+            Logger.d(TAG, "Recived play command but no active playlist found in service, searching for one");
+            playlistService.getActiveAndLoadSongs(playlist -> {
+                activePlaylist = playlist;
+                play();
+            }, () -> {
+                Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+                populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+            });
         }
     }
 
@@ -499,7 +516,7 @@ public class PlayerService extends Service {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "Received event for playback " + intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
             Bundle args = intent.getBundleExtra(ARGS);
             val sp = getDefaultSharedPreferences(context);
@@ -598,5 +615,16 @@ public class PlayerService extends Service {
         }
     };
 
+    private void notifyClientPlaybackStateChanged(EventType type) {
+        if (mClientCallbacks != null) {
+            new Handler(Looper.getMainLooper()).post(() -> {
+                mClientCallbacks.onPlaybackStateChanged(type);
+            });
+        }
+    }
+
+    public interface PlayerServiceCallbacks {
+        void onPlaybackStateChanged(EventType type);
+    }
 
 }
