@@ -594,7 +594,7 @@ public class PlayerService extends Service {
                             createPlaylist(activePlaylist, shuffle);
                             if (activePlaylist.getSongs().isEmpty()) {
                                 populateAndSend(PLAYBACK_NOTIFICATION_STOP, activePlaylist.getPosition());
-                            } else if (activePlaylist.getCurrentSong() == null && !activePlaylist.getSongs().isEmpty()) {
+                            } else if (activePlaylist.getCurrentSong() == null && !activePlaylist.getSongs().isEmpty() && isPlaying()) {
                                 populateAndSend(PLAYBACK_NOTIFICATION_NEXT, activePlaylist.getPosition());
                             }
                         }
