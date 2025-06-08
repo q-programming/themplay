@@ -39,9 +39,17 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.media3.common.C;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
+import androidx.media3.common.Player;
+import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.util.EventLogger;
 import androidx.preference.PreferenceManager;
 
-import java.io.IOException;
+import org.jetbrains.annotations.NotNull;
+
 import java.text.MessageFormat;
 import java.util.Optional;
 
@@ -64,7 +72,9 @@ import pl.qprogramming.themplay.util.Utils;
  * One MediaPlayer handles the currently playing song, while the auxiliary MediaPlayer (auxPlayer)
  * is used to prepare and fade in the next song.
  */
+@UnstableApi
 public class PlayerService extends Service {
+    private static final long CROSSFADE_INTERVAL_MS = 50; // Smoother fade steps
 
     private static final String TAG = PlayerService.class.getSimpleName();
     private Playlist activePlaylist;
@@ -77,8 +87,18 @@ public class PlayerService extends Service {
 
     private final IBinder mBinder = new PlayerService.LocalBinder();
     private PlayerServiceCallbacks mClientCallbacks;
-    private MediaPlayer mediaPlayer = new MediaPlayer();
-    private MediaPlayer auxPlayer;
+//    private MediaPlayer mediaPlayer = new MediaPlayer();
+//    private MediaPlayer auxPlayer;
+
+
+    // Add these to your class variables
+    private ExoPlayer currentPlayer;
+    private ExoPlayer nextPlayer;
+    private Handler crossfadeHandler = new Handler(Looper.getMainLooper());
+
+    private VolumeScalingAudioProcessor mainVolumeProcessor;
+    private VolumeScalingAudioProcessor nextVolumeProcessor;
+
     private MediaNotificationManager mNotificationManager;
 
 
@@ -92,7 +112,6 @@ public class PlayerService extends Service {
 
     /**
      * Listens to intent coming from Notifications which are targeting this service directly
-     *
      */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
@@ -125,8 +144,16 @@ public class PlayerService extends Service {
                 unbindService(playlistServiceConnection);
                 serviceIsBound = false;
             }
-            if (mediaPlayer != null && isPlaying()) {
-                mediaPlayer.stop();
+            if (crossfadeHandler != null) {
+                crossfadeHandler.removeCallbacksAndMessages(null);
+            }
+            if (nextPlayer != null) {
+                nextPlayer.release();
+                nextPlayer = null;
+            }
+            if (currentPlayer != null) {
+                currentPlayer.release();
+                currentPlayer = null;
             }
         } catch (IllegalArgumentException e) {
             Logger.d(TAG, "Receiver not registered");
@@ -150,15 +177,37 @@ public class PlayerService extends Service {
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
-        Logger.d(TAG, "Returning binder , player is playing ? " + mediaPlayer.isPlaying());
+        Logger.d(TAG, "Returning binder , player is playing ? " + isPlaying());
         return mBinder;
+    }
+
+    public void ensureAudioProcessorsInitialized() {
+        if (mainVolumeProcessor == null) {
+            mainVolumeProcessor = new VolumeScalingAudioProcessor();
+            Logger.d(TAG, "Initialized mainVolumeProcessor");
+        }
+    }
+
+    private ExoPlayer buildPlayerWithProcessor(VolumeScalingAudioProcessor processorToUse) {
+        if (processorToUse == null) {
+            Logger.e(TAG, "buildPlayerWithProcessor called with a null processor! Creating a new one as fallback.");
+            processorToUse = new VolumeScalingAudioProcessor();
+        }
+        processorToUse.reset();
+        CustomAudioRenderersFactory renderersFactory = new CustomAudioRenderersFactory(this, processorToUse);
+        val player = new ExoPlayer.Builder(this)
+                .setLooper(getMainLooper())
+                .setRenderersFactory(renderersFactory)
+                .build();
+        player.addAnalyticsListener(new EventLogger());
+        return player;
     }
 
 
     private void fadeIntoNewPlaylist(Playlist playlist) {
         if (isPlaying()) {
             val currentSong = activePlaylist.getCurrentSong();
-            currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
+            currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
             playlistService.updateSong(currentSong);
         }
         activePlaylist = playlist;
@@ -212,33 +261,14 @@ public class PlayerService extends Service {
 
 
     public void pause() {
-        mediaPlayer.pause();
+        currentPlayer.pause();
         val currentSong = activePlaylist.getCurrentSong();
-        currentSong.setCurrentPosition(mediaPlayer.getCurrentPosition());
+        currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
         playlistService.updateSong(currentSong);
         mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
         progressHandler.removeCallbacks(updateProgressTask);
     }
 
-    public void stop() {
-        mNotificationManager.removeNotification();
-        Logger.d(TAG, "Stop media player");
-        if (isPlaying()) {
-            if (activePlaylist != null) {
-                val currentSong = activePlaylist.getCurrentSong();
-                if (currentSong != null) {
-                    playlistService.updateSong(currentSong);
-                }
-            }
-            if (isFadeStop()) {
-                fadeOut(mediaPlayer);
-            } else {
-                mediaPlayer.reset();
-                mediaPlayer.release();
-            }
-            progressHandler.removeCallbacks(updateProgressTask);
-        }
-    }
 
     public void next() {
         val sp = getDefaultSharedPreferences(this);
@@ -291,95 +321,419 @@ public class PlayerService extends Service {
         }
     }
 
-
-    /**
-     * Fades into new song
-     *
-     * @param nextSong     current song playing/active
-     * @param songPosition from where next song should pickup
-     */
-    private void fadeIntoNewSong(Song nextSong, int songPosition) {
-        mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
-        Logger.d(TAG, "Fading into song from " + nextSong.getFilename());
-        try {
-            val uri = Uri.parse(nextSong.getFileUri());
-            Logger.d(TAG, "Opening file " + uri.toString());
-            if (isPlaying()) {
-                Logger.d(TAG, "Already playing something, creating secondary player to fade in");
-                auxPlayer = new MediaPlayer();
-                auxPlayer.setDataSource(this, uri);
-                auxPlayer.prepare();
-                auxPlayer.seekTo(songPosition);
-                auxPlayer.setVolume(0, 0);
-                Logger.d(TAG, "Fading out current song");
-                fadeOut(mediaPlayer);
-                Logger.d(TAG, "Fading in new song");
-                fadeIn(auxPlayer);
-                Logger.d(TAG, "Starting player");
-                auxPlayer.start();
-                mediaPlayer = auxPlayer;
-            } else {
-                Logger.d(TAG, "Nothing is playing yet, creating new player");
-                mediaPlayer = new MediaPlayer();
-                mediaPlayer.setDataSource(this, uri);
-                mediaPlayer.prepare();
-                mediaPlayer.seekTo(songPosition);
-                mediaPlayer.setVolume(0, 0);
-                Logger.d(TAG, "Fading in new song");
-                fadeIn(mediaPlayer);
-                Logger.d(TAG, "Starting player");
-                mediaPlayer.start();
-            }
-            observeEnding(mediaPlayer);
-            progressBar.setProgress(songPosition);
-            updateProgressBar();
-            val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
-            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
-        } catch (IOException | SecurityException e) {
-            Logger.e(TAG, "Error playing song: " + nextSong.getFilename(), e);
-            if (e.getMessage() != null) { // Good practice to check if getMessage() is null
-                Logger.d(TAG, "Error details: " + e.getMessage());
-            }
-            String errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
-            Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+    public void stop() {
+        mNotificationManager.removeNotification();
+        Logger.d(TAG, "Stop media player");
+        if (isPlaying()) {
             if (activePlaylist != null) {
-                activePlaylist.setCurrentSong(null);
-                boolean removedFromCurrentSequence;
-                if (activePlaylist.getPlaylist() != null) {
-                    removedFromCurrentSequence = activePlaylist.getPlaylist().remove(nextSong);
-                    if (removedFromCurrentSequence) {
-                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from current playback sequence (getPlaylist).");
-                    } else {
-                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in current playback sequence (getPlaylist).");
-                    }
-                } else {
-                    Logger.w(TAG, "activePlaylist.getPlaylist() was null. Cannot remove problematic song from sequence.");
+                val currentSong = activePlaylist.getCurrentSong();
+                if (currentSong != null) {
+                    playlistService.updateSong(currentSong);
                 }
-                boolean removedFromMasterList;
-                if (activePlaylist.getSongs() != null) {
-                    removedFromMasterList = activePlaylist.getSongs().remove(nextSong);
-                    if (removedFromMasterList) {
-                        activePlaylist.setSongCount(activePlaylist.getSongCount() - 1);
-                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from master song list (getSongs).");
-                    } else {
-                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in master song list (getSongs).");
-                    }
-                } else {
-                    Logger.w(TAG, "activePlaylist.getSongs() was null. Cannot remove problematic song from master list.");
-                }
-            } else {
-                Logger.w(TAG, "activePlaylist or nextSong was null. Cannot perform direct removal.");
             }
-            Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
-            Bundle args = new Bundle();
-            args.putSerializable(Utils.SONG, nextSong);
-            args.putSerializable(PLAYLIST, activePlaylist); // Pass the context of the playlist
-            intent.putExtra(ARGS, args);
-            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-            next();
+            if (isFadeStop()) {
+                //fade stop current player
+            } else {
+                currentPlayer.stop();
+                currentPlayer.release();
+            }
+            progressHandler.removeCallbacks(updateProgressTask);
         }
     }
 
+
+    @UnstableApi
+    public void fadeIntoNewSong(final Song nextSong, final int songPosition) {
+        //start with notifications
+        mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
+        String msg = MessageFormat.format(
+                getString(R.string.playlist_now_playing),
+                nextSong.getFilename()
+        );
+        Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+        // Make sure mainVolumeProcessor exists
+        ensureAudioProcessorsInitialized();
+        Logger.d(TAG, "Fading into song: " + nextSong.getFilename());
+        Uri uri = Uri.parse(nextSong.getFileUri());
+        Logger.d(TAG, "Opening file: " + uri.toString());
+        if (currentPlayer != null && currentPlayer.isPlaying()) {
+            Logger.d(TAG, "Already playing, preparing crossfade");
+            prepareNextPlayer(uri, songPosition, nextSong);
+        } else {
+            Logger.d(TAG, "Starting fresh playback");
+            if (currentPlayer != null) {
+                currentPlayer.release();
+            }
+            startNewPlayer(uri, songPosition, nextSong);
+        }
+    }
+
+    @UnstableApi
+    private void prepareNextPlayer(final Uri uri, final int position, final Song nextSongToPlay) {
+        if (nextPlayer != null) {
+            nextPlayer.release();
+            nextPlayer = null;
+        }
+        if (nextVolumeProcessor == null || nextVolumeProcessor == mainVolumeProcessor) {
+            nextVolumeProcessor = new VolumeScalingAudioProcessor();
+            Logger.d(TAG, "Created/Replaced nextVolumeProcessor for upcoming track.");
+        } else {
+            nextVolumeProcessor.reset();
+            Logger.d(TAG, "Reset existing distinct nextVolumeProcessor.");
+        }
+        nextVolumeProcessor.setVolumeFactor(0f);
+        Logger.d(TAG, "Building nextPlayer with nextVolumeProcessor: " + System.identityHashCode(nextVolumeProcessor));
+        nextPlayer = buildPlayerWithProcessor(nextVolumeProcessor);
+        nextPlayer.setVolume(1.0f);
+        //load song
+        MediaItem mediaItem = MediaItem.fromUri(uri);
+        nextPlayer.setMediaItem(mediaItem);
+        nextPlayer.addListener(new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_READY) {
+                    if (nextPlayer == null) {
+                        return;
+                    }
+                    nextPlayer.seekTo(position);
+                    nextPlayer.play();
+                    startCrossfade(nextSongToPlay, position, mainVolumeProcessor, nextVolumeProcessor);
+                    nextPlayer.removeListener(this);
+                }
+            }
+
+            @Override
+            public void onPlayerError(@NotNull PlaybackException error) {
+                Player.Listener.super.onPlayerError(error);
+                Logger.e(TAG, "PlayerError in currentPlayer for song: " + nextSongToPlay.getFilename(), error);
+                handleWrongSong(nextSongToPlay);
+            }
+        });
+        nextPlayer.prepare();
+    }
+
+    private void startCrossfade(final Song nextSongBeingPlayed, final int position,
+                                final VolumeScalingAudioProcessor currentTrackProcessor,
+                                final VolumeScalingAudioProcessor nextTrackProcessor) {
+
+        final int fadeDurationMs = getDuration();
+        // Defensive checks
+        if (currentTrackProcessor == null || nextTrackProcessor == null) {
+            Logger.e(TAG, "Crossfade cannot start: one or both audio processors are null.");
+            if (nextPlayer != null) {
+                if (currentPlayer != null) {
+                    currentPlayer.stop();
+                    currentPlayer.release();
+                }
+                currentPlayer = nextPlayer;
+                mainVolumeProcessor = nextTrackProcessor;
+                if (mainVolumeProcessor != null) {
+                    mainVolumeProcessor.setVolumeFactor(1.0f);
+                }
+                nextPlayer = null;
+                this.nextVolumeProcessor = null;
+                observeEnding(currentPlayer, nextSongBeingPlayed);
+                updateUI((int) currentPlayer.getCurrentPosition());
+            }
+            return;
+        }
+        if (currentTrackProcessor == nextTrackProcessor) {
+            Logger.e(TAG, "Crossfade cannot start: current and next processors are the same instance! Performing hard switch.");
+            // Handle hard switch (similar to above)
+            if (nextPlayer != null) {
+                if (currentPlayer != null) {
+                    currentPlayer.stop();
+                    currentPlayer.release();
+                }
+                currentPlayer = nextPlayer;
+                mainVolumeProcessor = nextTrackProcessor;
+                mainVolumeProcessor.setVolumeFactor(1.0f);
+                nextPlayer = null;
+                this.nextVolumeProcessor = null;
+                observeEnding(currentPlayer, nextSongBeingPlayed);
+                updateUI((int) currentPlayer.getCurrentPosition());
+            }
+            return;
+        }
+        if (fadeDurationMs <= 0) {
+            Logger.d(TAG, "Crossfade: No fade duration, immediate switch.");
+            if (currentPlayer != null) {
+                currentPlayer.stop();
+                currentPlayer.release();
+            }
+            currentPlayer = nextPlayer;
+            mainVolumeProcessor = nextTrackProcessor;
+            nextPlayer = null;
+            this.nextVolumeProcessor = null;
+            if (currentPlayer != null) {
+                mainVolumeProcessor.setVolumeFactor(1.0f);
+                observeEnding(currentPlayer, nextSongBeingPlayed);
+                updateUI(position);
+            }
+            return;
+        }
+        final int steps = Math.max(1, fadeDurationMs / (int) CROSSFADE_INTERVAL_MS);
+        final float volumeStepFactor = 1.0f / steps;
+        Logger.d(TAG, "Starting crossfade: currentProc=" + System.identityHashCode(currentTrackProcessor) +
+                ", nextProc=" + System.identityHashCode(nextTrackProcessor));
+        crossfadeHandler.removeCallbacksAndMessages(null);
+        crossfadeHandler.post(new Runnable() {
+            int step = 0;
+
+            @Override
+            public void run() {
+                if (currentPlayer == null || nextPlayer == null || currentTrackProcessor == null || nextTrackProcessor == null) {
+                    Logger.w(TAG, "Crossfade aborted: Player or processor became null during fade.");
+                    // Simplified cleanup: attempt to switch to nextPlayer if it's valid
+                    if (nextPlayer != null && nextTrackProcessor != null) {
+                        if (currentPlayer != null) {
+                            currentPlayer.stop();
+                            currentPlayer.release();
+                        }
+                        PlayerService.this.currentPlayer = nextPlayer;
+                        PlayerService.this.mainVolumeProcessor = nextTrackProcessor;
+                        PlayerService.this.nextPlayer = null;
+                        PlayerService.this.nextVolumeProcessor = null; // Ready for next cycle
+                        PlayerService.this.mainVolumeProcessor.setVolumeFactor(1.0f);
+                        observeEnding(PlayerService.this.currentPlayer, nextSongBeingPlayed);
+                        updateUI((int) PlayerService.this.currentPlayer.getCurrentPosition());
+                    } else if (currentPlayer != null && currentTrackProcessor != null) { // Fallback to current
+                        currentTrackProcessor.setVolumeFactor(1.0f);
+                    }
+                    return;
+                }
+                float nextVolFactor = Math.min(1.0f, step * volumeStepFactor);
+                float currVolFactor = Math.max(0.0f, 1.0f - (step * volumeStepFactor)); // Assuming current starts at 1.0
+                nextTrackProcessor.setVolumeFactor(nextVolFactor);
+                currentTrackProcessor.setVolumeFactor(currVolFactor);
+                if (step < steps) {
+                    step++;
+                    crossfadeHandler.postDelayed(this, CROSSFADE_INTERVAL_MS);
+                } else {
+                    Logger.d(TAG, "Crossfade complete.");
+                    nextTrackProcessor.setVolumeFactor(1.0f);
+                    currentTrackProcessor.setVolumeFactor(0.0f);
+                    val oldPlayer = PlayerService.this.currentPlayer;
+                    PlayerService.this.currentPlayer = PlayerService.this.nextPlayer;
+                    PlayerService.this.mainVolumeProcessor = nextTrackProcessor; // The next track's processor is now the main one
+                    PlayerService.this.nextPlayer = null;
+                    PlayerService.this.nextVolumeProcessor = null; // Will be recreated in prepareNextPlayer
+
+                    if (oldPlayer != null) {
+                        oldPlayer.stop();
+                        oldPlayer.release();
+                        Logger.d(TAG, "Old player released after crossfade.");
+                    }
+                    observeEnding(PlayerService.this.currentPlayer, nextSongBeingPlayed);
+                    updateUI((int) PlayerService.this.currentPlayer.getCurrentPosition());
+                }
+            }
+        });
+    }
+
+
+    @UnstableApi
+    private void startNewPlayer(final Uri uri, final int position, final Song songToPlay) {
+        if (currentPlayer != null) {
+            currentPlayer.release();
+            currentPlayer = null;
+        }
+        if (mainVolumeProcessor == null) {
+            mainVolumeProcessor = new VolumeScalingAudioProcessor();
+            Logger.d(TAG, "Initialized mainVolumeProcessor for new player.");
+        } else {
+            mainVolumeProcessor.reset();
+            Logger.d(TAG, "Reset mainVolumeProcessor for new player.");
+        }
+        mainVolumeProcessor.setVolumeFactor(1.0f);
+        Logger.d(TAG, "Building new currentPlayer with mainVolumeProcessor: " + System.identityHashCode(mainVolumeProcessor));
+        currentPlayer = buildPlayerWithProcessor(mainVolumeProcessor);
+        currentPlayer.setVolume(1.0f);
+        MediaItem mediaItem = MediaItem.fromUri(uri);
+        currentPlayer.setMediaItem(mediaItem);
+        currentPlayer.addListener(new Player.Listener() {
+            @Override
+            public void onPlaybackStateChanged(int state) {
+                if (state == Player.STATE_READY) {
+                    if (currentPlayer == null) return;
+                    currentPlayer.seekTo(position);
+                    currentPlayer.play();
+                    observeEnding(currentPlayer, songToPlay);
+                    updateUI(position);
+                    currentPlayer.removeListener(this);
+                }
+            }
+
+            @Override
+            public void onPlayerError(@NotNull PlaybackException error) {
+                Player.Listener.super.onPlayerError(error);
+                Logger.e(TAG, "PlayerError in currentPlayer for song: " + songToPlay.getFilename(), error);
+                handleWrongSong(songToPlay);
+            }
+        });
+        currentPlayer.prepare();
+    }
+
+    private void observeEnding(final ExoPlayer player, final Song song) {
+        final Handler h = new Handler(getMainLooper());
+        final int fadeDuration = getDuration();
+        Runnable endingCheck = new Runnable() {
+            @Override
+            public void run() {
+                if (player == null || !player.isPlaying()) return;
+
+                long trackDuration = player.getDuration();
+                if (trackDuration == C.TIME_UNSET) {
+                    h.postDelayed(this, 500);
+                    return;
+                }
+                long currentPosition = player.getCurrentPosition();
+                long triggerPoint = trackDuration - fadeDuration;
+                if (currentPosition < triggerPoint) {
+                    h.postDelayed(this, 500);
+                } else {
+                    next();
+                }
+            }
+        };
+        h.post(endingCheck);
+    }
+
+
+    private void updateUI(int position) {
+        progressBar.setProgress(position);
+        updateProgressBar();
+
+    }
+
+
+//    /**
+//     * Fades into new song
+//     *
+//     * @param nextSong     current song playing/active
+//     * @param songPosition from where next song should pickup
+//     */
+//    private void fadeIntoNewSong(Song nextSong, int songPosition) {
+//        mNotificationManager.createMediaNotification(nextSong, activePlaylist.getName(), false);
+//        Logger.d(TAG, "Fading into song from " + nextSong.getFilename());
+//        try {
+//            val uri = Uri.parse(nextSong.getFileUri());
+//            Logger.d(TAG, "Opening file " + uri.toString());
+//            if (isPlaying()) {
+//                Logger.d(TAG, "Already playing something, creating secondary player to fade in");
+//                auxPlayer = new MediaPlayer();
+//                auxPlayer.setDataSource(this, uri);
+//                auxPlayer.prepare();
+//                auxPlayer.seekTo(songPosition);
+//                auxPlayer.setVolume(0, 0);
+//                Logger.d(TAG, "Fading out current song");
+//                fadeOut(mediaPlayer);
+//                Logger.d(TAG, "Fading in new song");
+//                fadeIn(auxPlayer);
+//                Logger.d(TAG, "Starting player");
+//                auxPlayer.start();
+//                mediaPlayer = auxPlayer;
+//            } else {
+//                Logger.d(TAG, "Nothing is playing yet, creating new player");
+//                mediaPlayer = new MediaPlayer();
+//                mediaPlayer.setDataSource(this, uri);
+//                mediaPlayer.prepare();
+//                mediaPlayer.seekTo(songPosition);
+//                mediaPlayer.setVolume(0, 0);
+//                Logger.d(TAG, "Fading in new song");
+//                fadeIn(mediaPlayer);
+//                Logger.d(TAG, "Starting player");
+//                mediaPlayer.start();
+//            }
+//            observeEnding(mediaPlayer);
+//            progressBar.setProgress(songPosition);
+//            updateProgressBar();
+//            val msg = MessageFormat.format(getString(R.string.playlist_now_playing), nextSong.getFilename());
+//            Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+//        } catch (IOException | SecurityException e) {
+//            Logger.e(TAG, "Error playing song: " + nextSong.getFilename(), e);
+//            if (e.getMessage() != null) { // Good practice to check if getMessage() is null
+//                Logger.d(TAG, "Error details: " + e.getMessage());
+//            }
+//            String errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
+//            Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+//            if (activePlaylist != null) {
+//                activePlaylist.setCurrentSong(null);
+//                boolean removedFromCurrentSequence;
+//                if (activePlaylist.getPlaylist() != null) {
+//                    removedFromCurrentSequence = activePlaylist.getPlaylist().remove(nextSong);
+//                    if (removedFromCurrentSequence) {
+//                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from current playback sequence (getPlaylist).");
+//                    } else {
+//                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in current playback sequence (getPlaylist).");
+//                    }
+//                } else {
+//                    Logger.w(TAG, "activePlaylist.getPlaylist() was null. Cannot remove problematic song from sequence.");
+//                }
+//                boolean removedFromMasterList;
+//                if (activePlaylist.getSongs() != null) {
+//                    removedFromMasterList = activePlaylist.getSongs().remove(nextSong);
+//                    if (removedFromMasterList) {
+//                        activePlaylist.setSongCount(activePlaylist.getSongCount() - 1);
+//                        Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from master song list (getSongs).");
+//                    } else {
+//                        Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in master song list (getSongs).");
+//                    }
+//                } else {
+//                    Logger.w(TAG, "activePlaylist.getSongs() was null. Cannot remove problematic song from master list.");
+//                }
+//            } else {
+//                Logger.w(TAG, "activePlaylist or nextSong was null. Cannot perform direct removal.");
+//            }
+//            Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
+//            Bundle args = new Bundle();
+//            args.putSerializable(Utils.SONG, nextSong);
+//            args.putSerializable(PLAYLIST, activePlaylist); // Pass the context of the playlist
+//            intent.putExtra(ARGS, args);
+//            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+//            next();
+//        }
+//    }
+
+    public void handleWrongSong(Song nextSong) {
+        String errorMsg = MessageFormat.format(getString(R.string.playlist_cant_play), nextSong.getFilename());
+        Toast.makeText(getBaseContext(), errorMsg, Toast.LENGTH_LONG).show();
+        if (activePlaylist != null) {
+            activePlaylist.setCurrentSong(null);
+            boolean removedFromCurrentSequence;
+            if (activePlaylist.getPlaylist() != null) {
+                removedFromCurrentSequence = activePlaylist.getPlaylist().remove(nextSong);
+                if (removedFromCurrentSequence) {
+                    Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from current playback sequence (getPlaylist).");
+                } else {
+                    Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in current playback sequence (getPlaylist).");
+                }
+            } else {
+                Logger.w(TAG, "activePlaylist.getPlaylist() was null. Cannot remove problematic song from sequence.");
+            }
+            boolean removedFromMasterList;
+            if (activePlaylist.getSongs() != null) {
+                removedFromMasterList = activePlaylist.getSongs().remove(nextSong);
+                if (removedFromMasterList) {
+                    activePlaylist.setSongCount(activePlaylist.getSongCount() - 1);
+                    Logger.d(TAG, "Problematic song '" + nextSong.getFilename() + "' removed from master song list (getSongs).");
+                } else {
+                    Logger.w(TAG, "Problematic song '" + nextSong.getFilename() + "' NOT found in master song list (getSongs).");
+                }
+            } else {
+                Logger.w(TAG, "activePlaylist.getSongs() was null. Cannot remove problematic song from master list.");
+            }
+        } else {
+            Logger.w(TAG, "activePlaylist or nextSong was null. Cannot perform direct removal.");
+        }
+        Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
+        Bundle args = new Bundle();
+        args.putSerializable(Utils.SONG, nextSong);
+        args.putSerializable(PLAYLIST, activePlaylist); // Pass the context of the playlist
+        intent.putExtra(ARGS, args);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        next();
+    }
 
     public boolean isActivePlaylist(Playlist playlist) {
         return playlist.equals(activePlaylist);
@@ -394,38 +748,38 @@ public class PlayerService extends Service {
      */
     public boolean isPlaying() {
         try {
-            return mediaPlayer.isPlaying();
+            return currentPlayer != null && currentPlayer.isPlaying();
         } catch (IllegalStateException e) {
             Logger.d(TAG, "media player is definitely not playing");
             return false;
         }
     }
 
-    private void fadeOut(final MediaPlayer player) {
-        val deviceVolume = getDeviceVolume();
-        val h = new Handler(getMainLooper());
-        h.postDelayed(new Runnable() {
-            final int duration = getDuration();
-            private float time = duration;
-
-            @Override
-            public void run() {
-                try {
-                    time -= 100;
-                    float volume = (deviceVolume * time) / duration;
-                    player.setVolume(volume, volume);
-                    if (time > 0)
-                        h.postDelayed(this, 100);
-                    else {
-                        player.reset();
-                        player.release();
-                    }
-                } catch (IllegalStateException e) {
-                    Logger.d(TAG, "FadeOut stopped due to error in MediaPlayer");
-                }
-            }
-        }, 100);
-    }
+//    private void fadeOut(final MediaPlayer player) {
+//        val deviceVolume = getDeviceVolume();
+//        val h = new Handler(getMainLooper());
+//        h.postDelayed(new Runnable() {
+//            final int duration = getDuration();
+//            private float time = duration;
+//
+//            @Override
+//            public void run() {
+//                try {
+//                    time -= 100;
+//                    float volume = (deviceVolume * time) / duration;
+//                    player.setVolume(volume, volume);
+//                    if (time > 0)
+//                        h.postDelayed(this, 100);
+//                    else {
+//                        player.reset();
+//                        player.release();
+//                    }
+//                } catch (IllegalStateException e) {
+//                    Logger.d(TAG, "FadeOut stopped due to error in MediaPlayer");
+//                }
+//            }
+//        }, 100);
+//    }
 
     private void updateProgressBar() {
         progressHandler.postDelayed(updateProgressTask, 100);
@@ -434,8 +788,8 @@ public class PlayerService extends Service {
 
     private final Runnable updateProgressTask = new Runnable() {
         public void run() {
-            val totalDuration = mediaPlayer.getDuration();
-            val currentDuration = mediaPlayer.getCurrentPosition();
+            val totalDuration = currentPlayer.getDuration();
+            val currentDuration = currentPlayer.getCurrentPosition();
             val progress = getProgressPercentage(currentDuration, totalDuration);
             progressBar.setProgress(progress);
             progressHandler.postDelayed(this, 100);
@@ -466,30 +820,30 @@ public class PlayerService extends Service {
 
     }
 
-    void observeEnding(final MediaPlayer player) {
-        val h = new Handler(getMainLooper());
-        h.postDelayed(new Runnable() {
-            final int duration = getDuration();
-
-            @Override
-            public void run() {
-                try {
-                    if (player.isPlaying()) {
-                        val currentPosition = player.getCurrentPosition();
-                        val totalDuration = player.getDuration() - duration; //take total duration - fade
-                        if (currentPosition < totalDuration) {
-                            h.postDelayed(this, 500);
-                        } else {
-                            next();
-                        }
-                    }
-                } catch (IllegalStateException e) {
-                    Logger.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
-                }
-
-            }
-        }, 500);
-    }
+//    void observeEnding(final ExoPlayer player) {
+//        val h = new Handler(getMainLooper());
+//        h.postDelayed(new Runnable() {
+//            final int duration = getDuration();
+//
+//            @Override
+//            public void run() {
+//                try {
+//                    if (player.isPlaying()) {
+//                        val currentPosition = player.getCurrentPosition();
+//                        val totalDuration = player.getDuration() - duration; //take total duration - fade
+//                        if (currentPosition < totalDuration) {
+//                            h.postDelayed(this, 500);
+//                        } else {
+//                            next();
+//                        }
+//                    }
+//                } catch (IllegalStateException e) {
+//                    Logger.d(TAG, "Ending observing ending as transition to next song is already in progress and media player is released");
+//                }
+//
+//            }
+//        }, 500);
+//    }
 
     public int getProgressPercentage(long currentDuration, long totalDuration) {
         val currentSeconds = (int) (currentDuration / 1000);
@@ -560,7 +914,9 @@ public class PlayerService extends Service {
                 case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
                     if (args != null) {
                         Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent(playlist -> activePlaylist = (Playlist) playlist);
+                                .ifPresent(playlist -> {
+                                    updateCurrentSongAndSwitchPlaylist((Playlist) playlist);
+                                });
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
@@ -583,6 +939,13 @@ public class PlayerService extends Service {
             }
         }
     };
+
+    private void updateCurrentSongAndSwitchPlaylist(Playlist playlist) {
+        val currentSong = activePlaylist.getCurrentSong();
+        currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
+        playlistService.updateSong(currentSong);
+        activePlaylist = playlist;
+    }
 
     private void handleSongDeleted(Bundle args, boolean shuffle) {
         if (args != null) {

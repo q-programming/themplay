@@ -94,6 +94,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onLaunch() {
+        Logger.d("AppVersion", "versionCode: " + BuildConfig.VERSION_CODE + ", versionName: " + BuildConfig.VERSION_NAME);
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
         String lastLaunchVersion = sp.getString(LAST_LAUNCH_VERSION, "");
         String currentAppVersion = "";
