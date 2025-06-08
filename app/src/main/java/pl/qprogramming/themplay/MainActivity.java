@@ -39,6 +39,7 @@ import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.media3.common.util.UnstableApi;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.color.MaterialColors;
@@ -67,7 +68,7 @@ import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
 import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
-
+@UnstableApi
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private PlaylistService playlistService;
@@ -94,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void onLaunch() {
+        Logger.d("AppVersion", "versionCode: " + BuildConfig.VERSION_CODE + ", versionName: " + BuildConfig.VERSION_NAME);
         SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
         String lastLaunchVersion = sp.getString(LAST_LAUNCH_VERSION, "");
         String currentAppVersion = "";
