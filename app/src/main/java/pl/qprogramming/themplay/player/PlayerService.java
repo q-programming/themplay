@@ -196,7 +196,7 @@ public class PlayerService extends Service {
      */
     private boolean isFadeStop() {
         val sp = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        return sp.getBoolean(Property.FADE_STOP, false);
+        return sp.getBoolean(Property.FADE_STOP, true);
     }
 
     /**
@@ -229,14 +229,27 @@ public class PlayerService extends Service {
     }
 
     /**
-     * Pauses the media player
-     * Updates current song progress and removes notification
+     * Pauses the current player with optional fade-out effect.
+     *
+     * <p>Saves the current playback position, updates the notification to show paused state,
+     * and stops progress updates. If fade pause is enabled, gradually reduces volume before
+     * pausing; otherwise pauses immediately.</p>
+     *
+     * @see #fadePauseCurrentPlayer()
+     * @see #isFadeStop()
      */
     public void pause() {
-        currentPlayer.pause();
-        val currentSong =  updateCurrentSongProgress(true);
-        mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
-        progressHandler.removeCallbacks(updateProgressTask);
+        Logger.d(TAG, "Pause media player");
+        if (isPlaying()) {
+            Song currentSong = updateCurrentSongProgress(true);
+            if (isFadeStop()) {
+                fadePauseCurrentPlayer();
+            } else {
+                currentPlayer.pause();
+            }
+            mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
+            stopProgressUpdates();
+        }
     }
 
     /**
@@ -362,6 +375,31 @@ public class PlayerService extends Service {
             isFadeStopRequested = false;
         });
     }
+
+    /**
+     * Performs a fade-out pause of the current player without resource cleanup.
+     *
+     * <p>Uses the crossfade controller to gradually reduce volume to zero before
+     * pausing the player. Unlike fadeStopCurrentPlayer, this preserves the player
+     * and processor resources for potential resume operations. Sets a flag to prevent
+     * new song requests during the fade-out process.</p>
+     *
+     * @see CrossfadeController#startFadeOut(ExoPlayer, VolumeScalingAudioProcessor, int, Runnable)
+     * @see #fadeStopCurrentPlayer()
+     */
+    private void fadePauseCurrentPlayer() {
+        if (currentPlayer == null || mainVolumeProcessor == null) {
+            return;
+        }
+        isFadeStopRequested = true;
+        crossfadeController.startFadeOut(currentPlayer, mainVolumeProcessor, getDuration(), () -> {
+            if (currentPlayer != null) {
+                currentPlayer.pause();
+            }
+            isFadeStopRequested = false;
+        });
+    }
+
 
     /**
      * Initiates a smooth transition to a new song with crossfade or fade-in effects.

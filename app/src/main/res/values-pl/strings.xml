@@ -86,7 +86,7 @@
     <string name="playlist_paste_error">Wystąpił bład podczas próby wklejenia playlisty. Proszę spróbuj jeszcze raz</string>
     <string name="presets_please_wait">Proszę czekać…zapisuje zestaw</string>
     <string name="settings_fadeStop">Wycisz utwór kiedy stopowane</string>
-    <string name="settings_fadeStop_info">Kiedy zostanie naciśnięty stop, piosenka zatrzyma się z wyciszeniem zamiast od razu</string>
+    <string name="settings_fadeStop_info">Kiedy zostanie naciśnięty stop lub pauza, piosenka zatrzyma się z wyciszeniem zamiast od razu</string>
     <string name="settings_developer">Debug</string>
     <string name="settings_enable_developer_mode">Włącz tryb developerski</string>
     <string name="settings_enable_developer_mode_clicks">Tapnij jeszcze razy {0} aby odblokować tryb developerski</string>
