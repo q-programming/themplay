@@ -86,7 +86,7 @@
     <string name="playlist_now_playing_notificatoin">Now playing</string>
     <string name="notificatoin_description">Shows which song now plays and shows controls allowing to play/pause/stop/next/previous</string>
     <string name="settings_fadeStop">Fade out songs when stopping</string>
-    <string name="settings_fadeStop_info">When pressing stop button , song will be faded out instead of stopping right away</string>
+    <string name="settings_fadeStop_info">When pressing stop or pause button , song will be faded out instead of stopping right away</string>
     <string name="settings_developer">Developer</string>
     <string name="settings_enable_debug">Enable debug</string>
     <string name="settings_enable_developer_mode">Enable developer mode</string>

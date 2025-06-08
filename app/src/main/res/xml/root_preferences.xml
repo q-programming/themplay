@@ -21,7 +21,7 @@
             app:key="app.keepScreen"
             app:title="@string/settings_keep_screen" />
         <SwitchPreferenceCompat
-            android:defaultValue="false"
+            android:defaultValue="true"
             android:summary="@string/settings_fadeStop_info"
             app:key="app.fadeStop"
             app:title="@string/settings_fadeStop" />
