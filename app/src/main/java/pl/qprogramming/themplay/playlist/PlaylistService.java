@@ -1,6 +1,7 @@
 package pl.qprogramming.themplay.playlist;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
@@ -21,6 +22,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -710,7 +712,15 @@ public class PlaylistService extends Service {
                             Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
                             return loadSongs(playlistToActivate);
                         })
-                        .flatMapCompletable(this::buildPlaylistMakeActiveAndNotify)
+                        .flatMap(this::buildPlaylistMakeActiveAndNotify)
+                        .flatMapCompletable(updatedPlaylist -> {
+                            updatedPlaylist.setActive(true);
+                            return playlistRepository.update(updatedPlaylist)
+                                    .doOnComplete(() -> {
+                                        Logger.d(TAG, "Playlist set as active sending event to play");
+                                        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, updatedPlaylist);
+                                    });
+                        })
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(() -> {
@@ -720,6 +730,30 @@ public class PlaylistService extends Service {
         disposables.add(activeTask);
     }
 
+    public void getActiveAndLoadSongs(Consumer<Playlist> onPlaylistFound, Runnable onNoPlaylistFound) {
+        disposables.add(findActive()
+                .doOnSuccess(playlist -> Logger.d(TAG, "Find active found: " + playlist.getName()))
+                .doOnComplete(() -> {
+                    Logger.d(TAG, "findActive completed empty. Triggering onNoPlaylistFound.");
+                    AndroidSchedulers.mainThread().scheduleDirect(onNoPlaylistFound);
+                })
+                .flatMapSingle(this::loadSongs)
+                .flatMap(playlistWithSongs -> this.buildPlaylistMakeActiveAndNotify(playlistWithSongs, false))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(playlist -> {
+                    Logger.d(TAG, "Active playlist loaded successfully.");
+                    onPlaylistFound.accept(playlist);
+                    populateAndSend(PLAYLIST_NOTIFICATION_NEW_ACTIVE, playlist);
+                }, throwable -> {
+                    if (throwable instanceof NoSuchElementException) {
+                        Logger.d(TAG, "Unable to find active list");
+                    } else {
+                        Logger.e(TAG, "Error loading active playlist", throwable);
+                    }
+                }));
+    }
+
     /**
      * Creates playlist out of all available songs
      * Search for current song within. If none present, set first from list
@@ -727,17 +761,22 @@ public class PlaylistService extends Service {
      * @param playlist playlist to be made active and played
      * @return Completable that completes when playlist is made active
      */
-    private Completable buildPlaylistMakeActiveAndNotify(Playlist playlist) {
+    private Single<Playlist> buildPlaylistMakeActiveAndNotify(Playlist playlist) {
+        return buildPlaylistMakeActiveAndNotify(playlist, true);
+    }
+
+    private Single<Playlist> buildPlaylistMakeActiveAndNotify(Playlist playlist, boolean notify) {
         val sp = getDefaultSharedPreferences(this);
         val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
         createPlaylist(playlist, shuffle);
         var currentSongId = playlist.getCurrentSongId();
-
         if (currentSongId == null && isEmpty(playlist.getPlaylist())) {
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
+            if (notify) {
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
+            }
             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
             Logger.d(TAG, "Playlist has no songs.");
-            return Completable.complete();
+            return Single.just(playlist);
         } else if (currentSongId == null && !isEmpty(playlist.getPlaylist())) {
             val currentSong = playlist.getPlaylist().get(0);
             playlist.setCurrentSongId(currentSong.getId());
@@ -754,13 +793,8 @@ public class PlaylistService extends Service {
                                 Logger.d(TAG, "Song with ID " + currentSongId + " not found in playlist " + playlist.getName() + ". Picking first");
                                 playlist.setCurrentSong(playlist.getPlaylist().get(0));
                             });
-
         }
-        playlist.setActive(true);
-        return playlistRepository.update(playlist).doOnComplete(() -> {
-            Logger.d(TAG, "Playlist set as active sending event to play");
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, playlist);
-        });
+        return Single.just(playlist);
     }
 
     public void resetActiveFromPreset() {
