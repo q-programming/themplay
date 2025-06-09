@@ -73,14 +73,14 @@ public class Playlist implements Serializable, Cloneable {
      * All songs in this playlist
      */
     @Ignore
-    private List<Song> songs;
+    private List<Song> songs = new ArrayList<>();
     /**
      * Contains all songs which were shuffled or ordered upon loading this playlist
      * Application will consume this list to play songs one by one, upon reaching end ,
      * new playlists will be generated accordingly
      */
     @Ignore
-    private List<Song> playlist;
+    private List<Song> playlist = new ArrayList<>();
 
     public List<Song> getSongs() {
         if (songs == null) {

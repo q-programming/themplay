@@ -201,7 +201,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
 
     private void setActive(Playlist playlist) {
         if (playlistService != null) {
-            playlistService.setActive(playlist);
+            playlistService.setActive(playlist, false);
         }
     }
 

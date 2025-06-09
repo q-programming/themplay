@@ -1,9 +1,10 @@
 package pl.qprogramming.themplay.preset;
 
+import static pl.qprogramming.themplay.settings.Property.LOGS_DIRECTORY_NAME;
+
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.Environment;
 import android.util.Base64;
 import android.widget.Toast;
 
@@ -85,7 +86,7 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
     protected void onPostExecute(ExportResult result) {
         super.onPostExecute(result);
         if (logs.length() > 0) {
-            File externalFilesDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+            File externalFilesDir = new File(context.getExternalFilesDir(null), LOGS_DIRECTORY_NAME);
             File logFile = new File(externalFilesDir + "/themplay_export_errors_" + (System.currentTimeMillis() / 1000) + ".txt");
             try (val bw = new BufferedWriter(new FileWriter(logFile))) {
                 bw.write(logs.toString());

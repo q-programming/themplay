@@ -1,6 +1,7 @@
 package pl.qprogramming.themplay.playlist;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
@@ -24,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -692,35 +694,41 @@ public class PlaylistService extends Service {
      * And broadcast event to play
      *
      * @param playlist playlist to be made active
+     * @param force    if true , this mean the active playlist must play
      */
-    public void setActive(Playlist playlist) {
+    public void setActive(Playlist playlist, boolean force) {
         val playlistToActivateId = playlist.getId();
         Logger.d(TAG, "Attempting to set playlist ID as active: " + playlistToActivateId);
         LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
         val activeTask =
                 findActive()
                         .flatMapCompletable(activePlaylist -> {
-                                    if (!activePlaylist.getId().equals(playlistToActivateId)) {
+                                    //the playlists is already active
+                                    if (!force && activePlaylist.getId().equals(playlistToActivateId)) {
+                                        Logger.d(TAG, "Playlist to active is same as already active , skipping operation as it was not forced");
+                                        populateAndSend(PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING, activePlaylist);
+                                        return Completable.complete();
+                                    } else {
                                         activePlaylist.setActive(false);
-                                        return playlistRepository.update(activePlaylist);
+                                        return playlistRepository.update(activePlaylist)
+                                                .andThen(playlistRepository.findOneById(playlistToActivateId))
+                                                .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")))
+                                                .flatMap(playlistToActivate -> {
+                                                    Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
+                                                    return loadSongs(playlistToActivate);
+                                                })
+                                                .flatMap(this::buildPlaylistMakeActiveAndNotify)
+                                                .flatMapCompletable(updatedPlaylist -> {
+                                                    updatedPlaylist.setActive(true);
+                                                    return playlistRepository.update(updatedPlaylist)
+                                                            .doOnComplete(() -> {
+                                                                Logger.d(TAG, "Playlist set as active sending event to play");
+                                                                populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, updatedPlaylist);
+                                                            });
+                                                });
                                     }
-                                    return Completable.complete();
                                 }
-                        ).andThen(playlistRepository.findOneById(playlistToActivateId))
-                        .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")))
-                        .flatMap(playlistToActivate -> {
-                            Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
-                            return loadSongs(playlistToActivate);
-                        })
-                        .flatMap(this::buildPlaylistMakeActiveAndNotify)
-                        .flatMapCompletable(updatedPlaylist -> {
-                            updatedPlaylist.setActive(true);
-                            return playlistRepository.update(updatedPlaylist)
-                                    .doOnComplete(() -> {
-                                        Logger.d(TAG, "Playlist set as active sending event to play");
-                                        populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, updatedPlaylist);
-                                    });
-                        })
+                        )
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
                         .subscribe(() -> {
@@ -766,35 +774,77 @@ public class PlaylistService extends Service {
     }
 
     private Single<Playlist> buildPlaylistMakeActiveAndNotify(Playlist playlist, boolean notify) {
-        val sp = getDefaultSharedPreferences(this);
-        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-        createPlaylist(playlist, shuffle);
-        var currentSongId = playlist.getCurrentSongId();
-        if (currentSongId == null && isEmpty(playlist.getPlaylist())) {
-            if (notify) {
-                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
-            }
-            LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
-            Logger.d(TAG, "Playlist has no songs.");
-            return Single.just(playlist);
-        } else if (currentSongId == null && !isEmpty(playlist.getPlaylist())) {
-            val currentSong = playlist.getPlaylist().get(0);
-            playlist.setCurrentSongId(currentSong.getId());
-            playlist.setCurrentSong(currentSong);
-            Logger.d(TAG, "Setting current song to first in playlist");
-        } else if (!isEmpty(playlist.getPlaylist())) {
-            playlist.getPlaylist()
-                    .stream()
-                    .filter(song -> song.getId().equals(currentSongId))
-                    .findFirst()
-                    .ifPresentOrElse(
-                            playlist::setCurrentSong,
-                            () -> {
-                                Logger.d(TAG, "Song with ID " + currentSongId + " not found in playlist " + playlist.getName() + ". Picking first");
-                                playlist.setCurrentSong(playlist.getPlaylist().get(0));
-                            });
+        if (playlist == null) {
+            Logger.e(TAG, "Cannot build playlist - playlist is null");
+            return Single.error(new IllegalArgumentException("Playlist cannot be null"));
         }
-        return Single.just(playlist);
+        try {
+            val sp = getDefaultSharedPreferences(this);
+            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+            createPlaylist(playlist, shuffle);
+            var currentSongId = playlist.getCurrentSongId();
+            List<Song> playbackOrder = playlist.getPlaylist();
+            List<Song> masterSongs = playlist.getSongs();
+            if (isEmpty(masterSongs)) {
+                Logger.d(TAG, "Master song collection is empty for playlist: " + playlist.getName());
+                if (notify) {
+                    populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
+                }
+                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+                return Single.just(playlist);
+            }
+            if (currentSongId == null && isEmpty(playbackOrder)) {
+                Logger.d(TAG, "Playback order is empty but master collection has songs - regenerating playlist");
+                createPlaylist(playlist, shuffle);
+                playbackOrder = playlist.getPlaylist();
+                if (isEmpty(playbackOrder)) {
+                    Logger.e(TAG, "Failed to generate playback order from master collection");
+                    if (notify) {
+                        populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
+                    }
+                    return Single.just(playlist);
+                }
+            }
+            if (currentSongId == null && !isEmpty(playbackOrder)) {
+                Song currentSong = playbackOrder.stream()
+                        .filter(song -> song != null && song.getId() != null)
+                        .findFirst()
+                        .orElse(null);
+
+                if (currentSong != null) {
+                    playlist.setCurrentSongId(currentSong.getId());
+                    playlist.setCurrentSong(currentSong);
+                    Logger.d(TAG, "Setting current song to first valid song in playback order: " + currentSong.getFilename());
+                } else {
+                    Logger.e(TAG, "No valid songs found in playback order for playlist: " + playlist.getName());
+                }
+            } else if (currentSongId != null && !isEmpty(playbackOrder)) {
+                Optional<Song> foundSong = playbackOrder.stream()
+                        .filter(song -> song != null && song.getId() != null && song.getId().equals(currentSongId))
+                        .findFirst();
+
+                if (foundSong.isPresent()) {
+                    playlist.setCurrentSong(foundSong.get());
+                    Logger.d(TAG, "Found and set current song: " + foundSong.get().getFilename());
+                } else {
+                    Song fallbackSong = playbackOrder.stream()
+                            .filter(song -> song != null && song.getId() != null)
+                            .findFirst()
+                            .orElse(null);
+
+                    if (fallbackSong != null) {
+                        Logger.d(TAG, "Song with ID " + currentSongId + " not found in playback order for playlist " + playlist.getName() + ". Using first valid song: " + fallbackSong.getFilename());
+                        playlist.setCurrentSong(fallbackSong);
+                    } else {
+                        Logger.e(TAG, "No valid fallback songs found in playback order for playlist: " + playlist.getName());
+                    }
+                }
+            }
+            return Single.just(playlist);
+        } catch (Exception e) {
+            Logger.e(TAG, "Error building playlist: " + (playlist != null ? playlist.getName() : "null"), e);
+            return Single.error(e);
+        }
     }
 
     public void resetActiveFromPreset() {

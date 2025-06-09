@@ -93,5 +93,6 @@
     <string name="settings_enable_developer_mode_clicks">Tap {0} times to reveal developer mode</string>
     <string name="settings_enable_developer_mode_unlocked">Developer mode enabled</string>
     <string name="settings_developer_mode_hidden">Developer mode hidden. Tap version 5 times to re-enable.</string>
+    <string name="settings_log_download">Download application logs</string>
     <string name="settings_enable_debug_info">When enabled debug logs will be saved to file  under \nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt. \nShould be used only when trying to solve issue together with app developer</string>
 </resources>

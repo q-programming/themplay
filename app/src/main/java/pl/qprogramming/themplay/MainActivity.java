@@ -303,6 +303,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.OPERATION_FINISHED.getCode());
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS.getCode());
+        filter.addAction(EventType.PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING.getCode());
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
@@ -630,6 +631,17 @@ public class MainActivity extends AppCompatActivity {
                                     renderPlayButton();
                                 }
                             }));
+                    break;
+                case PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING:
+                    Optional.ofNullable(args.getSerializable(PLAYLIST))
+                            .ifPresent((playlist -> {
+                                if(!playerService.isPlaying()){
+                                    Logger.d(TAG,"Active playlist is not playing force activation ");
+                                    playlistService.setActive((Playlist) playlist, true);
+                                }
+                            }));
+
+                    //TODO force!
                     break;
                 case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))

@@ -1,5 +1,7 @@
 package pl.qprogramming.themplay;
 
+import static pl.qprogramming.themplay.settings.Property.LOGS_DIRECTORY_NAME;
+
 import android.app.Application;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -21,7 +23,6 @@ import pl.qprogramming.themplay.logger.Logger;
 public class ThemplayApplication extends Application  {
 
     private static final String TAG = "ThemplayAppCrashHandler";
-    public static final String CRASH_LOG_DIR_NAME = "logs";
     public static final String CRASH_LOG_FILE_PREFIX = "crash_";
     public static final String CRASH_LOG_FILE_SUFFIX = ".txt";
 
@@ -56,7 +57,7 @@ public class ThemplayApplication extends Application  {
                     return;
                 }
             }
-            File crashLogDir = new File(baseDir, CRASH_LOG_DIR_NAME);
+            File crashLogDir = new File(baseDir, LOGS_DIRECTORY_NAME);
             if (!crashLogDir.exists()) {
                 if (!crashLogDir.mkdirs()) {
                     Logger.e(TAG, "Failed to create crash log directory: " + crashLogDir.getAbsolutePath());

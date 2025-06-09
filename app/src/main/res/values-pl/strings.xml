@@ -93,5 +93,6 @@
     <string name="settings_enable_developer_mode_unlocked">Tryb developerski odblokowany</string>
     <string name="settings_enable_debug">Włącz logi debug</string>
     <string name="settings_developer_mode_hidden">Tryb developerski ukryty. Tapnij numer wersji 5 razy aby go odblokować.</string>
+    <string name="settings_log_download">Pobierz logi aplikacji</string>
     <string name="settings_enable_debug_info">Kiedy włączone, logi debug zostaną zapisane do pliku\nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt.\nPowinno być tylko używane przy próbie rozwiązania problemu razem z deweloperem</string>
 </resources>

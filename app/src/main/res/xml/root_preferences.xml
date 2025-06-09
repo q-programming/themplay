@@ -40,6 +40,9 @@
             android:summary="@string/settings_enable_debug_info"
             app:key="debug_logs_enabled"
             app:title="@string/settings_enable_debug" />
+        <Preference
+            app:key="download_logs"
+            app:title="@string/settings_log_download" />
         <SwitchPreferenceCompat
             android:defaultValue="false"
             app:key="debug_options_enabled_flag"

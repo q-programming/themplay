@@ -15,4 +15,6 @@ public class Property {
     public static final String DEBUG_SECTION_UNLOCKED = "debug_section_unlocked_by_taps";
     public static final String LANGUAGE = "app.lang";
 
+    public static final String LOGS_DIRECTORY_NAME = "logs";
+
 }

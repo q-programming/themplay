@@ -102,6 +102,9 @@ public class PlayerService extends Service {
 
     private boolean isProgressUpdateRunning = false;
 
+    private volatile boolean isTransitionInProgress = false;
+
+
     /**
      * Called when the service is created.
      */
@@ -180,7 +183,6 @@ public class PlayerService extends Service {
     }
 
 
-
     public class LocalBinder extends Binder {
         public PlayerService getService() {
             return PlayerService.this;
@@ -208,23 +210,49 @@ public class PlayerService extends Service {
     }
 
     /**
-     * Plays current playlist
-     * If there is no active playlist in service , attempt to load one from db and play it , otherwise show toast msg
+     * Flag to prevent multiple simultaneous play requests
+     */
+    private volatile boolean isPlayRequested = false;
+
+    /**
+     * Plays current playlist with spam protection
+     * If there is no active playlist in service, attempt to load one from db and play it, otherwise show toast msg
      */
     public void play() {
-        if (activePlaylist != null) {
-            val currentSong = activePlaylist.getCurrentSong();
-            fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
-        } else {
-            Logger.d(TAG, "Recived play command but no active playlist found in service, searching for one");
-            playlistService.getActiveAndLoadSongs(playlist -> {
-                activePlaylist = playlist;
-                play();
-            }, () -> {
-                Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-                populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
-            });
+        if (isPlayRequested) {
+            Logger.d(TAG, "Play request already in progress, ignoring duplicate play() request");
+            return;
+        }
+        if (isPlaying()) {
+            Logger.d(TAG, "Already playing, ignoring play() request");
+            return;
+        }
+        isPlayRequested = true;
+        Logger.d(TAG, "Starting play() request");
+        try {
+            if (activePlaylist != null) {
+                val currentSong = activePlaylist.getCurrentSong();
+                fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
+            } else {
+                Logger.d(TAG, "Received play command but no active playlist found in service, searching for one");
+                playlistService.getActiveAndLoadSongs(playlist -> {
+                    try {
+                        activePlaylist = playlist;
+                        play();
+                    } catch (Exception e) {
+                        Logger.e(TAG, "Error in async play() callback", e);
+                        isPlayRequested = false;
+                    }
+                }, () -> {
+                    Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+                    populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+                    isPlayRequested = false;
+                });
+            }
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in play() request", e);
+            isPlayRequested = false;
         }
     }
 
@@ -249,66 +277,91 @@ public class PlayerService extends Service {
             }
             mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
             stopProgressUpdates();
+            isPlayRequested = false;
         }
     }
 
     /**
-     * Plays next song in playlist
+     * Plays next song in playlist with spam protection
      * Gets current song index and increases it by 1
      * If no song found it will be 0 as indexOf returns -1 in that case
      */
     public void next() {
-        val sp = getDefaultSharedPreferences(this);
-        val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-        if (isEmpty(activePlaylist.getPlaylist())) {
-            createPlaylist(activePlaylist, shuffle);
+        if (isTransitionInProgress) {
+            Logger.d(TAG, "Transition already in progress, ignoring next() request");
+            return;
         }
-        if (activePlaylist != null && !activePlaylist.getPlaylist().isEmpty()) {
-            updateCurrentSongProgress(false);
-            var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
-            if (songIndex > activePlaylist.getPlaylist().size() - 1) {
-                Logger.d(TAG, "Creating new playlist");
+        isTransitionInProgress = true;
+        Logger.d(TAG, "Starting next() transition");
+        try {
+            val sp = getDefaultSharedPreferences(this);
+            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+            if (isEmpty(activePlaylist.getPlaylist())) {
                 createPlaylist(activePlaylist, shuffle);
-                songIndex = 0;
             }
-            val song = activePlaylist.getPlaylist().get(songIndex);
-            activePlaylist.setCurrentSong(song);
-            activePlaylist.setCurrentSongId(song.getId());
-            playlistService.save(activePlaylist);
-            fadeIntoNewSong(song, 0);
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
-        } else {
-            Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+            if (activePlaylist != null && !activePlaylist.getPlaylist().isEmpty()) {
+                updateCurrentSongProgress(false);
+                var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
+                if (songIndex > activePlaylist.getPlaylist().size() - 1) {
+                    Logger.d(TAG, "Creating new playlist");
+                    createPlaylist(activePlaylist, shuffle);
+                    songIndex = 0;
+                }
+                val song = activePlaylist.getPlaylist().get(songIndex);
+                activePlaylist.setCurrentSong(song);
+                activePlaylist.setCurrentSongId(song.getId());
+                playlistService.save(activePlaylist);
+                fadeIntoNewSong(song, 0);
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
+            } else {
+                Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+                populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+                isTransitionInProgress = false;
+            }
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in next() transition", e);
+            isTransitionInProgress = false;
         }
     }
 
     /**
-     * Plays previous song in playlist
+     * Plays previous song in playlist with spam protection
      */
     public void previous() {
-        if (activePlaylist != null) {
-            updateCurrentSongProgress(false);
-            if (isEmpty(activePlaylist.getPlaylist())) {
-                val sp = getDefaultSharedPreferences(this);
-                val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-                createPlaylist(activePlaylist, shuffle);
+        if (isTransitionInProgress) {
+            Logger.d(TAG, "Transition already in progress, ignoring previous() request");
+            return;
+        }
+        isTransitionInProgress = true;
+        Logger.d(TAG, "Starting previous() transition");
+        try {
+            if (activePlaylist != null) {
+                updateCurrentSongProgress(false);
+                if (isEmpty(activePlaylist.getPlaylist())) {
+                    val sp = getDefaultSharedPreferences(this);
+                    val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+                    createPlaylist(activePlaylist, shuffle);
+                }
+                val songs = activePlaylist.getPlaylist();
+                val lastSongIndex = songs.size() - 1;
+                //if this was first song we will loop around to last song in playlist
+                var songIndex = songs.indexOf(activePlaylist.getCurrentSong()) - 1;
+                if (songIndex < 0) {
+                    songIndex = lastSongIndex;
+                }
+                val song = songs.get(songIndex);
+                activePlaylist.setCurrentSong(song);
+                playlistService.save(activePlaylist);
+                fadeIntoNewSong(song, 0);
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
+            } else {
+                Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+                populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+                isTransitionInProgress = false; // Reset flag on error
             }
-            val songs = activePlaylist.getPlaylist();
-            val lastSongIndex = songs.size() - 1;
-            //if this was first song we will loop around to last song in playlist
-            var songIndex = songs.indexOf(activePlaylist.getCurrentSong()) - 1;
-            if (songIndex < 0) {
-                songIndex = lastSongIndex;
-            }
-            val song = songs.get(songIndex);
-            activePlaylist.setCurrentSong(song);
-            playlistService.save(activePlaylist);
-            fadeIntoNewSong(song, 0);
-            populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
-        } else {
-            Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
-            populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in previous() transition", e);
+            isTransitionInProgress = false; // Reset flag on error
         }
     }
 
@@ -329,6 +382,8 @@ public class PlayerService extends Service {
                 mainVolumeProcessor = null;
             }
             stopProgressUpdates();
+            isPlayRequested =false;
+            isTransitionInProgress = false;
         }
     }
 
@@ -343,17 +398,32 @@ public class PlayerService extends Service {
      * @see #updateCurrentSongProgress(boolean)
      */
     private void fadeIntoNewPlaylist(Playlist playlist) {
-        if (isPlaying()) {
-            val currentSong = activePlaylist.getCurrentSong();
-            currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
-            playlistService.updateSong(currentSong);
+        if (isTransitionInProgress || isPlayRequested) {
+            Logger.d(TAG, "Transition or play already in progress, ignoring playlist change request");
+            return;
         }
-        activePlaylist = playlist;
-        val song = activePlaylist.getCurrentSong();
-        if (song != null) {
-            fadeIntoNewSong(song, song.getCurrentPosition());
+        isTransitionInProgress = true;
+        Logger.d(TAG, "Starting playlist transition to: " + playlist.getName());
+        try {
+            if (isPlaying()) {
+                val currentSong = activePlaylist.getCurrentSong();
+                currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
+                playlistService.updateSong(currentSong);
+            }
+            activePlaylist = playlist;
+            val song = activePlaylist.getCurrentSong();
+            if (song != null) {
+                fadeIntoNewSong(song, song.getCurrentPosition());
+            } else {
+                Logger.w(TAG, "New playlist has no current song");
+                isTransitionInProgress = false;
+            }
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in playlist transition", e);
+            isTransitionInProgress = false;
         }
     }
+
 
     /**
      * Performs a fade-out stop of the current player with proper resource cleanup.
@@ -407,7 +477,7 @@ public class PlayerService extends Service {
      * <p>Determines whether to perform a crossfade (if currently playing) or a fresh
      * start with fade-in. Ignores requests if a fade-stop is in progress.</p>
      *
-     * @param nextSong The song to transition to
+     * @param nextSong     The song to transition to
      * @param songPosition The position in milliseconds to start playback from
      * @see #prepareNextPlayer(Uri, int, Song)
      * @see #startNewPlayer(Uri, int, Song)
@@ -417,6 +487,7 @@ public class PlayerService extends Service {
     public void fadeIntoNewSong(final Song nextSong, final int songPosition) {
         if (isFadeStopRequested) {
             Logger.d(TAG, "Fade stop in progress, ignoring new song request");
+            isTransitionInProgress = false;
             return;
         }
         updateNotificationAndUI(nextSong);
@@ -438,7 +509,7 @@ public class PlayerService extends Service {
      * <p>Creates and configures a secondary ExoPlayer with its own volume processor,
      * then initiates the crossfade when the player is ready.</p>
      *
-     * @param uri The URI of the next song
+     * @param uri      The URI of the next song
      * @param position The playback position to start from
      * @param nextSong The Song object for the next track
      * @see ExoPlayerManager#createPlayerWithProcessor(Context, VolumeScalingAudioProcessor)
@@ -455,7 +526,7 @@ public class PlayerService extends Service {
         }
         nextPlayer = ExoPlayerManager.createPlayerWithProcessor(this, nextVolumeProcessor);
         ExoPlayerManager.preparePlayer(nextPlayer, uri, position, nextSong,
-                player -> startCrossfade(position, nextSong),
+                player -> startCrossfade(nextSong),
                 this::handlePlayerError
         );
     }
@@ -466,8 +537,8 @@ public class PlayerService extends Service {
      * <p>Creates a fresh ExoPlayer instance with volume processor and applies
      * a fade-in transition from silence to full volume.</p>
      *
-     * @param uri The URI of the song to play
-     * @param position The playback position to start from
+     * @param uri        The URI of the song to play
+     * @param position   The playback position to start from
      * @param songToPlay The Song object for the track
      * @see ExoPlayerManager#createPlayerWithProcessor(Context, VolumeScalingAudioProcessor)
      * @see CrossfadeController#startFadeIn(VolumeScalingAudioProcessor, int, Runnable)
@@ -486,6 +557,8 @@ public class PlayerService extends Service {
                 player -> {
                     crossfadeController.startFadeIn(mainVolumeProcessor, getDuration(), () -> {
                         Logger.d(TAG, "Fade-in complete for new player");
+                        isPlayRequested = false;
+                        isTransitionInProgress = false;
                     });
                     observeEnding(songToPlay);
                     startProgressUpdates();
@@ -497,10 +570,9 @@ public class PlayerService extends Service {
     /**
      * Initiates the crossfade transition between current and next players.
      *
-     * @param position The playback position for UI updates
      * @param nextSong The song being faded into
      */
-    private void startCrossfade(final int position,final Song nextSong) {
+    private void startCrossfade(final Song nextSong) {
         AudioProcessorManager.ProcessorPair processors =
                 new AudioProcessorManager.ProcessorPair(mainVolumeProcessor, nextVolumeProcessor);
         crossfadeController.startCrossfade(getDuration(), processors, currentPlayer, nextPlayer,
@@ -515,15 +587,19 @@ public class PlayerService extends Service {
                         nextVolumeProcessor = null;
                         observeEnding(nextSong);
                         startProgressUpdates();
+                        isTransitionInProgress = false;
+                        isPlayRequested = false;
                     }
+
                     @Override
                     public void onCrossfadeAborted() {
-                        performHardSwitch(position,nextSong);
+                        performHardSwitch(nextSong);
+                        isPlayRequested = false;
+                        isTransitionInProgress = false;
                     }
                 }
         );
     }
-
 
 
     /**
@@ -532,10 +608,9 @@ public class PlayerService extends Service {
      * <p>Used as a fallback when crossfade operations fail. Swaps players
      * immediately and sets full volume on the new player.</p>
      *
-     * @param position The playback position for UI updates
      * @see AudioProcessorManager#safeSetVolume(VolumeScalingAudioProcessor, float)
      */
-    private void performHardSwitch(int position, Song nextSong) {
+    private void performHardSwitch(Song nextSong) {
         if (nextPlayer != null && nextVolumeProcessor != null) {
             ExoPlayerManager.safeReleasePlayer(currentPlayer);
             currentPlayer = nextPlayer;
@@ -552,11 +627,13 @@ public class PlayerService extends Service {
      * Handles player errors by logging and delegating to error handling logic.
      *
      * @param error The playback exception that occurred
-     * @param song The song that caused the error
+     * @param song  The song that caused the error
      */
     private void handlePlayerError(PlaybackException error, Song song) {
         Logger.e(TAG, "Player error for song: " + song.getFilename(), error);
         handleWrongSong(song);
+        isPlayRequested = false;
+        isTransitionInProgress = false;
     }
 
     /**
@@ -580,9 +657,9 @@ public class PlayerService extends Service {
         if (activePlaylist != null) {
             Song currentSong = activePlaylist.getCurrentSong();
             if (currentSong != null) {
-                if(currentPosition){
+                if (currentPosition) {
                     currentSong.setCurrentPosition((int) currentPlayer.getCurrentPosition());
-                }else{
+                } else {
                     currentSong.setCurrentPosition(0);
                 }
                 playlistService.updateSong(currentSong);
@@ -668,6 +745,7 @@ public class PlayerService extends Service {
      * Handle scenario when there is something wrong while playing song
      * There are scenario when song was deleted , or corrupted. In this case we will notify user about it and delete song from playlist
      * THen attempt to play next song is made. It will then proceed with normal flow ( if playlist is empty it will just stop )
+     *
      * @param problematicSong song that was attempted to play
      */
     public void handleWrongSong(Song problematicSong) {
@@ -713,6 +791,7 @@ public class PlayerService extends Service {
 
     /**
      * Checks if active playlist is the same as playlist
+     *
      * @param playlist playlist to check
      * @return true if active playlist is the same as playlist
      */
@@ -800,13 +879,11 @@ public class PlayerService extends Service {
     };
 
 
-
-
-
     /**
      * Calculates progress percentage for progress bar
+     *
      * @param currentDuration current duration of song
-     * @param totalDuration total duration of song
+     * @param totalDuration   total duration of song
      * @return progress percentage
      */
     public int getProgressPercentage(long currentDuration, long totalDuration) {
@@ -817,7 +894,8 @@ public class PlayerService extends Service {
 
     /**
      * Sends event from service towards all receivers
-     * @param type type of event
+     *
+     * @param type     type of event
      * @param position position of song
      */
     private void populateAndSend(EventType type, int position) {
@@ -831,6 +909,7 @@ public class PlayerService extends Service {
 
     /**
      * Updates current song position and swaps active playlist
+     *
      * @param playlist new playlist
      */
     private void updateCurrentSongAndSwitchPlaylist(Playlist playlist) {
@@ -840,7 +919,8 @@ public class PlayerService extends Service {
 
     /**
      * Handler for removed song to secure of potentially playing song in service
-     * @param args bundle with song and shuffle flag
+     *
+     * @param args    bundle with song and shuffle flag
      * @param shuffle flag to shuffle playlist
      */
     private void handleSongDeleted(Bundle args, boolean shuffle) {
@@ -935,9 +1015,7 @@ public class PlayerService extends Service {
                 case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
                     if (args != null) {
                         Optional.ofNullable(args.getSerializable(PLAYLIST))
-                                .ifPresent(playlist -> {
-                                    updateCurrentSongAndSwitchPlaylist((Playlist) playlist);
-                                });
+                                .ifPresent(playlist -> updateCurrentSongAndSwitchPlaylist((Playlist) playlist));
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
