@@ -16,6 +16,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.database.Cursor;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -43,6 +44,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -226,6 +228,7 @@ public class PlaylistSettingsFragment extends Fragment {
                         .fileUri(uri.toString())
                         .filePath(file.getPath())
                         .build();
+                fillArtistAndTitle(song, uri);
                 newSongs.add(song);
             } catch (SecurityException e) {
                 Logger.e(TAG, "Permission denial for URI: " + uri, e);
@@ -276,6 +279,18 @@ public class PlaylistSettingsFragment extends Fragment {
         if (fileName == null)
             fileName = uri.getLastPathSegment() != null ? uri.getLastPathSegment() : "Unknown_Song";
         return fileName;
+    }
+
+    private void fillArtistAndTitle(Song song, Uri uri){
+        val context = this.requireContext();
+        try (val retriever = new MediaMetadataRetriever()){
+            retriever.setDataSource(context, uri);
+            song.setArtist(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+            song.setTitle(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+        }catch (IOException exception){
+            Logger.w(TAG, "Error getting song metadata , song will be without it", exception);
+            Logger.d(TAG, "Exception", exception);
+        }
     }
 
     /**

@@ -44,12 +44,39 @@ public class Song implements Serializable, Cloneable {
     private String filename;
     private String fileUri;
     private String filePath;
+    private String artist;
+    private String title;
     @ColumnInfo(name = CURRENT_POSITION)
     private int currentPosition;
     private boolean selected;
     @ColumnInfo(name = COLUMN_PLAYLIST_OWNER_ID, index = true)
     private Long playlistOwnerId;
 
+
+    /**
+     * Generates a display name for the song based on available metadata.
+     * Logic:
+     * 1. If Title is present:
+     * a. If Artist is also present: "Artist - Title"
+     * b. If Artist is NOT present: "Title"
+     * 2. If Title is NOT present: "filename"
+     *
+     * @return A user-friendly display name for the song.
+     */
+    public String getDisplayName() {
+        val currentTitle = (title != null && !title.trim().isEmpty()) ? title.trim() : null;
+        val currentArtist = (artist != null && !artist.trim().isEmpty()) ? artist.trim() : null;
+        val currentFilename = (filename != null && !filename.trim().isEmpty()) ? filename.trim() : "Unknown File";
+        if (currentTitle != null) {
+            if (currentArtist != null) {
+                return currentArtist + " - " + currentTitle;
+            } else {
+                return currentTitle;
+            }
+        } else {
+            return currentFilename;
+        }
+    }
 
     @Override
     public boolean equals(Object o) {

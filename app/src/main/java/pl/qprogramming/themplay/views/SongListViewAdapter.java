@@ -52,7 +52,7 @@ public class SongListViewAdapter extends ArrayAdapter<Song> {
             music.setVisibility(View.GONE);
         }
         checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> song.setSelected(isChecked));
-        fileName.setText(song.getFilename());
+        fileName.setText(song.getDisplayName());
         checkBox.setChecked(song.isSelected());
         rowView.setOnLongClickListener(click -> {
             song.setSelected(true);

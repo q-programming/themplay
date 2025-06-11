@@ -643,7 +643,7 @@ public class PlayerService extends Service {
      */
     private void updateNotificationAndUI(Song song) {
         mNotificationManager.createMediaNotification(song, activePlaylist.getName(), false);
-        String msg = MessageFormat.format(getString(R.string.playlist_now_playing), song.getFilename());
+        String msg = MessageFormat.format(getString(R.string.playlist_now_playing), song.getDisplayName());
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
     }
 
