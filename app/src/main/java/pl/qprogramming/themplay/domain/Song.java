@@ -34,8 +34,11 @@ import lombok.val;
 public class Song implements Serializable, Cloneable {
     public static final String SONG_TABLE_NAME = "song";
     public static final String CURRENT_POSITION = "currentPosition";
+    public static final String PLAYLIST_POSITION = "playlist_position";
     public static final String COLUMN_ID = "id";
     public static final String FILENAME = "filename";
+    public static final String ARTIST = "artist";
+    public static final String TITLE = "title";
     public static final String COLUMN_PLAYLIST_OWNER_ID = "playlist_owner_id";
 
     @PrimaryKey(autoGenerate = true)
@@ -44,11 +47,15 @@ public class Song implements Serializable, Cloneable {
     private String filename;
     private String fileUri;
     private String filePath;
+    @ColumnInfo(name = ARTIST)
     private String artist;
+    @ColumnInfo(name = TITLE)
     private String title;
     @ColumnInfo(name = CURRENT_POSITION)
     private int currentPosition;
     private boolean selected;
+    @ColumnInfo(name = PLAYLIST_POSITION)
+    private int playlistPosition;
     @ColumnInfo(name = COLUMN_PLAYLIST_OWNER_ID, index = true)
     private Long playlistOwnerId;
 

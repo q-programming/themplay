@@ -21,11 +21,13 @@ import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -303,7 +305,7 @@ public class PlaylistService extends Service {
                                 Logger.d(TAG, "Playlist with name '" + playlist.getName() + "' already exists for preset '" + playlist.getPreset() + "'. Skipping.");
                             } else {
                                 Logger.e(TAG, "Error during save operation for playlist: " +
-                                        (playlist != null && playlist.getName() != null ? playlist.getName() : "ID " + (playlist != null ? playlist.getId() : "null")), throwable);
+                                        (playlist.getName() != null ? playlist.getName() : "ID " + playlist.getId()), throwable);
                             }
                             onError.accept(throwable);
                         }
@@ -359,8 +361,11 @@ public class PlaylistService extends Service {
     public void addSongToPlaylist(Playlist playlist, List<Song> songsToInsert,
                                   Consumer<Playlist> onPlaylistUpdated) {
         val playlistId = playlist.getId();
+        val currentItemCount = playlist.getSongCount();
         for (int i = 0; i < songsToInsert.size(); i++) {
-            songsToInsert.get(i).setPlaylistOwnerId(playlistId);
+            Song song = songsToInsert.get(i);
+            song.setPlaylistOwnerId(playlistId);
+            song.setPlaylistPosition(currentItemCount + i);
         }
         disposables.add(
                 songRepository.createAll(songsToInsert)
@@ -457,8 +462,13 @@ public class PlaylistService extends Service {
                     }
                     List<Song> songsRemainingInPlaylist = new ArrayList<>();
                     if (currentPlaylistState.getSongs() != null) {
+                        val newPosition = new AtomicInteger(0);
                         songsRemainingInPlaylist = currentPlaylistState.getSongs().stream()
                                 .filter(song -> !idsOfSongsMarkedForRemoval.contains(song.getId()))
+                                .sorted(Comparator.comparingInt(Song::getPlaylistPosition))
+                                .peek(song -> {
+                                    song.setPlaylistPosition(newPosition.getAndIncrement());
+                                })
                                 .collect(Collectors.toList());
                     }
                     currentPlaylistState.setSongs(songsRemainingInPlaylist);
@@ -469,9 +479,11 @@ public class PlaylistService extends Service {
                         currentPlaylistState.setCurrentSongId(null);
                     }
                     Completable deleteDbSongsCompletable = songRepository.deleteSongsByIds(idsOfSongsMarkedForRemoval);
+                    Completable updateDbSongsCompletable = songRepository.updateAll(songsRemainingInPlaylist);
                     Completable updateDbPlaylistCompletable = playlistRepository.update(currentPlaylistState);
                     return deleteDbSongsCompletable
                             .andThen(updateDbPlaylistCompletable)
+                            .andThen(updateDbSongsCompletable)
                             .andThen(Single.just(currentPlaylistState));
                 }));
         disposables.add(
@@ -486,6 +498,19 @@ public class PlaylistService extends Service {
                                 onSuccessCallback::accept,
                                 onErrorCallback::accept
                         )
+        );
+    }
+
+    public void updateSongsPositions(List<Song> songs) {
+        disposables.add(
+                songRepository.updateAll(songs)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(() -> {
+                            Logger.i(TAG, "Successfully updated songs positions");
+                        }, throwable -> {
+                            Logger.e(TAG, "Error updating songs positions", throwable);
+                        })
         );
     }
 

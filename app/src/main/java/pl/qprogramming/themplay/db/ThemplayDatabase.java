@@ -43,11 +43,15 @@ public abstract class ThemplayDatabase extends RoomDatabase {
         }
         return INSTANCE;
     }
+
     static final Migration MIGRATION_1_2 = new Migration(1, 2) {
-        @Override
         public void migrate(@NonNull SupportSQLiteDatabase database) {
-            database.execSQL("ALTER TABLE song ADD COLUMN artist TEXT");
-            database.execSQL("ALTER TABLE song ADD COLUMN title TEXT");
+            database.execSQL("ALTER TABLE " + Song.SONG_TABLE_NAME +
+                    " ADD COLUMN " + Song.ARTIST + " TEXT");
+            database.execSQL("ALTER TABLE " + Song.SONG_TABLE_NAME +
+                    " ADD COLUMN " + Song.TITLE + " TEXT");
+            database.execSQL("ALTER TABLE " + Song.SONG_TABLE_NAME +
+                    " ADD COLUMN " + Song.PLAYLIST_POSITION + " INTEGER NOT NULL DEFAULT 0");
         }
     };
 };

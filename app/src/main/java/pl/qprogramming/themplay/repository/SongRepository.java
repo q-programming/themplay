@@ -26,13 +26,16 @@ public interface SongRepository {
     @Update
     Single<Integer> update(Song song);
 
+    @Update
+    Completable updateAll(List<Song> songs);
+
     @Delete
     Single<Integer> delete(Song song);
 
     @Query("DELETE FROM " + Song.SONG_TABLE_NAME + " WHERE id IN (:songIds)")
     Completable deleteSongsByIds(List<Long> songIds);
 
-    @Query("SELECT * FROM " + Song.SONG_TABLE_NAME + " WHERE " + Song.COLUMN_PLAYLIST_OWNER_ID + " = :playlistId ORDER BY " + Song.FILENAME)
+    @Query("SELECT * FROM " + Song.SONG_TABLE_NAME + " WHERE " + Song.COLUMN_PLAYLIST_OWNER_ID + " = :playlistId ORDER BY " + Song.PLAYLIST_POSITION)
     Single<List<Song>> getSongsForPlaylist(long playlistId);
 
     @Query("SELECT COUNT(*) FROM " + Song.SONG_TABLE_NAME + " WHERE " + Song.COLUMN_PLAYLIST_OWNER_ID + " = :playlistId")
@@ -40,6 +43,5 @@ public interface SongRepository {
 
     @Query("DELETE FROM " + Song.SONG_TABLE_NAME + " WHERE " + Song.COLUMN_PLAYLIST_OWNER_ID + " = :playlistId")
     Completable deleteAllSongsFromPlaylist(long playlistId);
-
 
 }

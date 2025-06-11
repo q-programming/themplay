@@ -65,6 +65,8 @@
     <string name="playlist_add_created">New playlist \"{0}\" created</string>
     <string name="playlist_cant_play">Cannot Play Song \"{0}\"!</string>
     <string name="playlist_add_new_song">Add new song</string>
+    <string name="playlist_settings_song_close">Ready</string>
+    <string name="playlist_settings_songs_update">Update songs</string>
     <string name="playlist_added_new_songs">New song(s) were added</string>
     <string name="playlist_add_songs_error">Error while trying to add songs to playlist</string>
     <string name="playlist_remove_selected">Remove selected songs</string>

@@ -31,5 +31,10 @@
         android:layout_marginStart="8dp"
         android:layout_weight="1"
         android:textAppearance="?attr/textAppearanceListItem" />
+    <ImageView
+        android:id="@+id/move_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:srcCompat="@drawable/ic_reorder_24" />
 
 </LinearLayout>

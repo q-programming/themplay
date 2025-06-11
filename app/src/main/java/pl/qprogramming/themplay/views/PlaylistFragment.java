@@ -147,7 +147,7 @@ public class PlaylistFragment extends Fragment {
             recyclerView.setAdapter(adapter);
             adapter.loadPlaylists();
             ItemTouchHelper.Callback callback =
-                    new PlaylistItemMoveCallback(adapter);
+                    new ItemMoveCallback(adapter);
             ItemTouchHelper touchHelper = new ItemTouchHelper(callback);
             touchHelper.attachToRecyclerView(recyclerView);
         }
