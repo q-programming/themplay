@@ -39,6 +39,7 @@ public enum EventType {
     PRESET_SAVE("q-programming.themplay.preset.save"),
     OPERATION_STARTED("q-programming.themplay.operation.started"),
     OPERATION_FINISHED("q-programming.themplay.operation.finished"),
+    PLAYER_INIT_ACTION("q-programming.themplay.player.init"),
     UNKNOWN("q-programming.themplay.n/a");
 
     private static final Map<String, EventType> BY_CODE = new HashMap<>();
