@@ -7,6 +7,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYER_INIT_ACTION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
@@ -121,6 +122,7 @@ public class Player extends Service {
      */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Logger.d(TAG, "onStartCommand");
         if (intent != null && intent.getAction() != null) {
             Logger.d(TAG, "[NOTIFICATION] Player service received action: " + intent.getAction());
             val action = EventType.getType(intent.getAction());
@@ -134,6 +136,8 @@ public class Player extends Service {
                 previous();
             } else if (PLAYBACK_NOTIFICATION_STOP.equals(action)) {
                 stop();
+            } else if (PLAYER_INIT_ACTION.equals(action)) {
+                mNotificationManager.createIdleNotification();
             }
             notifyClientPlaybackStateChanged(action);
         }
@@ -374,7 +378,7 @@ public class Player extends Service {
      * if fade stop is set , smoothly stops playback
      */
     public void stop() {
-        mNotificationManager.removeNotification();
+        mNotificationManager.createIdleNotification();
         Logger.d(TAG, "Stop media player");
         if (isPlaying()) {
             updateCurrentSongProgress(true);
@@ -699,6 +703,7 @@ public class Player extends Service {
         nextPlayer = null;
         mainVolumeProcessor = null;
         nextVolumeProcessor = null;
+        mNotificationManager.removeNotification();
     }
 
     /**

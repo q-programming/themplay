@@ -1,6 +1,7 @@
 package pl.qprogramming.themplay;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYER_INIT_ACTION;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.settings.Property.LAST_LAUNCH_VERSION;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
@@ -284,6 +285,7 @@ public class MainActivity extends AppCompatActivity {
         context.bindService(intent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         //player service
         val playerIntent = new Intent(context, Player.class);
+        playerIntent.setAction(PLAYER_INIT_ACTION.getCode());
         ContextCompat.startForegroundService(context, playerIntent);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
     }

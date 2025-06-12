@@ -71,6 +71,19 @@ public class MediaNotificationManager {
         mService.startForeground(NOTIFICATION_ID, builder.build());
         Logger.d(TAG, "Notification created song " + song.getFilename());
     }
+    @UnstableApi
+    public void createIdleNotification() {
+        Logger.d(TAG, "Creating idle notification");
+        Intent openAppIntent = new Intent(mService, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0,
+                openAppIntent, PendingIntent.FLAG_MUTABLE);
+        val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
+                .setContentIntent(pendingIntent)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setSmallIcon(R.drawable.ic_logo)
+                .setContentTitle("Themplay");
+        mService.startForeground(NOTIFICATION_ID, builder.build());
+    }
 
     private void createNotificationChannel() {
         val chan = new NotificationChannel(CHANNEL_ID,
