@@ -40,7 +40,7 @@
             android:foregroundServiceType="dataSync"
             android:exported="false" />
         <service
-            android:name=".player.PlayerService"
+            android:name=".player.Player"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

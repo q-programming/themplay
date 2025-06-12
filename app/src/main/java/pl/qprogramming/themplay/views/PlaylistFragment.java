@@ -147,7 +147,7 @@ public class PlaylistFragment extends Fragment {
             recyclerView.setAdapter(adapter);
             adapter.loadPlaylists();
             ItemTouchHelper.Callback callback =
-                    new PlaylistItemMoveCallback(adapter);
+                    new ItemMoveCallback(adapter);
             ItemTouchHelper touchHelper = new ItemTouchHelper(callback);
             touchHelper.attachToRecyclerView(recyclerView);
         }
@@ -162,8 +162,8 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 val adapter = (PlaylistItemRecyclerViewAdapter) recyclerView.getAdapter();

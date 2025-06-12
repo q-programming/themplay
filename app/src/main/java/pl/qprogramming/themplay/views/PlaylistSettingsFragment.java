@@ -3,9 +3,9 @@ package pl.qprogramming.themplay.views;
 import static android.app.Activity.RESULT_OK;
 import static android.content.Intent.ACTION_OPEN_DOCUMENT;
 import static android.content.Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
-import static pl.qprogramming.themplay.views.SongListViewAdapter.MULTIPLE_SELECTED;
 
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
@@ -16,6 +16,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.database.Cursor;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -28,7 +29,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
-import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,11 +38,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,11 +73,13 @@ public class PlaylistSettingsFragment extends Fragment {
     private Playlist currentPlaylist;
     private TextInputEditText playlistEditText;
     private TextInputLayout playlistInputLayout;
-    private SongListViewAdapter adapter;
-    private ListView songsListView;
+    private SongRecyclerViewAdapter adapter;
     private TextView headerTitleTextView;
     private boolean multiple;
+    private Button addBtn;
     private Button removeBtn;
+    private Button readyBtn;
+    private Button updateBtn;
 
     public PlaylistSettingsFragment() {
         // Required empty public constructor
@@ -112,42 +118,79 @@ public class PlaylistSettingsFragment extends Fragment {
         } else {
             initializeViews(view);
             addInputTextWatcher();
-            removeBtn.setVisibility(View.GONE);
+            stopEdit();
+            updateBtn.setOnClickListener((clicked) -> startEdit());
+            readyBtn.setOnClickListener(clicked -> {
+                val songs = adapter.getSongsList();
+                playlistService.updateSongsPositions(songs);
+                stopEdit();
+                multiple = false;
+                adapter.clearCurrentSelections();
+            });
             removeBtn.setOnClickListener(clicked -> {
                 val songsToRemove = currentPlaylist.getSongs().stream().filter(Song::isSelected).collect(Collectors.toList());
                 playlistService.removeSongsFromPlaylist(currentPlaylist.getId(), songsToRemove,
                         updatedPlaylist -> currentPlaylist = updatedPlaylist,
                         throwable -> Logger.e(TAG, "Error removing songs from playlist", throwable),
                         () -> {
-                            //finally , regardless if success or fail
-                            removeBtn.setVisibility(View.GONE);
+                            stopEdit();
                             multiple = false;
-                            adapter.setMultiple(false);
                             updateAndRenderSongList(false);
-                            adapter.clearSelections();
+                            adapter.clearCurrentSelections();
                             Toast.makeText(view.getContext(), getString(R.string.playlist_removed_selected_songs), Toast.LENGTH_SHORT).show();
                         });
             });
             view.findViewById(R.id.include).setOnClickListener(clicked -> updateListAndGoBack());
             headerTitleTextView.setOnClickListener(clicked -> updateListAndGoBack());
-            val filter = new IntentFilter(MULTIPLE_SELECTED);
+            addBtn.setOnClickListener(clicked -> {
+                Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
+                        .setDataAndType(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, "audio/*")
+                        .setFlags(FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                startActivityForSelectedFiles.launch(intent);
+            });
+            val filter = new IntentFilter(PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED.getCode());
+            filter.addAction(EventType.PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED.getCode());
+            filter.addAction(EventType.PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE.getCode());
             LocalBroadcastManager.getInstance(requireActivity()).registerReceiver(receiver, filter);
+
         }
     }
 
+    private void startEdit() {
+        adapter.setMultipleMode(true);
+        removeBtn.setVisibility(View.VISIBLE);
+        removeBtn.setEnabled(false);
+        readyBtn.setVisibility(View.VISIBLE);
+        addBtn.setVisibility(View.GONE);
+        updateBtn.setVisibility(View.GONE);
+    }
+
+    private void stopEdit() {
+        adapter.setMultipleMode(false);
+        removeBtn.setVisibility(View.GONE);
+        readyBtn.setVisibility(View.GONE);
+        addBtn.setVisibility(View.VISIBLE);
+        updateBtn.setVisibility(View.VISIBLE);
+    }
+
     private void initializeViews(@NonNull View view) {
+        addBtn = view.findViewById(R.id.add_song);
         removeBtn = view.findViewById(R.id.remove_selected_songs);
+        readyBtn = view.findViewById(R.id.songs_update_done);
+        updateBtn = view.findViewById(R.id.songs_update);
         headerTitleTextView = view.findViewById(R.id.header_title);
-        songsListView = view.findViewById(R.id.list_songs);
+        RecyclerView songsRecyclerView = view.findViewById(R.id.list_songs_recycler);
+        songsRecyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        adapter = new SongRecyclerViewAdapter(requireContext());
+        val callback = new ItemMoveCallback<>(adapter);
+        val touchHelper = new ItemTouchHelper(callback);
+        touchHelper.attachToRecyclerView(songsRecyclerView);
+        adapter.setItemTouchHelper(touchHelper);
+        songsRecyclerView.setAdapter(adapter);
         playlistEditText = view.findViewById(R.id.playlist_name_input);
         playlistInputLayout = view.findViewById(R.id.playlist_name_layout);
-        view.findViewById(R.id.add_song).setOnClickListener(clicked -> {
-            Intent intent = new Intent(ACTION_OPEN_DOCUMENT)
-                    .setDataAndType(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, "audio/*")
-                    .setFlags(FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            startActivityForSelectedFiles.launch(intent);
-        });
+
     }
 
     /**
@@ -226,6 +269,7 @@ public class PlaylistSettingsFragment extends Fragment {
                         .fileUri(uri.toString())
                         .filePath(file.getPath())
                         .build();
+                fillArtistAndTitle(song, uri);
                 newSongs.add(song);
             } catch (SecurityException e) {
                 Logger.e(TAG, "Permission denial for URI: " + uri, e);
@@ -241,7 +285,7 @@ public class PlaylistSettingsFragment extends Fragment {
                     updatedPlaylist -> {
                         currentPlaylist = updatedPlaylist;
                         if (isAdded()) {
-                            updateAndRenderSongList(true);
+                            updateAndRenderSongList(true, updatedPlaylist);
                             Intent intent = new Intent(EventType.PLAYLIST_NOTIFICATION_ADD.getCode());
                             Bundle args = new Bundle();
                             args.putSerializable(PLAYLIST, currentPlaylist);
@@ -278,27 +322,44 @@ public class PlaylistSettingsFragment extends Fragment {
         return fileName;
     }
 
+    private void fillArtistAndTitle(Song song, Uri uri) {
+        val context = this.requireContext();
+        try (val retriever = new MediaMetadataRetriever()) {
+            retriever.setDataSource(context, uri);
+            song.setArtist(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+            song.setTitle(retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+        } catch (IOException exception) {
+            Logger.w(TAG, "Error getting song metadata , song will be without it", exception);
+            Logger.d(TAG, "Exception", exception);
+        }
+    }
+
     /**
      * Updates and renders song list with current playlist.
      *
      * @param notify If true, notifies the adapter that the data set has changed.
      */
     private void updateAndRenderSongList(boolean notify) {
-        if (!isAdded() || currentPlaylist == null || songsListView == null) {
+        updateAndRenderSongList(notify, currentPlaylist);
+    }
+
+    private void updateAndRenderSongList(boolean notify, Playlist playlist) {
+        if (!isAdded() || playlist == null) {
             Logger.w(TAG, "Cannot update/render song list, fragment not added, playlist null, or listView null.");
             return;
         }
-        List<Song> songs = currentPlaylist.getSongs() != null ? currentPlaylist.getSongs() : new ArrayList<>();
+        currentPlaylist = playlist;
+        List<Song> songs = playlist.getSongs() != null ? playlist.getSongs() : new ArrayList<>();
         Logger.d(TAG, "Rendering song list with " + songs.size() + " songs. Multiple selection: " + multiple);
-        if (adapter == null) {
-            adapter = new SongListViewAdapter(requireContext(), songs, multiple);
-            songsListView.setAdapter(adapter);
-        } else {
-            adapter.setSongs(songs);
-            adapter.setMultiple(multiple);
-            if (notify) {
-                adapter.notifyDataSetChanged();
-            }
+        if (playlist.getSongs().isEmpty()) {
+            updateBtn.setVisibility(View.GONE);
+        }else{
+            updateBtn.setVisibility(View.VISIBLE);
+        }
+        adapter.updateSongs(songs);
+        adapter.setMultipleMode(false);
+        if (notify) {
+            adapter.notifyDataSetChanged();
         }
     }
 
@@ -347,9 +408,19 @@ public class PlaylistSettingsFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "Multiple selection started");
-            removeBtn.setVisibility(View.VISIBLE);
-            multiple = true;
+            val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] recived action " + event);
+            switch (event) {
+                case PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED:
+                    startEdit();
+                    break;
+                case PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED:
+                    removeBtn.setEnabled(true);
+                    break;
+                case PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE:
+                    removeBtn.setEnabled(false);
+                    break;
+            }
             adapter.notifyDataSetChanged();
         }
     };
@@ -364,7 +435,7 @@ public class PlaylistSettingsFragment extends Fragment {
                 currentPlaylist = playlistWithSongs;
                 headerTitleTextView.setText(currentPlaylist.getName());
                 playlistEditText.setText(currentPlaylist.getName());
-                updateAndRenderSongList(true);
+                updateAndRenderSongList(true, playlistWithSongs);
             }, throwable -> Logger.e(TAG, "Error loading playlist", throwable));
         }
 

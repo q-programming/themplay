@@ -8,7 +8,7 @@ android {
         applicationId "pl.qprogramming.themplay"
         minSdkVersion 30
         targetSdkVersion 34
-        versionCode 6
+        versionCode 9
         versionName "1.0.0"
         buildConfigField("long","BUILD_TIMESTAMP",System.currentTimeMillis() + "L")
 

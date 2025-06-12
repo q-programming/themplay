@@ -122,7 +122,9 @@ public class Utils {
         } else {
             playlist.setPlaylist(list);
         }
+        //ensure no nulls in playlist
         playlist.getPlaylist().removeAll(Collections.singleton(null));
+        Logger.d(TAG, "Created playlist with " + playlist.getPlaylist().size() + " songs , shuffled: " + shuffle);
     }
 
     public static void applyPlaylistStyle(int textColor, TextView textView, boolean textOutline) {
@@ -202,6 +204,7 @@ public class Utils {
     /**
      * Parses a single part of a version string (e.g., "2-beta" or "3").
      * Extracts the leading numeric characters before any non-digit (like '-').
+     *
      * @param part The version string part.
      * @return The parsed integer, or 0 if the part is empty or has no leading digits.
      * @throws NumberFormatException if the extracted numeric string is still invalid (should be rare).

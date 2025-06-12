@@ -1,5 +1,9 @@
 package pl.qprogramming.themplay.views;
 
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE;
+
 import android.content.Context;
 import android.content.Intent;
 import android.view.LayoutInflater;
@@ -20,8 +24,9 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Song;
 
+@Deprecated
 public class SongListViewAdapter extends ArrayAdapter<Song> {
-    public static final String MULTIPLE_SELECTED = "q-programming.themplay.playlist.multiple";
+
     @Setter
     private List<Song> songs;
     @Setter
@@ -43,27 +48,48 @@ public class SongListViewAdapter extends ArrayAdapter<Song> {
         val song = songs.get(position);
         val fileName = (TextView) rowView.findViewById(R.id.song_filename);
         val checkBox = (CheckBox) rowView.findViewById(R.id.song_checkbox);
+        val move = rowView.findViewById(R.id.move_icon);
         val music = rowView.findViewById(R.id.music_symbol);
         if (!multiple) {
             checkBox.setVisibility(View.GONE);
+            move.setVisibility(View.GONE);
             music.setVisibility(View.VISIBLE);
         } else {
             checkBox.setVisibility(View.VISIBLE);
+            move.setVisibility(View.VISIBLE);
             music.setVisibility(View.GONE);
         }
-        checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> song.setSelected(isChecked));
-        fileName.setText(song.getFilename());
+        checkBox.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (buttonView.isPressed() || song.isSelected() != isChecked) {
+                song.setSelected(isChecked);
+                broadcastSelectionState();
+            }
+        });
+        fileName.setText(song.getDisplayName());
         checkBox.setChecked(song.isSelected());
         rowView.setOnLongClickListener(click -> {
-            song.setSelected(true);
-            checkBox.setChecked(true);
             multiple = true;
-            Intent intent = new Intent(MULTIPLE_SELECTED);
+            Intent intent = new Intent(PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED.getCode());
             LocalBroadcastManager.getInstance(rowView.getContext()).sendBroadcast(intent);
             return true;
         });
         return rowView;
     }
+
+    private void broadcastSelectionState() {
+        boolean anySelected = false;
+        if (songs != null) {
+            anySelected = songs.stream().anyMatch(Song::isSelected);
+        }
+        Intent selectionIntent;
+        if (anySelected) {
+            selectionIntent = new Intent(PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED.getCode());
+        } else {
+            selectionIntent = new Intent(PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE.getCode());
+        }
+        LocalBroadcastManager.getInstance(context).sendBroadcast(selectionIntent);
+    }
+
 
     @Override
     public int getCount() {

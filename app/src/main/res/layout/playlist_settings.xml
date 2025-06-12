@@ -30,35 +30,62 @@
         android:id="@+id/button_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
         app:layout_constraintTop_toBottomOf="@+id/playlist_name_layout">
 
         <Button
             android:id="@+id/remove_selected_songs"
             style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="0.5"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="2dp"
+            android:layout_weight="1"
             android:text="@string/playlist_remove_selected" />
 
         <Button
             android:id="@+id/add_song"
             style="?android:attr/buttonBarButtonStyle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:layout_weight="0.5"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="2dp"
+            android:layout_weight="1"
             android:text="@string/playlist_add_new_song" />
 
+        <Button
+            android:id="@+id/songs_update_done"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:text="@string/playlist_settings_song_close" />
+        <Button
+            android:id="@+id/songs_update"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="2dp"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:text="@string/playlist_settings_songs_update" />
     </LinearLayout>
 
-    <ListView
-        android:id="@+id/list_songs"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/list_songs_recycler"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/button_layout" />
+        android:layout_height="match_parent"
+        android:layout_marginTop="8dp"
+        app:layoutManager="LinearLayoutManager"
+        tools:listitem="@layout/song" />
+<!--    <ListView-->
+<!--        android:id="@+id/list_songs"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        app:layout_constraintBottom_toBottomOf="parent"-->
+<!--        app:layout_constraintTop_toBottomOf="@+id/button_layout" />-->
 
 </LinearLayout>

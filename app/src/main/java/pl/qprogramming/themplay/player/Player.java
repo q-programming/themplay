@@ -39,7 +39,6 @@ import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.C;
 import androidx.media3.common.PlaybackException;
-import androidx.media3.common.Player;
 import androidx.media3.common.util.Log;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -77,8 +76,8 @@ import pl.qprogramming.themplay.util.Utils;
  * @see VolumeScalingAudioProcessor
  */
 @UnstableApi
-public class PlayerService extends Service {
-    private static final String TAG = PlayerService.class.getSimpleName();
+public class Player extends Service {
+    private static final String TAG = Player.class.getSimpleName();
     private Playlist activePlaylist;
     @Setter
     private ProgressBar progressBar;
@@ -87,7 +86,7 @@ public class PlayerService extends Service {
     private PlaylistService playlistService;
     private boolean serviceIsBound;
 
-    private final IBinder mBinder = new PlayerService.LocalBinder();
+    private final IBinder mBinder = new Player.LocalBinder();
     private PlayerServiceCallbacks mClientCallbacks;
 
     private ExoPlayer currentPlayer;
@@ -182,14 +181,19 @@ public class PlayerService extends Service {
         return mBinder;
     }
 
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Logger.d(TAG, "Service was unbinded, player is playing ? " + isPlaying());
+        return super.onUnbind(intent);
+    }
 
     public class LocalBinder extends Binder {
-        public PlayerService getService() {
-            return PlayerService.this;
+        public Player getService() {
+            return Player.this;
         }
 
         public void setCallbacks(PlayerServiceCallbacks callbacks) {
-            PlayerService.this.mClientCallbacks = callbacks;
+            Player.this.mClientCallbacks = callbacks;
         }
     }
 
@@ -382,7 +386,7 @@ public class PlayerService extends Service {
                 mainVolumeProcessor = null;
             }
             stopProgressUpdates();
-            isPlayRequested =false;
+            isPlayRequested = false;
             isTransitionInProgress = false;
         }
     }
@@ -398,10 +402,7 @@ public class PlayerService extends Service {
      * @see #updateCurrentSongProgress(boolean)
      */
     private void fadeIntoNewPlaylist(Playlist playlist) {
-        if (isTransitionInProgress || isPlayRequested) {
-            Logger.d(TAG, "Transition or play already in progress, ignoring playlist change request");
-            return;
-        }
+        Logger.d(TAG, "Fading into new playlist ?" + playlist.getName());
         isTransitionInProgress = true;
         Logger.d(TAG, "Starting playlist transition to: " + playlist.getName());
         try {
@@ -643,7 +644,7 @@ public class PlayerService extends Service {
      */
     private void updateNotificationAndUI(Song song) {
         mNotificationManager.createMediaNotification(song, activePlaylist.getName(), false);
-        String msg = MessageFormat.format(getString(R.string.playlist_now_playing), song.getFilename());
+        String msg = MessageFormat.format(getString(R.string.playlist_now_playing), song.getDisplayName());
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
     }
 
@@ -717,7 +718,7 @@ public class PlayerService extends Service {
                     return;
                 }
                 int playbackState = currentPlayer.getPlaybackState();
-                if (playbackState == Player.STATE_IDLE || playbackState == Player.STATE_ENDED) {
+                if (playbackState == androidx.media3.common.Player.STATE_IDLE || playbackState == androidx.media3.common.Player.STATE_ENDED) {
                     Log.d(TAG, "Player ended or idle for song: " + currentSong.getFilename());
                     return;
                 }
@@ -941,6 +942,18 @@ public class PlayerService extends Service {
         }
     }
 
+    private void handleRecreateList(boolean shuffle) {
+        if (activePlaylist != null) {
+            createPlaylist(activePlaylist, shuffle);
+        } else {
+            Logger.d(TAG, "Received recreate command but no active playlist found in service, searching for one");
+            playlistService.getActiveAndLoadSongs(
+                    playlist -> activePlaylist = playlist,
+                    () ->
+                            Log.d(TAG, "No active playlist found in service while trying to recreate it."));
+        }
+    }
+
     /**
      * connection to service allowing communication
      */
@@ -958,9 +971,7 @@ public class PlayerService extends Service {
 
     private void notifyClientPlaybackStateChanged(EventType type) {
         if (mClientCallbacks != null) {
-            new Handler(Looper.getMainLooper()).post(() -> {
-                mClientCallbacks.onPlaybackStateChanged(type);
-            });
+            new Handler(Looper.getMainLooper()).post(() -> mClientCallbacks.onPlaybackStateChanged(type));
         }
     }
 
@@ -971,8 +982,8 @@ public class PlayerService extends Service {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             Bundle args = intent.getBundleExtra(ARGS);
             val sp = getDefaultSharedPreferences(context);
             val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
@@ -1019,7 +1030,7 @@ public class PlayerService extends Service {
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
-                    createPlaylist(activePlaylist, shuffle);
+                    handleRecreateList(shuffle);
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
                     if (args != null) {

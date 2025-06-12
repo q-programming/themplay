@@ -56,7 +56,7 @@ import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
 import pl.qprogramming.themplay.domain.Song;
 import pl.qprogramming.themplay.logger.Logger;
-import pl.qprogramming.themplay.player.PlayerService;
+import pl.qprogramming.themplay.player.Player;
 import pl.qprogramming.themplay.playlist.EventType;
 import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
@@ -72,9 +72,9 @@ import pl.qprogramming.themplay.views.SettingsFragment;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private PlaylistService playlistService;
-    private PlayerService playerService;
-    private boolean serviceIsBound;
-    private boolean playerServiceIsBound;
+    private Player player;
+    private boolean playlistServiceBound;
+    private boolean playerIsBound;
     private int activeColor;
     private ProgressBar loader;
 
@@ -274,6 +274,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Binds to services
+     * Player must be called as foregroud sertvice
      */
     private void setupServices() {
         Logger.d(TAG, "Setting up services");
@@ -282,7 +283,8 @@ public class MainActivity extends AppCompatActivity {
         val intent = new Intent(context, PlaylistService.class);
         context.bindService(intent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         //player service
-        val playerIntent = new Intent(context, PlayerService.class);
+        val playerIntent = new Intent(context, Player.class);
+        ContextCompat.startForegroundService(context, playerIntent);
         context.bindService(playerIntent, playerConnection, Context.BIND_AUTO_CREATE);
     }
 
@@ -334,7 +336,7 @@ public class MainActivity extends AppCompatActivity {
         val play_pause_btn = (ImageView) findViewById(R.id.play_pause);
         val shuffle_btn = (ImageView) findViewById(R.id.shuffle);
         play_pause_btn.setOnClickListener(play -> {
-            if (playerService.isPlaying()) {
+            if (player.isPlaying()) {
                 populateAndSend(EventType.PLAYBACK_NOTIFICATION_PAUSE);
                 play_pause_btn.setImageResource(R.drawable.ic_play_32);
             } else {
@@ -377,7 +379,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void repaintMediaControls() {
-        if (playerService != null && playerService.isPlaying()) {
+        if (player != null && player.isPlaying()) {
             Logger.d(TAG,"Repainting media controls - pause");
             renderPauseButton();
         } else {
@@ -528,13 +530,13 @@ public class MainActivity extends AppCompatActivity {
 
     void doUnbindService() {
         val context = getApplicationContext();
-        if (serviceIsBound) {
+        if (playlistServiceBound) {
             context.unbindService(playlistServiceConnection);
-            serviceIsBound = false;
+            playlistServiceBound = false;
         }
-        if (playerServiceIsBound) {
+        if (playerIsBound) {
             context.unbindService(playerConnection);
-            playerServiceIsBound = false;
+            playerIsBound = false;
         }
     }
 
@@ -543,7 +545,7 @@ public class MainActivity extends AppCompatActivity {
             Logger.d(TAG, "Playlist service connected");
             val binder = (PlaylistService.LocalBinder) service;
             playlistService = binder.getService();
-            serviceIsBound = true;
+            playlistServiceBound = true;
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -553,9 +555,9 @@ public class MainActivity extends AppCompatActivity {
     private final ServiceConnection playerConnection = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder service) {
             Logger.d(TAG, "Player service connected");
-            val binder = (PlayerService.LocalBinder) service;
-            playerService = binder.getService();
-            playerServiceIsBound = true;
+            val binder = (Player.LocalBinder) service;
+            player = binder.getService();
+            playerIsBound = true;
             binder.setCallbacks(type -> {
                 //recived communication from player , can repaint buttons etc.
                 Logger.d(TAG, "[CALLBACK] Received event " + type);
@@ -565,8 +567,8 @@ public class MainActivity extends AppCompatActivity {
             });
             val playBtn = (ImageView) findViewById(R.id.play_pause);
             val progressBar = (ProgressBar) findViewById(R.id.progressBar);
-            playerService.setProgressBar(progressBar);
-            if (playerService.isPlaying()) {
+            player.setProgressBar(progressBar);
+            if (player.isPlaying()) {
                 renderPauseButton();
             } else {
                 playBtn.setImageResource(R.drawable.ic_play_32);
@@ -574,7 +576,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         public void onServiceDisconnected(ComponentName className) {
-            playerService = null;
+            player = null;
         }
     };
 
@@ -585,8 +587,8 @@ public class MainActivity extends AppCompatActivity {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             Bundle args = intent.getBundleExtra(ARGS);
             switch (event) {
                 case OPERATION_STARTED:
@@ -627,7 +629,7 @@ public class MainActivity extends AppCompatActivity {
                 case PLAYLIST_NOTIFICATION_DELETE:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((playlist -> {
-                                if (playerService.isActivePlaylist((Playlist) playlist)) {
+                                if (player.isActivePlaylist((Playlist) playlist)) {
                                     renderPlayButton();
                                 }
                             }));
@@ -635,7 +637,7 @@ public class MainActivity extends AppCompatActivity {
                 case PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((playlist -> {
-                                if(!playerService.isPlaying()){
+                                if(!player.isPlaying()){
                                     Logger.d(TAG,"Active playlist is not playing force activation ");
                                     playlistService.setActive((Playlist) playlist, true);
                                 }

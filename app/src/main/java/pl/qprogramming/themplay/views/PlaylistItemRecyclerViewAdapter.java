@@ -52,7 +52,7 @@ import pl.qprogramming.themplay.util.Utils;
 /**
  * {@link RecyclerView.Adapter} that can display a {@link Playlist}.
  */
-public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<PlaylistItemRecyclerViewAdapter.ViewHolder> implements PlaylistItemMoveCallback.ItemTouchHelperContract {
+public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<PlaylistItemRecyclerViewAdapter.ViewHolder> implements ItemMoveCallback.ItemTouchHelperContract<PlaylistItemRecyclerViewAdapter.ViewHolder> {
 
     private static final String TAG = PlaylistItemRecyclerViewAdapter.class.getSimpleName();
     private final List<Playlist> playlists = new ArrayList<>();
@@ -235,8 +235,8 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         if (!viewHolder.playlist.isActive()) {
             viewHolder.background.setAlpha(1f);
         }
-    }
 
+    }
     @Override
     public void onRowClear(ViewHolder viewHolder) {
         if (!viewHolder.playlist.isActive()) {

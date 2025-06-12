@@ -3,13 +3,12 @@ package pl.qprogramming.themplay.views;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
-import lombok.val;
 
-public class PlaylistItemMoveCallback extends ItemTouchHelper.Callback {
+public class ItemMoveCallback<T extends RecyclerView.ViewHolder> extends ItemTouchHelper.Callback {
 
-    private final ItemTouchHelperContract mAdapter;
+    private final ItemTouchHelperContract<T> mAdapter;
 
-    public PlaylistItemMoveCallback(ItemTouchHelperContract adapter) {
+    public ItemMoveCallback(ItemTouchHelperContract<T> adapter) {
         mAdapter = adapter;
     }
 
@@ -47,11 +46,8 @@ public class PlaylistItemMoveCallback extends ItemTouchHelper.Callback {
     public void onSelectedChanged(RecyclerView.ViewHolder viewHolder,
                                   int actionState) {
         if (actionState != ItemTouchHelper.ACTION_STATE_IDLE) {
-            if (viewHolder instanceof PlaylistItemRecyclerViewAdapter.ViewHolder) {
-                val myViewHolder = (PlaylistItemRecyclerViewAdapter.ViewHolder) viewHolder;
-                mAdapter.onRowSelected(myViewHolder);
-            }
-
+            T specificViewHolder = (T) viewHolder;
+            mAdapter.onRowSelected(specificViewHolder);
         }
 
         super.onSelectedChanged(viewHolder, actionState);
@@ -59,23 +55,20 @@ public class PlaylistItemMoveCallback extends ItemTouchHelper.Callback {
 
     @Override
     public void clearView(@NonNull RecyclerView recyclerView,
-                          @NonNull  RecyclerView.ViewHolder viewHolder) {
+                          @NonNull RecyclerView.ViewHolder viewHolder) {
         super.clearView(recyclerView, viewHolder);
+        T specificViewHolder = (T) viewHolder;
+        mAdapter.onRowClear(specificViewHolder);
 
-        if (viewHolder instanceof PlaylistItemRecyclerViewAdapter.ViewHolder) {
-            val myViewHolder =
-                    (PlaylistItemRecyclerViewAdapter.ViewHolder) viewHolder;
-            mAdapter.onRowClear(myViewHolder);
-        }
     }
 
-    public interface ItemTouchHelperContract {
+    public interface ItemTouchHelperContract<T extends RecyclerView.ViewHolder> {
 
         void onRowMoved(int fromPosition, int toPosition);
 
-        void onRowSelected(PlaylistItemRecyclerViewAdapter.ViewHolder myViewHolder);
+        void onRowSelected(T myViewHolder);
 
-        void onRowClear(PlaylistItemRecyclerViewAdapter.ViewHolder myViewHolder);
+        void onRowClear(T myViewHolder);
 
     }
 

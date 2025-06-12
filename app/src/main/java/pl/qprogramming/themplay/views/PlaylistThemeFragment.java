@@ -265,7 +265,8 @@ public class PlaylistThemeFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
+            val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             playlistService.findById(playlist.getId(), fetchedPlaylist -> {
                 playlist = fetchedPlaylist;
                 updatePreview();
