@@ -31,7 +31,8 @@ public class MediaNotificationManager {
     private static final String TAG = MediaNotificationManager.class.getSimpleName();
 
     private static final int NOTIFICATION_ID = 7;
-    private static final String CHANNEL_ID = "themplay_player";
+    private static final String REGULAR_CHANNEL_ID = "themplay_player";
+    private static final String SERVICE_CHANNEL_ID = "themplay_player_service";
 
     private final Service mService;
     private final NotificationManager notificationManager;
@@ -39,7 +40,14 @@ public class MediaNotificationManager {
     public MediaNotificationManager(Service mService) {
         this.mService = mService;
         notificationManager = (NotificationManager) mService.getSystemService(Context.NOTIFICATION_SERVICE);
-        createNotificationChannel();
+        createNotificationChannel(
+                REGULAR_CHANNEL_ID,
+                mService.getString(R.string.playlist_now_playing_notification),
+                mService.getString(R.string.playlist_now_playing_notification_description));
+        createNotificationChannel(
+                SERVICE_CHANNEL_ID,
+                mService.getString(R.string.themplay_notification),
+                mService.getString(R.string.themplay_notification_description));
     }
 
     /**
@@ -53,10 +61,10 @@ public class MediaNotificationManager {
         Intent openAppIntent = new Intent(mService, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0,
                 openAppIntent, PendingIntent.FLAG_MUTABLE);
-        val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
+        val builder = new NotificationCompat.Builder(mService, REGULAR_CHANNEL_ID)
                 .setContentIntent(pendingIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSmallIcon(R.drawable.ic_logo)
+                .setSmallIcon(R.drawable.ic_logo_white)
                 .addAction(R.drawable.ic_previous_32, "Previous", createServiceActionIntent(PLAYBACK_NOTIFICATION_PREV))
                 .addAction(R.drawable.ic_stop_32, "Stop", createServiceActionIntent(PLAYBACK_NOTIFICATION_STOP));
         if (pause) {
@@ -71,24 +79,25 @@ public class MediaNotificationManager {
         mService.startForeground(NOTIFICATION_ID, builder.build());
         Logger.d(TAG, "Notification created song " + song.getFilename());
     }
+
     @UnstableApi
     public void createIdleNotification() {
         Logger.d(TAG, "Creating idle notification");
         Intent openAppIntent = new Intent(mService, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0,
                 openAppIntent, PendingIntent.FLAG_MUTABLE);
-        val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
+        val builder = new NotificationCompat.Builder(mService, SERVICE_CHANNEL_ID)
                 .setContentIntent(pendingIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-                .setSmallIcon(R.drawable.ic_logo)
-                .setContentTitle("Themplay");
+                .setSmallIcon(R.drawable.ic_logo_white)
+                .setContentText(mService.getString(R.string.app_name_ready));
         mService.startForeground(NOTIFICATION_ID, builder.build());
     }
 
-    private void createNotificationChannel() {
-        val chan = new NotificationChannel(CHANNEL_ID,
-                mService.getString(R.string.playlist_now_playing_notificatoin), NotificationManager.IMPORTANCE_LOW);
-        chan.setDescription(mService.getString(R.string.notificatoin_description));
+    private void createNotificationChannel(String channel, String title, String description) {
+        val chan = new NotificationChannel(channel,
+                title, NotificationManager.IMPORTANCE_LOW);
+        chan.setDescription(description);
         chan.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         chan.setSound(null, null);
         chan.enableVibration(false);

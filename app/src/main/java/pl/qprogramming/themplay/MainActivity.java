@@ -1,6 +1,8 @@
 package pl.qprogramming.themplay;
 
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_HIDE_IDLE_NOTIFICATION;
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_SHOW_IDLE_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYER_INIT_ACTION;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.settings.Property.LAST_LAUNCH_VERSION;
@@ -69,6 +71,7 @@ import pl.qprogramming.themplay.views.PlaylistFragment;
 import pl.qprogramming.themplay.views.PlaylistSettingsFragment;
 import pl.qprogramming.themplay.views.PresetsFragment;
 import pl.qprogramming.themplay.views.SettingsFragment;
+
 @UnstableApi
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
@@ -382,10 +385,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void repaintMediaControls() {
         if (player != null && player.isPlaying()) {
-            Logger.d(TAG,"Repainting media controls - pause");
+            Logger.d(TAG, "Repainting media controls - pause");
             renderPauseButton();
         } else {
-            Logger.d(TAG,"Repainting media controls - play");
+            Logger.d(TAG, "Repainting media controls - play");
             renderPlayButton();
         }
     }
@@ -500,13 +503,16 @@ public class MainActivity extends AppCompatActivity {
         setupServices();
         setupReceiver();
         repaintMediaControls();
+        Intent intent = new Intent(this, Player.class);
+        intent.setAction(ACTION_SHOW_IDLE_NOTIFICATION.getCode());
+        startService(intent);
         super.onStart();
     }
 
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        Logger.d(TAG,"Resuming main activity");
+        Logger.d(TAG, "Resuming main activity");
     }
 
     /**
@@ -520,6 +526,9 @@ public class MainActivity extends AppCompatActivity {
         } catch (IllegalArgumentException e) {
             Logger.d(TAG, "Receiver not registered");
         }
+        Intent intent = new Intent(this, Player.class);
+        intent.setAction(ACTION_HIDE_IDLE_NOTIFICATION.getCode());
+        startService(intent);
         super.onStop();
     }
 
@@ -537,6 +546,11 @@ public class MainActivity extends AppCompatActivity {
             playlistServiceBound = false;
         }
         if (playerIsBound) {
+            if (!player.isPlayingOrPaused()) {
+                Intent intent = new Intent(this, Player.class);
+                intent.setAction(ACTION_HIDE_IDLE_NOTIFICATION.getCode());
+                startService(intent);
+            }
             context.unbindService(playerConnection);
             playerIsBound = false;
         }
@@ -639,8 +653,8 @@ public class MainActivity extends AppCompatActivity {
                 case PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((playlist -> {
-                                if(!player.isPlaying()){
-                                    Logger.d(TAG,"Active playlist is not playing force activation ");
+                                if (!player.isPlaying()) {
+                                    Logger.d(TAG, "Active playlist is not playing force activation ");
                                     playlistService.setActive((Playlist) playlist, true);
                                 }
                             }));

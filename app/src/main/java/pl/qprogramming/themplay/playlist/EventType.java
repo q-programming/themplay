@@ -40,6 +40,8 @@ public enum EventType {
     OPERATION_STARTED("q-programming.themplay.operation.started"),
     OPERATION_FINISHED("q-programming.themplay.operation.finished"),
     PLAYER_INIT_ACTION("q-programming.themplay.player.init"),
+    ACTION_HIDE_IDLE_NOTIFICATION("q-programming.themplay.action.hide.idle.notification"),
+    ACTION_SHOW_IDLE_NOTIFICATION("q-programming.themplay.action.show.idle.notification"),
     UNKNOWN("q-programming.themplay.n/a");
 
     private static final Map<String, EventType> BY_CODE = new HashMap<>();

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_name_ready">Themplay jest gotowy</string>
     <string name="app_version">Wersja aplikacji</string>
     <string name="app_upgraded">Aplikacja została zaktualizowana do wersji {0}. Sprawdź co nowego.</string>
     <string name="item_menu">Menu pozycji</string>
@@ -27,12 +28,16 @@
     <string name="playlist_already_exists">Plalista o nazwie \"{0}\" już istnieje w tym zestawie</string>
     <string name="playlist_add_error">Wystąpił bład podczas próby dodania playlisty</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
+    <string name="playlist_view_playlist">Zobacz playlistę</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
     <string name="playlist_change_look">Zmień wygląd playlisty</string>
     <string name="playlist_delete_playlist_confirm">Czy na pewno chcesz usunąc playlistę \"{0}\"?</string>
     <string name="playlist_now_playing">Teraz odtwarzam \"{0}\"</string>
-    <string name="playlist_now_playing_notificatoin">Teraz odtwarzam</string>
+    <string name="playlist_now_playing_notification">Teraz odtwarzam</string>
+    <string name="playlist_now_playing_notification_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki pozwalające na odtwarzanie/pauzę/stop/następny/poprzedni utwór</string>
+    <string name="themplay_notification">Themplay</string>
+    <string name="themplay_notification_description">Ogólne powiadomienia dotyczące Themplay</string>
     <string name="playlist_look_preview">Podgląd</string>
     <string name="playlist_look_active">Aktywna</string>
     <string name="playlist_look_inactive">Nie aktywna</string>
@@ -80,7 +85,6 @@
     <string name="settings_fade_error">Wprowadź ile ma być sekund przejścia między utworami</string>
     <string name="settings_keep_screen">Nie wygaszaj ekranu</string>
     <string name="settings_keep_screen_summary">Gdy aplikacja jest uruchomiona, czy ekran ma być ciągle włączony </string>
-    <string name="notificatoin_description">Pokazuje nazwę obecnie odtwarzanego utworu oraz kontrolki pozwalające na odtwarzanie/pauzę/stop/następny/poprzedni utwór</string>
     <string name="playlist_copy">Kopiuj playlistę</string>
     <string name="playlist_paste">Wklej playlistę</string>
     <string name="playlist_pasted">Utworzono kopię playlisty</string>

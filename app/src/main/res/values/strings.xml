@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Themplay</string>
+    <string name="app_name_ready">Themplay is ready</string>
     <string name="app_upgraded">Application upgraded to version {0}. Check out what\'s new.</string>
     <string name="app_version">Application version</string>
     <string name="item_menu">Item menu</string>
@@ -30,6 +31,7 @@
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
+    <string name="playlist_view_playlist">View playlist</string>
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
     <string name="playlist_change_look">Change playlist look</string>
@@ -85,8 +87,10 @@
     <string name="settings_fade_error">Enter how long duration should last ( in seconds )</string>
     <string name="settings_keep_screen">Don\'t turn off screen</string>
     <string name="settings_keep_screen_summary">When application is running , keep screen always on </string>
-    <string name="playlist_now_playing_notificatoin">Now playing</string>
-    <string name="notificatoin_description">Shows which song now plays and shows controls allowing to play/pause/stop/next/previous</string>
+    <string name="playlist_now_playing_notification">Now playing</string>
+    <string name="playlist_now_playing_notification_description">Shows which song now plays and shows controls allowing to play/pause/stop/next/previous</string>
+    <string name="themplay_notification">Themplay</string>
+    <string name="themplay_notification_description">General notifications about Themplay</string>
     <string name="settings_fadeStop">Fade out songs when stopping</string>
     <string name="settings_fadeStop_info">When pressing stop or pause button , song will be faded out instead of stopping right away</string>
     <string name="settings_developer">Developer</string>

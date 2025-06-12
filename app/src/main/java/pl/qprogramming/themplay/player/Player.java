@@ -1,13 +1,15 @@
 package pl.qprogramming.themplay.player;
 
+import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_HIDE_IDLE_NOTIFICATION;
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_SHOW_IDLE_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
-import static pl.qprogramming.themplay.playlist.EventType.PLAYER_INIT_ACTION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
@@ -48,6 +50,7 @@ import androidx.preference.PreferenceManager;
 import java.text.MessageFormat;
 import java.util.Optional;
 
+import lombok.Getter;
 import lombok.Setter;
 import lombok.val;
 import pl.qprogramming.themplay.R;
@@ -79,6 +82,7 @@ import pl.qprogramming.themplay.util.Utils;
 @UnstableApi
 public class Player extends Service {
     private static final String TAG = Player.class.getSimpleName();
+    @Getter
     private Playlist activePlaylist;
     @Setter
     private ProgressBar progressBar;
@@ -124,8 +128,8 @@ public class Player extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Logger.d(TAG, "onStartCommand");
         if (intent != null && intent.getAction() != null) {
-            Logger.d(TAG, "[NOTIFICATION] Player service received action: " + intent.getAction());
             val action = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[NOTIFICATION] Player received action: " + action);
             if (PLAYBACK_NOTIFICATION_PLAY.equals(action)) {
                 play();
             } else if (PLAYBACK_NOTIFICATION_PAUSE.equals(action)) {
@@ -136,8 +140,15 @@ public class Player extends Service {
                 previous();
             } else if (PLAYBACK_NOTIFICATION_STOP.equals(action)) {
                 stop();
-            } else if (PLAYER_INIT_ACTION.equals(action)) {
-                mNotificationManager.createIdleNotification();
+            } else if (ACTION_SHOW_IDLE_NOTIFICATION.equals(action)) {
+                if (!isPlayingOrPaused()) {
+                    mNotificationManager.createIdleNotification();
+                }
+            }
+            else if (ACTION_HIDE_IDLE_NOTIFICATION.equals(action)) {
+                if (!isPlayingOrPaused()) {
+                    mNotificationManager.removeNotification();
+                }
             }
             notifyClientPlaybackStateChanged(action);
         }
@@ -659,7 +670,7 @@ public class Player extends Service {
      * @return The updated Song object, or null if no active playlist
      */
     private Song updateCurrentSongProgress(boolean currentPosition) {
-        if (activePlaylist != null && currentPlayer!=null) {
+        if (activePlaylist != null && currentPlayer != null) {
             Song currentSong = activePlaylist.getCurrentSong();
             if (currentSong != null) {
                 if (currentPosition) {
@@ -723,7 +734,7 @@ public class Player extends Service {
                     return;
                 }
                 int playbackState = currentPlayer.getPlaybackState();
-                if (playbackState == androidx.media3.common.Player.STATE_IDLE || playbackState == androidx.media3.common.Player.STATE_ENDED) {
+                if (playbackState == STATE_IDLE || playbackState == androidx.media3.common.Player.STATE_ENDED) {
                     Log.d(TAG, "Player ended or idle for song: " + currentSong.getFilename());
                     return;
                 }
@@ -815,6 +826,22 @@ public class Player extends Service {
     public boolean isPlaying() {
         try {
             return currentPlayer != null && currentPlayer.isPlaying();
+        } catch (IllegalStateException e) {
+            Logger.d(TAG, "media player is definitely not playing");
+            return false;
+        }
+    }
+
+    /**
+     * Check if there is current player is playing or is paused.
+     * playing is taken from currentPlayer.isPlaying , paused means currentPlayer is there != null but not playing
+     * Which essentiall means that current player is there
+     *
+     * @return true if there is music playing or paused
+     */
+    public boolean isPlayingOrPaused() {
+        try {
+            return currentPlayer != null;
         } catch (IllegalStateException e) {
             Logger.d(TAG, "media player is definitely not playing");
             return false;
