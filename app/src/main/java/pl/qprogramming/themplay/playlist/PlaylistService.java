@@ -468,9 +468,7 @@ public class PlaylistService extends Service {
                         songsRemainingInPlaylist = currentPlaylistState.getSongs().stream()
                                 .filter(song -> !idsOfSongsMarkedForRemoval.contains(song.getId()))
                                 .sorted(Comparator.comparingInt(Song::getPlaylistPosition))
-                                .peek(song -> {
-                                    song.setPlaylistPosition(newPosition.getAndIncrement());
-                                })
+                                .peek(song -> song.setPlaylistPosition(newPosition.getAndIncrement()))
                                 .collect(Collectors.toList());
                     }
                     currentPlaylistState.setSongs(songsRemainingInPlaylist);
@@ -508,11 +506,9 @@ public class PlaylistService extends Service {
                 songRepository.updateAll(songs)
                         .subscribeOn(Schedulers.io())
                         .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(() -> {
-                            Logger.i(TAG, "Successfully updated songs positions");
-                        }, throwable -> {
-                            Logger.e(TAG, "Error updating songs positions", throwable);
-                        })
+                        .subscribe(
+                                () -> Logger.i(TAG, "Successfully updated songs positions"),
+                                throwable -> Logger.e(TAG, "Error updating songs positions", throwable))
         );
     }
 

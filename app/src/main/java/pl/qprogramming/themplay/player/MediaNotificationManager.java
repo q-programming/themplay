@@ -18,6 +18,7 @@ import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.media3.common.util.UnstableApi;
 
 import lombok.val;
 import pl.qprogramming.themplay.MainActivity;
@@ -47,12 +48,11 @@ public class MediaNotificationManager {
      * @param song  Song that will be played now/paused etc
      * @param pause if true , pause button be rendered, otherwise play
      */
+    @UnstableApi
     public void createMediaNotification(Song song, String playlistTitle, boolean pause) {
         Intent openAppIntent = new Intent(mService, MainActivity.class);
         PendingIntent pendingIntent = PendingIntent.getActivity(mService, 0,
                 openAppIntent, PendingIntent.FLAG_MUTABLE);
-//        val sp = getDefaultSharedPreferences(mService);
-//        val currentPresetName = sp.getString(Property.CURRENT_PRESET, null);
         val builder = new NotificationCompat.Builder(mService, CHANNEL_ID)
                 .setContentIntent(pendingIntent)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -83,8 +83,9 @@ public class MediaNotificationManager {
         notificationManager.createNotificationChannel(chan);
     }
 
+    @UnstableApi
     private PendingIntent createServiceActionIntent(EventType eventType) {
-        Intent intent = new Intent(mService, PlayerService.class);
+        Intent intent = new Intent(mService, Player.class);
         intent.setAction(eventType.getCode());
         int requestCode = eventType.ordinal();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
