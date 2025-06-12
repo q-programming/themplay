@@ -398,10 +398,7 @@ public class PlayerService extends Service {
      * @see #updateCurrentSongProgress(boolean)
      */
     private void fadeIntoNewPlaylist(Playlist playlist) {
-        if (isTransitionInProgress || isPlayRequested) {
-            Logger.d(TAG, "Transition or play already in progress, ignoring playlist change request");
-            return;
-        }
+        Logger.d(TAG, "Fading into new playlist ?" + playlist.getName());
         isTransitionInProgress = true;
         Logger.d(TAG, "Starting playlist transition to: " + playlist.getName());
         try {
