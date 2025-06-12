@@ -162,8 +162,8 @@ public class PlaylistFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             Bundle args = intent.getBundleExtra(ARGS);
             if (args != null) {
                 val adapter = (PlaylistItemRecyclerViewAdapter) recyclerView.getAdapter();

@@ -382,7 +382,7 @@ public class PlayerService extends Service {
                 mainVolumeProcessor = null;
             }
             stopProgressUpdates();
-            isPlayRequested =false;
+            isPlayRequested = false;
             isTransitionInProgress = false;
         }
     }
@@ -941,6 +941,20 @@ public class PlayerService extends Service {
         }
     }
 
+    private void handleRecreateList(boolean shuffle) {
+        if (activePlaylist != null) {
+            createPlaylist(activePlaylist, shuffle);
+        } else {
+            Logger.d(TAG, "Received recreate command but no active playlist found in service, searching for one");
+            playlistService.getActiveAndLoadSongs(
+                    playlist -> {
+                        activePlaylist = playlist;
+                    },
+                    () ->
+                            Log.d(TAG, "No active playlist found in service while trying to recreate it."));
+        }
+    }
+
     /**
      * connection to service allowing communication
      */
@@ -971,8 +985,8 @@ public class PlayerService extends Service {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             Bundle args = intent.getBundleExtra(ARGS);
             val sp = getDefaultSharedPreferences(context);
             val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
@@ -1019,7 +1033,7 @@ public class PlayerService extends Service {
                     }
                     break;
                 case PLAYLIST_NOTIFICATION_RECREATE_LIST:
-                    createPlaylist(activePlaylist, shuffle);
+                    handleRecreateList(shuffle);
                     break;
                 case PLAYLIST_NOTIFICATION_DELETE:
                     if (args != null) {

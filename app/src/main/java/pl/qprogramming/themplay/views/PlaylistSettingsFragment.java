@@ -408,8 +408,8 @@ public class PlaylistSettingsFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] recived action " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] recived action " + event);
             switch (event) {
                 case PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED:
                     startEdit();

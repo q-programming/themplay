@@ -186,8 +186,8 @@ public class PresetsFragment extends Fragment {
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            Logger.d(TAG, "[EVENT] Received event " + intent.getAction());
             val event = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[EVENT] Received event " + event);
             val args = intent.getBundleExtra(ARGS);
             switch (event) {
                 case PRESET_REMOVED:

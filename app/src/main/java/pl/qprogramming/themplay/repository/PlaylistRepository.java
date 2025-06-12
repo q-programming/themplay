@@ -33,7 +33,7 @@ public interface PlaylistRepository {
     Completable deleteAllByPresetName(String presetName);
 
     @Query("SELECT * FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE id = :id")
-    Maybe<Playlist> findOneById(long id); // Gets only the Playlist object
+    Maybe<Playlist> findOneById(long id);
 
     @Query("SELECT * FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE "+ Playlist.ACTIVE+ " = true")
     Maybe<List<Playlist>> findAllByActive();

@@ -37,6 +37,7 @@ import io.reactivex.Observable;
 import io.reactivex.Single;
 import io.reactivex.android.schedulers.AndroidSchedulers;
 import io.reactivex.disposables.CompositeDisposable;
+import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Action;
 import io.reactivex.schedulers.Schedulers;
 import lombok.val;
@@ -46,6 +47,7 @@ import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.domain.Preset;
 import pl.qprogramming.themplay.domain.Song;
 import pl.qprogramming.themplay.logger.Logger;
+import pl.qprogramming.themplay.playlist.exceptions.OperationSkippedException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
@@ -718,51 +720,72 @@ public class PlaylistService extends Service {
      * then find playlist by ID , load all songs for this playlist , set it as active
      * And broadcast event to play
      *
-     * @param playlist playlist to be made active
-     * @param force    if true , this mean the active playlist must play
+     * @param playlistToMakeActive playlist to be made active
+     * @param force                if true , this mean the active playlist must play
      */
-    public void setActive(Playlist playlist, boolean force) {
-        val playlistToActivateId = playlist.getId();
+    public void setActive(Playlist playlistToMakeActive, boolean force) {
+        val playlistToActivateId = playlistToMakeActive.getId();
         Logger.d(TAG, "Attempting to set playlist ID as active: " + playlistToActivateId);
         LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_STARTED.getCode()));
-        val activeTask =
-                findActive()
-                        .flatMapCompletable(activePlaylist -> {
-                                    //the playlists is already active
-                                    if (!force && activePlaylist.getId().equals(playlistToActivateId)) {
-                                        Logger.d(TAG, "Playlist to active is same as already active , skipping operation as it was not forced");
-                                        populateAndSend(PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING, activePlaylist);
-                                        return Completable.complete();
-                                    } else {
-                                        activePlaylist.setActive(false);
-                                        return playlistRepository.update(activePlaylist)
-                                                .andThen(playlistRepository.findOneById(playlistToActivateId))
-                                                .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")))
-                                                .flatMap(playlistToActivate -> {
-                                                    Logger.d(TAG, "Found playlist to activate: " + playlistToActivate.getName());
-                                                    return loadSongs(playlistToActivate);
-                                                })
-                                                .flatMap(this::buildPlaylistMakeActiveAndNotify)
-                                                .flatMapCompletable(updatedPlaylist -> {
-                                                    updatedPlaylist.setActive(true);
-                                                    return playlistRepository.update(updatedPlaylist)
-                                                            .doOnComplete(() -> {
-                                                                Logger.d(TAG, "Playlist set as active sending event to play");
-                                                                populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, updatedPlaylist);
-                                                            });
-                                                });
-                                    }
-                                }
-                        )
-                        .subscribeOn(Schedulers.io())
-                        .observeOn(AndroidSchedulers.mainThread())
-                        .subscribe(() -> {
-                            Logger.d(TAG, "Playlist set as active successfully.");
+        Single<Playlist> activationFlow = findActive()
+                .flatMap(currentlyActivePlaylist -> {
+                    if (!force && currentlyActivePlaylist.getId().equals(playlistToActivateId)) {
+                        populateAndSend(PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING, currentlyActivePlaylist);
+                        return Maybe.error(new OperationSkippedException("Playlist already active and not forced"));
+                    } else {
+                        Logger.d(TAG, "Deactivating current active playlist: " + currentlyActivePlaylist.getName());
+                        currentlyActivePlaylist.setActive(false);
+                        return playlistRepository.update(currentlyActivePlaylist) // Completable
+                                .andThen(playlistRepository.findOneById(playlistToActivateId)); // Returns Maybe<Playlist>
+                    }
+                })
+                .switchIfEmpty(Single.defer(() -> {
+                    // If no active playlist is found, find the playlist by ID
+                    Logger.d(TAG, "No active playlist found or previous path was empty. Finding playlist ID: " + playlistToActivateId + " to activate.");
+                    return playlistRepository.findOneById(playlistToActivateId)
+                            .switchIfEmpty(Single.error(new PlaylistNotFoundException("Playlist with ID " + playlistToActivateId + " not found.")));
+                }))
+                .flatMap(playlist -> {
+                    Logger.d(TAG, "Loading songs for playlist to activate: " + playlist.getName());
+                    return loadSongs(playlist);
+                })
+                .flatMap(this::buildPlaylistMakeActiveAndNotify)
+                .flatMap(finalPlaylistToActivate -> {
+                    Logger.d(TAG, "Setting playlist " + finalPlaylistToActivate.getName() + " as active in DB.");
+                    finalPlaylistToActivate.setActive(true);
+                    return playlistRepository.update(finalPlaylistToActivate)
+                            .andThen(Single.just(finalPlaylistToActivate));
+                });
+
+        Disposable task = activationFlow
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(
+                        activatedPlaylist -> {
+                            Logger.d(TAG, "Playlist " + activatedPlaylist.getName() + " successfully set as active.");
+                            populateAndSend(EventType.PLAYLIST_NOTIFICATION_ACTIVE, activatedPlaylist);
                             LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
-                        });
-        disposables.add(activeTask);
+                        },
+                        throwable -> {
+                            if (throwable instanceof OperationSkippedException) {
+                                Logger.d(TAG, "Set active operation skipped as planned: " + throwable.getMessage());
+                                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+                            } else {
+                                Logger.e(TAG, "Failed to set active playlist.", throwable);
+                                LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
+                            }
+                        }
+                );
+        disposables.add(task);
     }
 
+    /**
+     * Finds active playlist and loads all songs for it
+     * If found , build playlists and make it active , otherwise trigger onNoPlaylistFound
+     *
+     * @param onPlaylistFound   callback when active playlist is found
+     * @param onNoPlaylistFound callback when no active playlist is found
+     */
     public void getActiveAndLoadSongs(Consumer<Playlist> onPlaylistFound, Runnable onNoPlaylistFound) {
         disposables.add(findActive()
                 .doOnSuccess(playlist -> Logger.d(TAG, "Find active found: " + playlist.getName()))
@@ -798,6 +821,15 @@ public class PlaylistService extends Service {
         return buildPlaylistMakeActiveAndNotify(playlist, true);
     }
 
+    /**
+     * Creates playlist out of all available songs
+     * Search for current song within. If none present, set first from list
+     * Notify about operation results accordingly if notify is true
+     *
+     * @param playlist playlist to be made active and played
+     * @param notify   if true , notify about operation results
+     * @return Completable that completes when playlist is made active
+     */
     private Single<Playlist> buildPlaylistMakeActiveAndNotify(Playlist playlist, boolean notify) {
         if (playlist == null) {
             Logger.e(TAG, "Cannot build playlist - playlist is null");
@@ -867,7 +899,7 @@ public class PlaylistService extends Service {
             }
             return Single.just(playlist);
         } catch (Exception e) {
-            Logger.e(TAG, "Error building playlist: " + (playlist != null ? playlist.getName() : "null"), e);
+            Logger.e(TAG, "Error building playlist: " + playlist.getName(), e);
             return Single.error(e);
         }
     }
