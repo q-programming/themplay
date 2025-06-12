@@ -235,10 +235,10 @@ public class Player extends Service {
             Logger.d(TAG, "Already playing, ignoring play() request");
             return;
         }
-        isPlayRequested = true;
         Logger.d(TAG, "Starting play() request");
         try {
             if (activePlaylist != null) {
+                isPlayRequested = true;
                 val currentSong = activePlaylist.getCurrentSong();
                 fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
                 populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
@@ -659,7 +659,7 @@ public class Player extends Service {
      * @return The updated Song object, or null if no active playlist
      */
     private Song updateCurrentSongProgress(boolean currentPosition) {
-        if (activePlaylist != null) {
+        if (activePlaylist != null && currentPlayer!=null) {
             Song currentSong = activePlaylist.getCurrentSong();
             if (currentSong != null) {
                 if (currentPosition) {
