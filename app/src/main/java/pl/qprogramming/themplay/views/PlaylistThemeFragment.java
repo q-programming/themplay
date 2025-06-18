@@ -7,8 +7,8 @@ import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.WIDTH;
 import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
-import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
+import static pl.qprogramming.themplay.util.Utils.retrieveImageForPlaylist;
 
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -17,11 +17,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -223,15 +220,18 @@ public class PlaylistThemeFragment extends Fragment {
         applyPlaylistStyle(textColor, activeName, playlist.isTextOutline());
         applyPlaylistStyle(textColor, activeSong, playlist.isTextOutline());
         val removeBtn = mView.findViewById(R.id.remove_background);
-        if (!isEmpty(playlist.getBackgroundImage())) {
-            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
-            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            activeBackground.setImageBitmap(decodedImage);
+        val decodedBitmap = retrieveImageForPlaylist(playlist);
+        if (decodedBitmap != null) {
+            activeBackground.setImageBitmap(decodedBitmap);
             activeBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
             removeBtn.setVisibility(View.VISIBLE);
+            inactiveBackground.setImageBitmap(decodedBitmap);
+            inactiveBackground.setAlpha(0.5f);
+            inactiveBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
         } else {
             removeBtn.setVisibility(View.GONE);
             activeBackground.setImageBitmap(null);
+            inactiveBackground.setImageBitmap(null);
         }
         activeIndicator.setVisibility(View.VISIBLE);
         activeIndicator.setBackgroundColor(activeColor);
@@ -244,16 +244,6 @@ public class PlaylistThemeFragment extends Fragment {
                 DrawableCompat.wrap(inactiveMenu.getDrawable()),
                 textColor
         );
-        if (!isEmpty(playlist.getBackgroundImage())) {
-            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
-            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            inactiveBackground.setImageBitmap(decodedImage);
-            inactiveBackground.setAlpha(0.5f);
-            inactiveBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-        } else {
-            inactiveBackground.setImageBitmap(null);
-        }
     }
 
     private void updateListAndGoBack() {

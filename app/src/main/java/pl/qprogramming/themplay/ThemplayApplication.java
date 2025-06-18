@@ -20,8 +20,8 @@ import java.util.Locale;
 import lombok.val;
 import pl.qprogramming.themplay.logger.Logger;
 
-public class ThemplayApplication extends Application  {
-
+public class ThemplayApplication extends Application {
+    private static ThemplayApplication instance;
     private static final String TAG = "ThemplayAppCrashHandler";
     public static final String CRASH_LOG_FILE_PREFIX = "crash_";
     public static final String CRASH_LOG_FILE_SUFFIX = ".txt";
@@ -30,6 +30,7 @@ public class ThemplayApplication extends Application  {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         Logger.initialize(this);
         Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
             // Get the stack trace.
@@ -46,6 +47,7 @@ public class ThemplayApplication extends Application  {
             System.exit(1);
         });
     }
+
     private static void saveCrashLogToFile(Context context, String stackTrace) {
         try {
             File baseDir = context.getExternalFilesDir(null);
@@ -108,5 +110,12 @@ public class ThemplayApplication extends Application  {
     public void onTerminate() {
         super.onTerminate();
         Logger.shutdown();
+    }
+
+    public static Context getAppContext() {
+        if (instance == null) {
+            return null;
+        }
+        return instance.getApplicationContext();
     }
 }

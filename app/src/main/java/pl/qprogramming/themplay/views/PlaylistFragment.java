@@ -191,8 +191,11 @@ public class PlaylistFragment extends Fragment {
             Logger.d(TAG, "Connected player within PlaylistFragment ");
             player = ((Player.LocalBinder) service).getService();
             playerIsBound = true;
-            adapter.setPlaying(player.isPlaying());
-            adapter.notifyDataSetChanged();
+            //prevent race condition
+            if(adapter!=null){
+                adapter.setPlaying(player.isPlaying());
+                adapter.notifyDataSetChanged();
+            }
         }
 
         public void onServiceDisconnected(ComponentName className) {

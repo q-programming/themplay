@@ -8,15 +8,14 @@ import static pl.qprogramming.themplay.util.Utils.getThemeColor;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
+import static pl.qprogramming.themplay.util.Utils.retrieveImageForPlaylist;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -143,20 +142,33 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
         if (playlist.getCurrentSong() != null) {
             holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
         }
-        if (!isEmpty(playlist.getBackgroundImage())) {
-            holder.mCardView.setBackgroundColor(Color.TRANSPARENT);
-            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
-            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            holder.background.setImageBitmap(decodedImage);
-            holder.background.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        } else {
-            holder.mCardView.setBackgroundColor(cardBackgroundColor);
-        }
+        setBackgroundImage(holder, playlist);
+//        if (!isEmpty(playlist.getBackgroundImage())) {
+//            holder.mCardView.setBackgroundColor(Color.TRANSPARENT);
+//            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
+//            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+//            holder.background.setImageBitmap(decodedImage);
+//            holder.background.setScaleType(ImageView.ScaleType.CENTER_CROP);
+//        } else {
+//            holder.mCardView.setBackgroundColor(cardBackgroundColor);
+//        }
         //render is active
         setActive(holder, playlist);
         //action menu
         configureMenu(holder, position, playlist);
         holder.mTextWrapper.setOnClickListener(contentView -> setActive(playlist));
+    }
+
+    private void setBackgroundImage(@NonNull final ViewHolder holder, Playlist playlist) {
+        Bitmap decodedBitmap = retrieveImageForPlaylist(playlist);
+        if (decodedBitmap != null) {
+            holder.mCardView.setBackgroundColor(Color.TRANSPARENT);
+            holder.background.setImageBitmap(decodedBitmap);
+            holder.background.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        } else {
+            holder.mCardView.setBackgroundColor(cardBackgroundColor);
+            holder.background.setImageDrawable(null);
+        }
     }
 
     private void loadColors(Context context) {
