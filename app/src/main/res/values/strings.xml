@@ -31,7 +31,7 @@
     <string name="playlist_name">Playlist name</string>
     <string name="playlist_add_new_playlist">Add new playlist</string>
     <string name="playlist_encourage_add_new_playlist">Open menu to add your first playlist</string>
-    <string name="playlist_view_playlist">View playlist</string>
+    <string name="playlist_view_playlist">View playing order</string>
     <string name="playlist_edit_playlist">Edit playlist</string>
     <string name="playlist_delete_playlist">Delete playlist</string>
     <string name="playlist_change_look">Change playlist look</string>

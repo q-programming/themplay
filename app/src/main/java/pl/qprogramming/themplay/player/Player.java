@@ -2,19 +2,21 @@ package pl.qprogramming.themplay.player;
 
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
-import static pl.qprogramming.themplay.playlist.EventType.ACTION_HIDE_IDLE_NOTIFICATION;
-import static pl.qprogramming.themplay.playlist.EventType.ACTION_SHOW_IDLE_NOTIFICATION;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PLAY;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PREV;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_STOP;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYER_PAUSED;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYER_PLAYING;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYER_STOPPED;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ACTIVE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_ADD;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_DELETE_SONGS;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_RECREATED_LIST;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_RECREATE_LIST;
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
@@ -69,15 +71,38 @@ import pl.qprogramming.themplay.util.Utils;
 /**
  * Service responsible for music playback.
  * <p>
- * This service manages the playback of songs from a playlist. It utilizes two Players
- * to achieve seamless transitions between songs through fade-in and fade-out effects.
- * One Player (currentPlayer)  handles the currently playing song, while the auxiliary Player (nextPlayer)
- * is used to prepare and fade in the next song.
+ * This service manages the playback of songs from a playlist. It utilizes two {@link ExoPlayer}
+ * instances to achieve seamless transitions between songs through fade-in and fade-out effects.
+ * One Player ({@code currentPlayer}) handles the currently playing song, while the auxiliary Player
+ * ({@code nextPlayer}) is used to prepare and fade in the next song.
+ * <p>
+ * The service listens for various playback control intents (play, pause, next, previous, stop)
+ * via {@link LocalBroadcastManager} and also handles direct commands from media notifications.
+ * It interacts with {@link PlaylistService} to manage and retrieve playlist data.
+ * <p>
+ * Key features include:
+ * <ul>
+ *     <li>Crossfading between songs for smooth transitions.</li>
+ *     <li>Fade-in for new song playback and fade-out for pause/stop actions (configurable).</li>
+ *     <li>Automatic playback of the next song when the current one ends.</li>
+ *     <li>Handling of problematic songs (e.g., deleted or corrupted files) by skipping them.</li>
+ *     <li>Updating a {@link ProgressBar} to reflect playback progress.</li>
+ *     <li>Managing media notifications via {@link MediaNotificationManager}.</li>
+ *     <li>Communication with client components through {@link PlayerServiceCallbacks}.</li>
+ * </ul>
+ * <p>
+ * The service binds to {@link PlaylistService} to access playlist information and uses
+ * {@link ExoPlayerManager} for creating and managing {@link ExoPlayer} instances,
+ * {@link CrossfadeController} for handling fade effects, and
+ * {@link AudioProcessorManager} with {@link VolumeScalingAudioProcessor} for volume control during fades.
  *
+ * @see PlaylistService
  * @see ExoPlayerManager
  * @see CrossfadeController
  * @see AudioProcessorManager
  * @see VolumeScalingAudioProcessor
+ * @see MediaNotificationManager
+ * @see EventType
  */
 @UnstableApi
 public class Player extends Service {
@@ -119,6 +144,19 @@ public class Player extends Service {
         bindService(playlistServiceIntent, playlistServiceConnection, Context.BIND_AUTO_CREATE);
         mNotificationManager = new MediaNotificationManager(this);
         crossfadeController = new CrossfadeController();
+        val filter = new IntentFilter(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_DELETE_SONGS.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PLAY.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_NEXT.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PREV.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_PAUSE.getCode());
+        filter.addAction(PLAYBACK_NOTIFICATION_STOP.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
+        filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
+        filter.addAction(PRESET_ACTIVATED.getCode());
+        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
     /**
@@ -128,29 +166,39 @@ public class Player extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Logger.d(TAG, "onStartCommand");
         if (intent != null && intent.getAction() != null) {
-            val action = EventType.getType(intent.getAction());
-            Logger.d(TAG, "[NOTIFICATION] Player received action: " + action);
-            if (PLAYBACK_NOTIFICATION_PLAY.equals(action)) {
-                play();
-            } else if (PLAYBACK_NOTIFICATION_PAUSE.equals(action)) {
-                pause();
-            } else if (PLAYBACK_NOTIFICATION_NEXT.equals(action)) {
-                next();
-            } else if (PLAYBACK_NOTIFICATION_PREV.equals(action)) {
-                previous();
-            } else if (PLAYBACK_NOTIFICATION_STOP.equals(action)) {
-                stop();
-            } else if (ACTION_SHOW_IDLE_NOTIFICATION.equals(action)) {
-                if (!isPlayingOrPaused()) {
-                    mNotificationManager.createIdleNotification();
-                }
+            val eventType = EventType.getType(intent.getAction());
+            Logger.d(TAG, "[NOTIFICATION] Player received action: " + eventType);
+            switch (eventType) {
+                case PLAYBACK_NOTIFICATION_PLAY:
+                    play();
+                    break;
+                case PLAYBACK_NOTIFICATION_PAUSE:
+                    pause();
+                    break;
+                case PLAYBACK_NOTIFICATION_NEXT:
+                    next();
+                    break;
+                case PLAYBACK_NOTIFICATION_PREV:
+                    previous();
+                    break;
+                case PLAYBACK_NOTIFICATION_STOP:
+                    stop();
+                    break;
+                case ACTION_SHOW_IDLE_NOTIFICATION:
+                    if (!isPlayingOrPaused()) {
+                        mNotificationManager.createIdleNotification();
+                    }
+                    break;
+                case ACTION_HIDE_IDLE_NOTIFICATION:
+                    if (!isPlayingOrPaused()) {
+                        mNotificationManager.removeNotification();
+                    }
+                    break;
+                default:
+                    Logger.w(TAG, "Unknown event type: " + eventType);
+                    break;
             }
-            else if (ACTION_HIDE_IDLE_NOTIFICATION.equals(action)) {
-                if (!isPlayingOrPaused()) {
-                    mNotificationManager.removeNotification();
-                }
-            }
-            notifyClientPlaybackStateChanged(action);
+            notifyClientPlaybackStateChanged(eventType);
         }
         return START_STICKY;
     }
@@ -179,19 +227,6 @@ public class Player extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         Logger.d(TAG, "Binding service to " + intent + "this:" + this);
-        val filter = new IntentFilter(PLAYLIST_NOTIFICATION_NEW_ACTIVE.getCode());
-        filter.addAction(PLAYLIST_NOTIFICATION_ACTIVE.getCode());
-        filter.addAction(PLAYLIST_NOTIFICATION_DELETE.getCode());
-        filter.addAction(PLAYLIST_NOTIFICATION_DELETE_SONGS.getCode());
-        filter.addAction(PLAYBACK_NOTIFICATION_PLAY.getCode());
-        filter.addAction(PLAYBACK_NOTIFICATION_NEXT.getCode());
-        filter.addAction(PLAYBACK_NOTIFICATION_PREV.getCode());
-        filter.addAction(PLAYBACK_NOTIFICATION_PAUSE.getCode());
-        filter.addAction(PLAYBACK_NOTIFICATION_STOP.getCode());
-        filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
-        filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
-        filter.addAction(PRESET_ACTIVATED.getCode());
-        LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
         Logger.d(TAG, "Returning binder , player is playing ? " + isPlaying());
         return mBinder;
     }
@@ -252,7 +287,6 @@ public class Player extends Service {
                 isPlayRequested = true;
                 val currentSong = activePlaylist.getCurrentSong();
                 fadeIntoNewSong(currentSong, currentSong.getCurrentPosition());
-                populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY, activePlaylist.getPosition());
             } else {
                 Logger.d(TAG, "Received play command but no active playlist found in service, searching for one");
                 playlistService.getActiveAndLoadSongs(playlist -> {
@@ -266,6 +300,7 @@ public class Player extends Service {
                 }, () -> {
                     Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
                     populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+                    populateAndSend(PLAYER_STOPPED, 0);
                     isPlayRequested = false;
                 });
             }
@@ -293,6 +328,7 @@ public class Player extends Service {
                 fadePauseCurrentPlayer();
             } else {
                 currentPlayer.pause();
+                populateAndSend(PLAYER_PAUSED, activePlaylist.getPosition());
             }
             mNotificationManager.createMediaNotification(currentSong, activePlaylist.getName(), true);
             stopProgressUpdates();
@@ -313,17 +349,17 @@ public class Player extends Service {
         isTransitionInProgress = true;
         Logger.d(TAG, "Starting next() transition");
         try {
-            val sp = getDefaultSharedPreferences(this);
-            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
             if (isEmpty(activePlaylist.getPlaylist())) {
-                createPlaylist(activePlaylist, shuffle);
+                activePlaylist = playlistService.preparePlaylistForPlayback(activePlaylist, false);
+                notifyAboutNewPlaylist();
             }
             if (activePlaylist != null && !activePlaylist.getPlaylist().isEmpty()) {
                 updateCurrentSongProgress(false);
                 var songIndex = activePlaylist.getPlaylist().indexOf(activePlaylist.getCurrentSong()) + 1;
                 if (songIndex > activePlaylist.getPlaylist().size() - 1) {
-                    Logger.d(TAG, "Creating new playlist");
-                    createPlaylist(activePlaylist, shuffle);
+                    Logger.d(TAG, "Playlist ended, creating new playlist");
+                    activePlaylist = playlistService.preparePlaylistForPlayback(activePlaylist, true);
+                    notifyAboutNewPlaylist();
                     songIndex = 0;
                 }
                 val song = activePlaylist.getPlaylist().get(songIndex);
@@ -341,6 +377,14 @@ public class Player extends Service {
             Logger.e(TAG, "Error in next() transition", e);
             isTransitionInProgress = false;
         }
+    }
+
+    private void notifyAboutNewPlaylist() {
+        Intent intent = new Intent(PLAYLIST_NOTIFICATION_RECREATED_LIST.getCode());
+        val args = new Bundle();
+        args.putSerializable(PLAYLIST, activePlaylist);
+        intent.putExtra(ARGS, args);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
 
     /**
@@ -370,6 +414,7 @@ public class Player extends Service {
                 }
                 val song = songs.get(songIndex);
                 activePlaylist.setCurrentSong(song);
+                activePlaylist.setCurrentSongId(song.getId());
                 playlistService.save(activePlaylist);
                 fadeIntoNewSong(song, 0);
                 populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
@@ -394,11 +439,23 @@ public class Player extends Service {
         if (isPlaying()) {
             updateCurrentSongProgress(true);
             if (isFadeStop()) {
-                fadeStopCurrentPlayer();
+                fadeStopCurrentPlayer(currentPlayer, () -> currentPlayer = null);
+                if (nextPlayer != null && nextPlayer.isPlaying()) {
+                    Logger.d(TAG, "Next player is still playing, fade stoping it");
+                    fadeStopCurrentPlayer(nextPlayer, () -> nextPlayer = null);
+                }
             } else {
                 ExoPlayerManager.safeReleasePlayer(currentPlayer);
                 currentPlayer = null;
                 mainVolumeProcessor = null;
+                //fallback if stop was requested while fading
+                if (nextPlayer != null && nextPlayer.isPlaying()) {
+                    Logger.d(TAG, "Next player is still playing");
+                    nextPlayer.stop();
+                    ExoPlayerManager.safeReleasePlayer(nextPlayer);
+                    nextPlayer = null;
+                }
+                populateAndSend(PLAYER_STOPPED, activePlaylist.getPosition());
             }
             stopProgressUpdates();
             isPlayRequested = false;
@@ -448,17 +505,20 @@ public class Player extends Service {
      * releasing the player and processor resources. Sets a flag to prevent new
      * song requests during the fade-out process.</p>
      *
+     * @param player          The current player to stop
+     * @param onPlayerStopped Callback to be invoked when the player is stopped
      * @see CrossfadeController#startFadeOut(ExoPlayer, VolumeScalingAudioProcessor, int, Runnable)
      */
-    private void fadeStopCurrentPlayer() {
-        if (currentPlayer == null || mainVolumeProcessor == null) {
+    private void fadeStopCurrentPlayer(ExoPlayer player, Runnable onPlayerStopped) {
+        if (player == null || mainVolumeProcessor == null) {
             return;
         }
         isFadeStopRequested = true;
-        crossfadeController.startFadeOut(currentPlayer, mainVolumeProcessor, getDuration(), () -> {
-            currentPlayer = null;
+        crossfadeController.startFadeOut(player, mainVolumeProcessor, getDuration(), () -> {
             mainVolumeProcessor = null;
             isFadeStopRequested = false;
+            populateAndSend(PLAYER_STOPPED, activePlaylist.getPosition());
+            onPlayerStopped.run();
         });
     }
 
@@ -471,7 +531,7 @@ public class Player extends Service {
      * new song requests during the fade-out process.</p>
      *
      * @see CrossfadeController#startFadeOut(ExoPlayer, VolumeScalingAudioProcessor, int, Runnable)
-     * @see #fadeStopCurrentPlayer()
+     * @see #fadeStopCurrentPlayer(ExoPlayer player, Runnable onPlayerStopped)
      */
     private void fadePauseCurrentPlayer() {
         if (currentPlayer == null || mainVolumeProcessor == null) {
@@ -483,6 +543,7 @@ public class Player extends Service {
                 currentPlayer.pause();
             }
             isFadeStopRequested = false;
+            populateAndSend(PLAYER_PAUSED, activePlaylist.getPosition());
         });
     }
 
@@ -658,6 +719,7 @@ public class Player extends Service {
      * @param song The song to display in notification and toast
      */
     private void updateNotificationAndUI(Song song) {
+        populateAndSend(PLAYER_PLAYING, activePlaylist.getPosition());
         mNotificationManager.createMediaNotification(song, activePlaylist.getName(), false);
         String msg = MessageFormat.format(getString(R.string.playlist_now_playing), song.getDisplayName());
         Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
@@ -932,9 +994,11 @@ public class Player extends Service {
      * @param position position of song
      */
     private void populateAndSend(EventType type, int position) {
+        Logger.d(TAG, "Sending event " + type);
         Intent intent = new Intent(type.getCode());
         val args = new Bundle();
         args.putSerializable(Utils.POSITION, position);
+        args.putSerializable(Utils.SONG, activePlaylist.getCurrentSongId());
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }

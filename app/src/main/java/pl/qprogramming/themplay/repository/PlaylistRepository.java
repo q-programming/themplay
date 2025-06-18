@@ -52,7 +52,9 @@ public interface PlaylistRepository {
     @Query("SELECT COUNT(*) FROM " + Playlist.PLAYLIST_TABLE_NAME + " WHERE " + Playlist.PRESET + " = :presetName")
     Single<Integer> countAllByPreset(String presetName);
 
-    // Method to update song count (could be called from service after adding/removing a song)
-    @Query("UPDATE " + Playlist.PLAYLIST_TABLE_NAME + " SET " + Playlist.SONG_COUNT + " = :newCount WHERE " + Playlist.COLUMN_ID + " = :playlistId")
-    Completable updateSongCountForPlaylist(long playlistId, int newCount);
+    @Query("UPDATE " + Playlist.PLAYLIST_TABLE_NAME +
+            " SET " + Playlist.SONG_COUNT + " = :newCount, " +
+            Playlist.PLAYBACK_ORDER_IDS + " = NULL " +
+            "WHERE " + Playlist.COLUMN_ID + " = :playlistId")
+    Completable updateCountAndResetPlaybackOrder(long playlistId, int newCount);
 }

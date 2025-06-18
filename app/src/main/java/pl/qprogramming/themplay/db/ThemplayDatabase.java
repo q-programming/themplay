@@ -17,7 +17,7 @@ import pl.qprogramming.themplay.repository.PlaylistRepository;
 import pl.qprogramming.themplay.repository.PresetRepository;
 import pl.qprogramming.themplay.repository.SongRepository;
 
-@Database(entities = {Playlist.class, Song.class, Preset.class}, version = 2)
+@Database(entities = {Playlist.class, Song.class, Preset.class}, version = 3)
 @TypeConverters({Converters.class})
 public abstract class ThemplayDatabase extends RoomDatabase {
 
@@ -36,7 +36,7 @@ public abstract class ThemplayDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     ThemplayDatabase.class, "themplay")
                             // Add migrations here
-                            .addMigrations(MIGRATION_1_2)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                             .build();
                 }
             }
@@ -52,6 +52,11 @@ public abstract class ThemplayDatabase extends RoomDatabase {
                     " ADD COLUMN " + Song.TITLE + " TEXT");
             database.execSQL("ALTER TABLE " + Song.SONG_TABLE_NAME +
                     " ADD COLUMN " + Song.PLAYLIST_POSITION + " INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+    static final Migration MIGRATION_2_3 = new Migration(2, 3) {
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE playlists ADD COLUMN " + Playlist.PLAYBACK_ORDER_IDS + " TEXT");
         }
     };
 };

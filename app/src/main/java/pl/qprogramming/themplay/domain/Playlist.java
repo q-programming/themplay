@@ -9,9 +9,11 @@ import androidx.room.PrimaryKey;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,6 +22,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import lombok.val;
+import pl.qprogramming.themplay.logger.Logger;
 
 @Getter
 @Setter
@@ -43,6 +46,8 @@ public class Playlist implements Serializable, Cloneable {
     public static final String NAME = "name";
     public static final String TEXT_OUTLINE = "text_outline";
     public static final String POSITION = "position";
+    public static final String PLAYBACK_ORDER_IDS = "playback_order_ids";
+
     @PrimaryKey
     private Long id;
     private String name;
@@ -68,6 +73,8 @@ public class Playlist implements Serializable, Cloneable {
     private boolean textOutline;
     @ColumnInfo(name = POSITION)
     private int position;
+    @ColumnInfo(name = PLAYBACK_ORDER_IDS)
+    private String playbackOrderIds;
 
     /**
      * All songs in this playlist
@@ -120,6 +127,39 @@ public class Playlist implements Serializable, Cloneable {
         playlist.setCreatedAt(new Date());
         playlist.setActive(false);
         return playlist;
+    }
+
+    @Ignore
+    public void setPlaybackOrderFromSongs() {
+        if (this.playlist == null || this.playlist.isEmpty()) {
+            this.playbackOrderIds = null;
+            return;
+        }
+        this.playbackOrderIds = this.playlist.stream()
+                .filter(song -> song != null && song.getId() != null)
+                .map(song -> "#" + song.getId())
+                .collect(Collectors.joining());
+    }
+
+    public List<Long> getPlaybackOrder() {
+        if (this.playbackOrderIds == null || this.playbackOrderIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String idsToParse = this.playbackOrderIds;
+        if (idsToParse.startsWith("#")) {
+            if (idsToParse.length() == 1) return new ArrayList<>();
+            idsToParse = idsToParse.substring(1);
+        }
+        try {
+            return Arrays.stream(idsToParse.split("#"))
+                    .filter(idStr -> idStr != null && !idStr.trim().isEmpty())
+                    .map(Long::parseLong)
+                    .collect(Collectors.toList());
+        } catch (NumberFormatException e) {
+            // Log this error, as it indicates corrupt data
+            Logger.e("Playlist", "Error parsing playbackOrderIds: " + this.playbackOrderIds + " - " + e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
 }

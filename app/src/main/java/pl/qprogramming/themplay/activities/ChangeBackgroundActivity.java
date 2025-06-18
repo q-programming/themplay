@@ -131,7 +131,7 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
         cropOptions.aspectRatioX = aspectRatioX;
         cropOptions.aspectRatioY = aspectRatioY;
         cropOptions.outputCompressFormat = Bitmap.CompressFormat.JPEG;
-        cropOptions.outputCompressQuality = 75;
+        cropOptions.outputCompressQuality = 75; //TODO increase quality ?
         val contractOptions = new CropImageContractOptions(sourceUri, cropOptions);
         cropImageLauncher.launch(contractOptions);
     }
@@ -159,11 +159,11 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
         }
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
             Bitmap scaledBitmap = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, false);
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos);
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, baos); //no compress ?
             byte[] imageBytes = baos.toByteArray();
             String imageString = Base64.encodeToString(imageBytes, Base64.DEFAULT);
             if (playlist != null) {
-                playlist.setBackgroundImage(imageString);
+                playlist.setBackgroundImage(imageString); //TODO just set URI ?
                 playlistService.save(playlist,
                         updated -> {
                             Logger.d(TAG, "Playlist background updated successfully for  " + updated.getName());

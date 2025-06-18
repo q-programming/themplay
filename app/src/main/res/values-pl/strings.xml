@@ -28,7 +28,7 @@
     <string name="playlist_already_exists">Plalista o nazwie \"{0}\" już istnieje w tym zestawie</string>
     <string name="playlist_add_error">Wystąpił bład podczas próby dodania playlisty</string>
     <string name="playlist_encourage_add_new_playlist">Otwórz menu aby stworzyć swoją pierwszą playlistę</string>
-    <string name="playlist_view_playlist">Zobacz playlistę</string>
+    <string name="playlist_view_playlist">Zobacz kolejność playlisty</string>
     <string name="playlist_edit_playlist">Edytuj playlistę</string>
     <string name="playlist_delete_playlist">Usuń playlistę</string>
     <string name="playlist_change_look">Zmień wygląd playlisty</string>

@@ -311,6 +311,11 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING.getCode());
+        //player
+        filter.addAction(EventType.PLAYER_PLAYING.getCode());
+        filter.addAction(EventType.PLAYER_STOPPED.getCode());
+        filter.addAction(EventType.PLAYER_PAUSED.getCode());
+
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
@@ -615,7 +620,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case PRESET_ACTIVATED:
                     playlistService.resetActiveFromPreset();
-                    renderPlayButton();
                     break;
                 case PRESET_REMOVED:
                     Optional.ofNullable(args.getSerializable(PRESET))
@@ -624,13 +628,11 @@ public class MainActivity extends AppCompatActivity {
                                 playlistService.removePreset(preset.getName());
                             });
                     break;
-                case PLAYBACK_NOTIFICATION_PLAY:
-                case PLAYLIST_NOTIFICATION_ACTIVE:
-//                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
+                case PLAYER_PLAYING:
                     renderPauseButton();
                     break;
-                case PLAYBACK_NOTIFICATION_STOP:
-                case PLAYBACK_NOTIFICATION_PAUSE:
+                case PLAYER_PAUSED:
+                case PLAYER_STOPPED:
                     renderPlayButton();
                     break;
                 case PLAYLIST_NOTIFICATION_PLAY_NO_SONGS:
@@ -659,7 +661,6 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             }));
 
-                    //TODO force!
                     break;
                 case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))

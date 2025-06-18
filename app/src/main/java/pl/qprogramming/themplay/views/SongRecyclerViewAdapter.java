@@ -6,6 +6,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_
 
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.drawable.AnimationDrawable;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -16,6 +17,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
@@ -25,6 +27,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -32,19 +35,51 @@ import lombok.val;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Song;
 
+/**
+ * {@link RecyclerView.Adapter} that can display a {@link Song}.
+ * This adapter handles the display and interaction of songs within a RecyclerView.
+ * It supports different modes:
+ * - View mode: Displays song titles and an indicator for the currently playing song.
+ * - Edit mode: Allows users to select songs (for deletion or other actions) and reorder songs
+ *   via drag-and-drop.
+ *
+ * The adapter communicates changes in selection state and edit mode via {@link LocalBroadcastManager}.
+ * It also implements {@link ItemMoveCallback.ItemTouchHelperContract} to enable drag-and-drop
+ * functionality for reordering songs when in edit mode.
+ *
+ * Key features:
+ * - Displays a list of {@link Song} objects.
+ * - Toggles between view and edit modes.
+ * - In edit mode:
+ *   - Shows checkboxes for song selection.
+ *   - Shows drag handles for reordering songs.
+ *   - Broadcasts events when selection changes or edit mode is toggled.
+ * - In view mode:
+ *   - Hides edit controls.
+ *   - Shows a visual indicator (animated drawable) for the currently playing song.
+ * - Updates the song list dynamically.
+ * - Persists the new order of songs after a drag-and-drop operation.
+ */
 public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerViewAdapter.SongViewHolder> implements ItemMoveCallback.ItemTouchHelperContract<SongRecyclerViewAdapter.SongViewHolder> {
 
     public static final String TAG = SongRecyclerViewAdapter.class.getSimpleName();
-    private boolean multipleMode;
+    private boolean editMode;
     private final Context context;
     @Getter
     private final List<Song> songsList;
     @Setter
     private ItemTouchHelper itemTouchHelper;
 
+    @Setter
+    private Long currentSongId;
+    @Setter
+    private boolean isPlaying;
+    private int padding_10dp;
+
+
     public SongRecyclerViewAdapter(@NonNull Context context) {
         this.context = context.getApplicationContext();
-        this.multipleMode = false;
+        this.editMode = false;
         this.songsList = new ArrayList<>();
     }
 
@@ -53,6 +88,7 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
     public SongViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View itemView = LayoutInflater.from(parent.getContext())
                 .inflate(R.layout.song, parent, false);
+        padding_10dp = (int) (10 * context.getResources().getDisplayMetrics().density + 0.5f);
         return new SongViewHolder(itemView, itemTouchHelper);
     }
 
@@ -67,16 +103,16 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
         return songsList == null ? 0 : songsList.size();
     }
 
-    public void setMultipleMode(boolean isMultiple) {
-        boolean oldMode = this.multipleMode;
-        this.multipleMode = isMultiple;
-        if (oldMode && !isMultiple) {
+    public void setEditMode(boolean edit) {
+        boolean oldMode = this.editMode;
+        this.editMode = edit;
+        if (oldMode && !edit) {
             for (Song song : songsList) {
                 song.setSelected(false);
             }
             notifyDataSetChanged();
             broadcastSelectionState();
-        } else if (!oldMode && isMultiple) {
+        } else if (!oldMode && edit) {
             Intent intent = new Intent(PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED.getCode());
             LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
             notifyItemRangeChanged(0, getItemCount());
@@ -133,8 +169,9 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
 
     /**
      * When item is moved , swap it in list of songs
+     *
      * @param fromPosition source position
-     * @param toPosition destination position
+     * @param toPosition   destination position
      */
     @Override
     public void onRowMoved(int fromPosition, int toPosition) {
@@ -150,6 +187,7 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
 
     /**
      * Upon done, update row positions in song list
+     *
      * @param viewHolder view holder
      */
     @Override
@@ -190,8 +228,8 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
             itemView.setOnLongClickListener(v -> {
                 int position = getBindingAdapterPosition();
                 if (position != RecyclerView.NO_POSITION) {
-                    if (!multipleMode) {
-                        setMultipleMode(true);
+                    if (!editMode && currentSongId == null) {
+                        setEditMode(true);
                         broadcastSelectionState();
                         return true;
                     }
@@ -208,10 +246,10 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
                     }
                 }
             });
-            moveIcon.setOnTouchListener((view,event)->{
+            moveIcon.setOnTouchListener((view, event) -> {
                 if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
                     if (touchHelper != null) {
-                        touchHelper.startDrag(this); // 'this' is the ViewHolder
+                        touchHelper.startDrag(this);
                     }
                 }
                 return false;
@@ -221,8 +259,15 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
         void bind(Song song) {
             fileNameTextView.setText(song.getDisplayName());
             songCheckBox.setChecked(song.isSelected());
-            int padding_10dp = (int) (10 * context.getResources().getDisplayMetrics().density + 0.5f);
-            if (!multipleMode) {
+            renderForEditMode();
+            renderForViewMode(song);
+        }
+
+        /**
+         * Render icons while in edit playlist mode
+         */
+        private void renderForEditMode() {
+            if (!editMode) {
                 songCheckBox.setVisibility(View.GONE);
                 moveIcon.setVisibility(View.GONE);
                 musicIcon.setVisibility(View.VISIBLE);
@@ -235,6 +280,31 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
                 musicIcon.setVisibility(View.GONE);
                 if (songLayout != null) {
                     songLayout.setPadding(0, 0, 0, 0);
+                }
+            }
+        }
+
+        /**
+         * If adapter is in view playlist order mode , it will hide all note icons and replace currently playing song with animated indicator
+         * @param song Song to be rendered
+         */
+        private void renderForViewMode(Song song) {
+            if (currentSongId != null) {
+                songCheckBox.setVisibility(View.GONE);
+                if (songLayout != null) {
+                    songLayout.setPadding(0, padding_10dp, 0, padding_10dp);
+                }
+                if (Objects.equals(song.getId(), currentSongId)) {
+                    val animated = (AnimationDrawable) ContextCompat.getDrawable(context, R.drawable.playing_indicator_anim);
+                    if (isPlaying) {
+                        animated.start();
+                    } else {
+                        animated.stop();
+                    }
+                    musicIcon.setVisibility(View.VISIBLE);
+                    musicIcon.setImageDrawable(animated);
+                } else {
+                    musicIcon.setVisibility(View.INVISIBLE);
                 }
             }
         }
