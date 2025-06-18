@@ -1,12 +1,16 @@
 package pl.qprogramming.themplay.views;
 
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_PLAY_THIS_SONG;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE;
+import static pl.qprogramming.themplay.util.Utils.ARGS;
+import static pl.qprogramming.themplay.util.Utils.SONG;
 
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.AnimationDrawable;
+import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -41,22 +45,22 @@ import pl.qprogramming.themplay.domain.Song;
  * It supports different modes:
  * - View mode: Displays song titles and an indicator for the currently playing song.
  * - Edit mode: Allows users to select songs (for deletion or other actions) and reorder songs
- *   via drag-and-drop.
- *
+ * via drag-and-drop.
+ * <p>
  * The adapter communicates changes in selection state and edit mode via {@link LocalBroadcastManager}.
  * It also implements {@link ItemMoveCallback.ItemTouchHelperContract} to enable drag-and-drop
  * functionality for reordering songs when in edit mode.
- *
+ * <p>
  * Key features:
  * - Displays a list of {@link Song} objects.
  * - Toggles between view and edit modes.
  * - In edit mode:
- *   - Shows checkboxes for song selection.
- *   - Shows drag handles for reordering songs.
- *   - Broadcasts events when selection changes or edit mode is toggled.
+ * - Shows checkboxes for song selection.
+ * - Shows drag handles for reordering songs.
+ * - Broadcasts events when selection changes or edit mode is toggled.
  * - In view mode:
- *   - Hides edit controls.
- *   - Shows a visual indicator (animated drawable) for the currently playing song.
+ * - Hides edit controls.
+ * - Shows a visual indicator (animated drawable) for the currently playing song.
  * - Updates the song list dynamically.
  * - Persists the new order of songs after a drag-and-drop operation.
  */
@@ -214,16 +218,21 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
             musicIcon = itemView.findViewById(R.id.music_symbol);
             songLayout = itemView.findViewById(R.id.song_layout);
 
-//            itemView.setOnClickListener(v -> {
-//                int position = getBindingAdapterPosition();
-//                if (position != RecyclerView.NO_POSITION) {
-//                    Song song = songsList.get(position);
-//                    if (!multipleMode) {
-//                        //play song.
-//                    }
-//                    // In multipleMode, row click does nothing to selection state here.
-//                }
-//            });
+            itemView.setOnClickListener(v -> {
+                int position = getBindingAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    Song song = songsList.get(position);
+                    if (!editMode && currentSongId != null) {
+                        //play song.
+                        val playThisSongIntent = new Intent(ACTION_PLAY_THIS_SONG.getCode());
+                        val args = new Bundle();
+                        args.putSerializable(SONG, song);
+                        playThisSongIntent.putExtra(ARGS, args);
+                        LocalBroadcastManager.getInstance(context).sendBroadcast(playThisSongIntent);
+
+                    }
+                }
+            });
 
             itemView.setOnLongClickListener(v -> {
                 int position = getBindingAdapterPosition();
@@ -286,6 +295,7 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
 
         /**
          * If adapter is in view playlist order mode , it will hide all note icons and replace currently playing song with animated indicator
+         *
          * @param song Song to be rendered
          */
         private void renderForViewMode(Song song) {

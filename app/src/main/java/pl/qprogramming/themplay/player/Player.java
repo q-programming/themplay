@@ -2,6 +2,7 @@ package pl.qprogramming.themplay.player;
 
 import static androidx.media3.common.Player.STATE_IDLE;
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static pl.qprogramming.themplay.playlist.EventType.ACTION_PLAY_THIS_SONG;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_NEXT;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYBACK_NOTIFICATION_PAUSE;
@@ -21,6 +22,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
+import static pl.qprogramming.themplay.util.Utils.SONG;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
@@ -156,6 +158,7 @@ public class Player extends Service {
         filter.addAction(PLAYLIST_NOTIFICATION_ADD.getCode());
         filter.addAction(PLAYLIST_NOTIFICATION_RECREATE_LIST.getCode());
         filter.addAction(PRESET_ACTIVATED.getCode());
+        filter.addAction(ACTION_PLAY_THIS_SONG.getCode());
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
@@ -363,6 +366,42 @@ public class Player extends Service {
                     songIndex = 0;
                 }
                 val song = activePlaylist.getPlaylist().get(songIndex);
+                activePlaylist.setCurrentSong(song);
+                activePlaylist.setCurrentSongId(song.getId());
+                playlistService.save(activePlaylist);
+                fadeIntoNewSong(song, 0);
+                populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
+            } else {
+                Toast.makeText(getApplicationContext(), getString(R.string.playlist_no_active_playlist), Toast.LENGTH_LONG).show();
+                populateAndSend(PLAYBACK_NOTIFICATION_STOP, 0);
+                isTransitionInProgress = false;
+            }
+        } catch (Exception e) {
+            Logger.e(TAG, "Error in next() transition", e);
+            isTransitionInProgress = false;
+        }
+    }
+
+    /**
+     * Plays next song in playlist with spam protection
+     * Gets current song index and increases it by 1
+     * If no song found it will be 0 as indexOf returns -1 in that case
+     */
+    public void skipToSong(Song song) {
+        if (isTransitionInProgress) {
+            Logger.d(TAG, "Transition already in progress, ignoring skipToSong() request");
+            return;
+        }
+        isTransitionInProgress = true;
+        Logger.d(TAG, "Starting skipToSong() transition");
+        try {
+            if (isEmpty(activePlaylist.getPlaylist())) {
+                Logger.d(TAG, "Playlist is empty, it should not happen");
+                activePlaylist = playlistService.preparePlaylistForPlayback(activePlaylist, false);
+                notifyAboutNewPlaylist();
+            }
+            if (activePlaylist != null && !activePlaylist.getPlaylist().isEmpty()) {
+                updateCurrentSongProgress(false);
                 activePlaylist.setCurrentSong(song);
                 activePlaylist.setCurrentSongId(song.getId());
                 playlistService.save(activePlaylist);
@@ -788,11 +827,24 @@ public class Player extends Service {
         Log.d(TAG, "Observing ending for song: " + currentSong.getFilename());
         final Handler h = new Handler(getMainLooper());
         final int fadeDuration = getDuration();
+        final Long observerSongId = currentSong.getId();
         Runnable endingCheck = new Runnable() {
             @Override
             public void run() {
                 if (currentPlayer == null) {
-                    Log.d(TAG, "Current player is null for song: " + currentSong.getFilename());
+                    Log.d(TAG, "Current player is null for song: " + currentSong.getFilename() + ".Stopping observing ending for it");
+                    return;
+                }
+                Song songCurrentlyInPlayer = null;
+                if (activePlaylist != null) {
+                    songCurrentlyInPlayer = activePlaylist.getCurrentSong();
+                }
+                if (songCurrentlyInPlayer == null || songCurrentlyInPlayer.getId() == null || !observerSongId.equals(songCurrentlyInPlayer.getId())) {
+                    Log.d(TAG, "observeEnding (for ID: " + observerSongId + ", Name: " + currentSong.getFilename() + "): " +
+                            "Player is now playing a different song (ID: " +
+                            (songCurrentlyInPlayer != null && songCurrentlyInPlayer.getId() != null ? songCurrentlyInPlayer.getId() : "null") +
+                            ", Name: " + (songCurrentlyInPlayer != null ? songCurrentlyInPlayer.getFilename() : "null") +
+                            "). Stopping this observer instance.");
                     return;
                 }
                 int playbackState = currentPlayer.getPlaybackState();
@@ -1142,6 +1194,9 @@ public class Player extends Service {
                 case PLAYLIST_NOTIFICATION_DELETE_SONGS:
                     handleSongDeleted(args, shuffle);
                     break;
+                case ACTION_PLAY_THIS_SONG:
+                    Optional.ofNullable(args.getSerializable(SONG))
+                            .ifPresent(newSong -> skipToSong((Song) newSong));
             }
         }
     };
