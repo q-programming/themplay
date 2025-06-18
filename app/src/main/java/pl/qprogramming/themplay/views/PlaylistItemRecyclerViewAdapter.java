@@ -44,7 +44,6 @@ import java.util.List;
 
 import lombok.Setter;
 import lombok.val;
-import pl.qprogramming.themplay.BuildConfig;
 import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.domain.Playlist;
 import pl.qprogramming.themplay.logger.Logger;
@@ -202,7 +201,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
             val popup = new PopupMenu(holder.mView.getContext(), holder.actionMenu);
             popup.getMenuInflater().inflate(R.menu.playlist_menu, popup.getMenu());
             val viewPlaylistItem = popup.getMenu().findItem(R.id.viewPlaylist);
-            val viewVisible = BuildConfig.VIEW_PLAYLIST_ENABLED && playlist.isActive() && isPlaying;
+            val viewVisible = playlist.isActive() && isPlaying;
             if (viewPlaylistItem != null) {
                 viewPlaylistItem.setVisible(viewVisible);
             }
@@ -235,7 +234,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                     spEdit.putLong(COPY_PLAYLIST, playlist.getId());
                     spEdit.apply();
                     Toast.makeText(context, context.getString(R.string.playlist_copied), Toast.LENGTH_LONG).show();
-                } else if (BuildConfig.VIEW_PLAYLIST_ENABLED && itemId == R.id.viewPlaylist) {
+                } else if (itemId == R.id.viewPlaylist) {
                     Logger.d(TAG, "Viewing playlist " + playlist.getId());
                     navigateToFragment(
                             fmanager,

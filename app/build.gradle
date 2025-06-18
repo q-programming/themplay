@@ -8,18 +8,15 @@ android {
         applicationId "pl.qprogramming.themplay"
         minSdkVersion 30
         targetSdkVersion 34
-        versionCode 15
+        versionCode 16
         versionName "1.0.0"
         buildConfigField("long","BUILD_TIMESTAMP",System.currentTimeMillis() + "L")
-        buildConfigField("boolean","VIEW_PLAYLIST_ENABLED","true")
-
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            buildConfigField("boolean", "VIEW_PLAYLIST_ENABLED", "false")
         }
     }
     compileOptions {
