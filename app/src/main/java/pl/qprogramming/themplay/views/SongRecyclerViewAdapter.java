@@ -5,7 +5,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SOME_DELETE_SELECTED;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_SONGS_UPDATE_DONE;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
-import static pl.qprogramming.themplay.util.Utils.SONG;
+import static pl.qprogramming.themplay.util.Utils.SONG_ID;
 
 import android.content.Context;
 import android.content.Intent;
@@ -226,7 +226,7 @@ public class SongRecyclerViewAdapter extends RecyclerView.Adapter<SongRecyclerVi
                         //play song.
                         val playThisSongIntent = new Intent(ACTION_PLAY_THIS_SONG.getCode());
                         val args = new Bundle();
-                        args.putSerializable(SONG, song);
+                        args.putSerializable(SONG_ID, song);
                         playThisSongIntent.putExtra(ARGS, args);
                         LocalBroadcastManager.getInstance(context).sendBroadcast(playThisSongIntent);
 

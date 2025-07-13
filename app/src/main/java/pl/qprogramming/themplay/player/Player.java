@@ -22,7 +22,7 @@ import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_
 import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
-import static pl.qprogramming.themplay.util.Utils.SONG;
+import static pl.qprogramming.themplay.util.Utils.SONG_ID;
 import static pl.qprogramming.themplay.util.Utils.createPlaylist;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 
@@ -240,6 +240,13 @@ public class Player extends Service {
         return super.onUnbind(intent);
     }
 
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        super.onTimeout(startId, fgsType);
+        Logger.d(TAG, "onTimeout");
+        stopSelf();
+    }
+
     public class LocalBinder extends Binder {
         public Player getService() {
             return Player.this;
@@ -368,6 +375,7 @@ public class Player extends Service {
                 val song = activePlaylist.getPlaylist().get(songIndex);
                 activePlaylist.setCurrentSong(song);
                 activePlaylist.setCurrentSongId(song.getId());
+                activePlaylist.setCurrentSongTitle(song.getDisplayName());
                 playlistService.save(activePlaylist);
                 fadeIntoNewSong(song, 0);
                 populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
@@ -404,6 +412,7 @@ public class Player extends Service {
                 updateCurrentSongProgress(false);
                 activePlaylist.setCurrentSong(song);
                 activePlaylist.setCurrentSongId(song.getId());
+                activePlaylist.setCurrentSongTitle(song.getDisplayName());
                 playlistService.save(activePlaylist);
                 fadeIntoNewSong(song, 0);
                 populateAndSend(EventType.PLAYLIST_NOTIFICATION_NEXT, activePlaylist.getPosition());
@@ -454,6 +463,7 @@ public class Player extends Service {
                 val song = songs.get(songIndex);
                 activePlaylist.setCurrentSong(song);
                 activePlaylist.setCurrentSongId(song.getId());
+                activePlaylist.setCurrentSongTitle(song.getDisplayName());
                 playlistService.save(activePlaylist);
                 fadeIntoNewSong(song, 0);
                 populateAndSend(EventType.PLAYLIST_NOTIFICATION_PREV, activePlaylist.getPosition());
@@ -478,10 +488,10 @@ public class Player extends Service {
         if (isPlaying()) {
             updateCurrentSongProgress(true);
             if (isFadeStop()) {
-                fadeStopCurrentPlayer(currentPlayer, () -> currentPlayer = null);
+                fadeStopPlayer(currentPlayer, () -> currentPlayer = null);
                 if (nextPlayer != null && nextPlayer.isPlaying()) {
                     Logger.d(TAG, "Next player is still playing, fade stoping it");
-                    fadeStopCurrentPlayer(nextPlayer, () -> nextPlayer = null);
+                    fadeStopPlayer(nextPlayer, () -> nextPlayer = null);
                 }
             } else {
                 ExoPlayerManager.safeReleasePlayer(currentPlayer);
@@ -548,7 +558,7 @@ public class Player extends Service {
      * @param onPlayerStopped Callback to be invoked when the player is stopped
      * @see CrossfadeController#startFadeOut(ExoPlayer, VolumeScalingAudioProcessor, int, Runnable)
      */
-    private void fadeStopCurrentPlayer(ExoPlayer player, Runnable onPlayerStopped) {
+    private void fadeStopPlayer(ExoPlayer player, Runnable onPlayerStopped) {
         if (player == null || mainVolumeProcessor == null) {
             return;
         }
@@ -570,7 +580,7 @@ public class Player extends Service {
      * new song requests during the fade-out process.</p>
      *
      * @see CrossfadeController#startFadeOut(ExoPlayer, VolumeScalingAudioProcessor, int, Runnable)
-     * @see #fadeStopCurrentPlayer(ExoPlayer player, Runnable onPlayerStopped)
+     * @see #fadeStopPlayer(ExoPlayer player, Runnable onPlayerStopped)
      */
     private void fadePauseCurrentPlayer() {
         if (currentPlayer == null || mainVolumeProcessor == null) {
@@ -913,7 +923,7 @@ public class Player extends Service {
         //notify all agents about problematic song deletion
         Intent intent = new Intent(PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         Bundle args = new Bundle();
-        args.putSerializable(Utils.SONG, problematicSong);
+        args.putSerializable(Utils.SONG_ID, problematicSong);
         args.putSerializable(PLAYLIST, activePlaylist);
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
@@ -1046,7 +1056,7 @@ public class Player extends Service {
      * @param position position of song
      */
     private void populateAndSend(EventType type, int position) {
-        Logger.d(TAG, "Sending event " + type);
+        Logger.d(TAG, "[EVENT] Sending event " + type);
         Intent intent = new Intent(type.getCode());
         val args = new Bundle();
         args.putSerializable(Utils.POSITION, position);
@@ -1195,7 +1205,7 @@ public class Player extends Service {
                     handleSongDeleted(args, shuffle);
                     break;
                 case ACTION_PLAY_THIS_SONG:
-                    Optional.ofNullable(args.getSerializable(SONG))
+                    Optional.ofNullable(args.getSerializable(SONG_ID))
                             .ifPresent(newSong -> skipToSong((Song) newSong));
             }
         }

@@ -29,7 +29,7 @@ import pl.qprogramming.themplay.repository.PlaylistRepository;
 import pl.qprogramming.themplay.repository.PresetRepository;
 import pl.qprogramming.themplay.repository.SongRepository;
 
-@Database(entities = {Playlist.class, Song.class, Preset.class}, version = 4)
+@Database(entities = {Playlist.class, Song.class, Preset.class}, version = 5)
 @TypeConverters({Converters.class})
 public abstract class ThemplayDatabase extends RoomDatabase {
 
@@ -49,7 +49,7 @@ public abstract class ThemplayDatabase extends RoomDatabase {
                     INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                                     ThemplayDatabase.class, "themplay")
                             // Add migrations here
-                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                             .build();
                 }
             }
@@ -146,6 +146,13 @@ public abstract class ThemplayDatabase extends RoomDatabase {
             }
             cursor.close();
             Logger.i(MIGRATION_TAG, "Finished MIGRATION_3_4 for playlist backgrounds (direct byte save).");
+        }
+    };
+    static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        public void migrate(SupportSQLiteDatabase database) {
+            final String MIGRATION_TAG = "[Migration 4=>5]";
+            database.execSQL("ALTER TABLE " + Playlist.PLAYLIST_TABLE_NAME + " ADD COLUMN " + Playlist.CURRENT_SONG_TITLE + " TEXT");
+            Logger.i(MIGRATION_TAG, "Added column " + Playlist.CURRENT_SONG_TITLE + " to playlists table.");
         }
     };
 };

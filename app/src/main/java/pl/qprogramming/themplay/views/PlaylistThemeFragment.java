@@ -63,6 +63,8 @@ public class PlaylistThemeFragment extends Fragment {
     private TextView inactiveName;
     private ImageView inactiveMenu;
 
+    private SwitchMaterial outlineSwitch;
+
     private int activeColor;
     private int[] colorArray;
 
@@ -138,6 +140,8 @@ public class PlaylistThemeFragment extends Fragment {
         });
         view.findViewById(R.id.remove_background).setOnClickListener(v -> {
             playlist.setBackgroundImage(null);
+            playlist.setTextOutline(false);
+            playlist.setTextColor(0);
             playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
@@ -168,10 +172,11 @@ public class PlaylistThemeFragment extends Fragment {
             builder.show();
         });
         val switchBtn = (SwitchMaterial) view.findViewById(R.id.toggle_text_outline);
-        if (playlist.isTextOutline()) {
-            switchBtn.toggle();
-        }
         switchBtn.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (playlistService == null || !serviceIsBound) {
+                Logger.w(TAG, "OutlineSwitch changed but service is not yet bound. Ignoring.");
+                return;
+            }
             playlist.setTextOutline(isChecked);
             playlistService.save(playlist, updated -> {
                 playlist = updated;
@@ -206,6 +211,7 @@ public class PlaylistThemeFragment extends Fragment {
         inactiveName = inactiveView.findViewById(R.id.playlist_name);
         inactiveBackground = inactiveView.findViewById(R.id.card_background);
         inactiveMenu = inactiveView.findViewById(R.id.playlist_menu_btn);
+        outlineSwitch = view.findViewById(R.id.toggle_text_outline);
     }
 
     private void updatePreview() {
@@ -244,6 +250,14 @@ public class PlaylistThemeFragment extends Fragment {
                 DrawableCompat.wrap(inactiveMenu.getDrawable()),
                 textColor
         );
+        if (outlineSwitch == null || playlist == null) {
+            Logger.w(TAG, "updatePreview called with null switchBtn or playlist.");
+            return;
+        }
+        if (outlineSwitch.isChecked() != playlist.isTextOutline()) {
+            outlineSwitch.setChecked(playlist.isTextOutline());
+        }
+
     }
 
     private void updateListAndGoBack() {

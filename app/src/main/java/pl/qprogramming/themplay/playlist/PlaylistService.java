@@ -246,6 +246,11 @@ public class PlaylistService extends Service {
                 .map(songs -> {
                     Logger.d(TAG, "Fetched " + songs.size() + " songs for playlist: " + playlist.getName());
                     playlist.setSongs(songs);
+                    if (playlist.getCurrentSongId() != null) {
+                        val currentSong = songs.stream().filter(song -> song.getId().equals(playlist.getCurrentSongId())).findFirst().orElse(null);
+                        playlist.setCurrentSong(currentSong);
+                        playlist.setCurrentSongTitle(currentSong != null ? currentSong.getDisplayName() : null);
+                    }
                     return playlist;
                 });
     }
@@ -506,6 +511,8 @@ public class PlaylistService extends Service {
                     Long currentSongId = currentPlaylistState.getCurrentSongId();
                     if (currentSongId != null && idsOfSongsMarkedForRemoval.contains(currentSongId)) {
                         currentPlaylistState.setCurrentSongId(null);
+                        currentPlaylistState.setCurrentSongTitle(null);
+
                     }
                     Completable deleteDbSongsCompletable = songRepository.deleteSongsByIds(idsOfSongsMarkedForRemoval);
                     Completable updateDbSongsCompletable = songRepository.updateAll(songsRemainingInPlaylist);
@@ -922,6 +929,7 @@ public class PlaylistService extends Service {
                         .orElse(null);
                 if (currentSong != null) {
                     playlist.setCurrentSongId(currentSong.getId());
+                    playlist.setCurrentSongTitle(currentSong.getDisplayName());
                     playlist.setCurrentSong(currentSong);
                     Logger.d(TAG, "Setting current song to first valid song in playback order: " + currentSong.getFilename());
                 } else {
@@ -943,15 +951,18 @@ public class PlaylistService extends Service {
                         Logger.d(TAG, "Song with ID " + currentSongId + " not found in playback order for playlist " + playlist.getName() + ". Using first valid song: " + fallbackSong.getFilename());
                         playlist.setCurrentSongId(fallbackSong.getId());
                         playlist.setCurrentSong(fallbackSong);
+                        playlist.setCurrentSongTitle(fallbackSong.getDisplayName());
                     } else {
                         Logger.e(TAG, "No valid fallback songs found in playback order for playlist: " + playlist.getName());
                         playlist.setCurrentSongId(null);
+                        playlist.setCurrentSongTitle(null);
                         playlist.setCurrentSong(null);
                     }
                 }
             } else if (isEmpty(currentPlaybackOrder)) {
                 Logger.w(TAG, "Current playback order is empty for playlist: " + playlist.getName() + ". Clearing current song.");
                 playlist.setCurrentSongId(null);
+                playlist.setCurrentSongTitle(null);
                 playlist.setCurrentSong(null);
             }
 
@@ -1150,6 +1161,6 @@ public class PlaylistService extends Service {
         args.putSerializable(PLAYLIST, playlist);
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        Logger.d(TAG, "Playlist notification " + type + " sent: " + playlist.getName());
+        Logger.d(TAG, "[EVENT] Playlist notification " + type + " sent: " + playlist.getName());
     }
 }

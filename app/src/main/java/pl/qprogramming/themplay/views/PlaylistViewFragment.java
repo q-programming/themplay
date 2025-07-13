@@ -3,7 +3,7 @@ package pl.qprogramming.themplay.views;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYER_PLAYING;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_MULTIPLE_SELECTED;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
-import static pl.qprogramming.themplay.util.Utils.SONG;
+import static pl.qprogramming.themplay.util.Utils.SONG_ID;
 
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -246,7 +246,7 @@ public class PlaylistViewFragment extends Fragment {
             switch (event) {
                 case PLAYLIST_NOTIFICATION_NEXT:
                 case PLAYLIST_NOTIFICATION_PREV:
-                    Optional.ofNullable(args.getSerializable(SONG))
+                    Optional.ofNullable(args.getSerializable(SONG_ID))
                             .ifPresent(songId -> {
                                 val newSongId = (long) songId;
                                 adapter.setCurrentSongId(newSongId);

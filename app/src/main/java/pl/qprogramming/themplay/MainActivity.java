@@ -9,7 +9,7 @@ import static pl.qprogramming.themplay.settings.Property.LAST_LAUNCH_VERSION;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
-import static pl.qprogramming.themplay.util.Utils.SONG;
+import static pl.qprogramming.themplay.util.Utils.SONG_ID;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -41,6 +41,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.view.WindowCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.util.UnstableApi;
 import androidx.preference.PreferenceManager;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         setContentView(R.layout.activity_main);
         setActiveColor();
         setupPreferences();
@@ -666,7 +668,7 @@ public class MainActivity extends AppCompatActivity {
                     Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((object -> {
                                 val playlist = (Playlist) object;
-                                val song = (Song) args.getSerializable(SONG);
+                                val song = (Song) args.getSerializable(SONG_ID);
                                 playlistService.removeSongsFromPlaylist(playlist.getId(), Collections.singletonList(song),
                                         updated -> Logger.w(TAG, "Song deleted from playlist as it was not found: " + playlist.getName()),
                                         throwable -> Logger.e(TAG, "Error while deleting not found song from playlist" + song.getFilename() + " from playlist: " + playlist.getName(), throwable));

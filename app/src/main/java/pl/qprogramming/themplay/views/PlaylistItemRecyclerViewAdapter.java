@@ -138,8 +138,10 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                 textColor
         );
         holder.playlist = playlist;
-        if (playlist.getCurrentSong() != null) {
-            holder.mCurrentFilename.setText(playlist.getCurrentSong().getFilename());
+        if (playlist.getCurrentSongTitle() != null && isPlaying) {
+            holder.mCurrentFilename.setText(playlist.getCurrentSongTitle());
+        }else{
+            holder.mCurrentFilename.setText("");
         }
         setBackgroundImage(holder, playlist);
 //        if (!isEmpty(playlist.getBackgroundImage())) {

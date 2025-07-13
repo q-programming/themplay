@@ -35,6 +35,7 @@ public class Playlist implements Serializable, Cloneable {
     public static final String COLUMN_ID = "id";
     public static final String CURRENT_SONG = "currentSong";
     public static final String CURRENT_SONG_ID = "current_song_Id";
+    public static final String CURRENT_SONG_TITLE = "current_song_title";
     public static final String PLAYLIST_TABLE_NAME = "playlists";
     public static final String ACTIVE = "active";
     public static final String CREATED_AT = "created_at";
@@ -55,6 +56,8 @@ public class Playlist implements Serializable, Cloneable {
     private Song currentSong;
     @ColumnInfo(name = CURRENT_SONG_ID)
     private Long currentSongId;
+    @ColumnInfo(name = CURRENT_SONG_TITLE)
+    private String currentSongTitle;
     private boolean active;
     @ColumnInfo(name = CREATED_AT)
     @Builder.Default
@@ -124,6 +127,7 @@ public class Playlist implements Serializable, Cloneable {
         playlist.setId(null);
         playlist.setCurrentSongId(null);
         playlist.setCurrentSong(null);
+        playlist.setCurrentSongTitle(null);
         playlist.setCreatedAt(new Date());
         playlist.setActive(false);
         return playlist;

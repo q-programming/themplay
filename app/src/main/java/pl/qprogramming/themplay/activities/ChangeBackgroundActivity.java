@@ -147,11 +147,11 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
      * This method performs the following steps:
      * 1. Validates that the playlist, its preset, and its name are not null.
      * 2. Creates a directory for preset images if it doesn't already exist. The directory path is determined by
-     *    the external files directory, a constant {@code IMAGES_DIR_NAME}, and the playlist's preset name.
+     * the external files directory, a constant {@code IMAGES_DIR_NAME}, and the playlist's preset name.
      * 3. Sanitizes the playlist name to be used as a filename by replacing characters that are not
-     *    alphanumeric, period, or hyphen with an underscore.
+     * alphanumeric, period, or hyphen with an underscore.
      * 4. Creates a target {@link File} object for the scaled image, named after the sanitized playlist name with a ".jpg" extension,
-     *    within the preset images directory.
+     * within the preset images directory.
      * 5. Decodes the image from the provided {@code croppedUri} into a {@link Bitmap}.
      * 6. Scales the decoded bitmap to the {@code targetWidth} and {@code targetHeight} specified for the activity.
      * 7. Compresses the scaled bitmap into JPEG format with 85% quality and writes it to the {@code targetFile}.
@@ -159,15 +159,14 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
      * 9. If the {@code playlist} is still valid, updates its background image path to the absolute path of the saved file.
      * 10. Saves the updated playlist using the {@code playlistService}.
      * 11. Upon successful saving of the playlist:
-     *     - Logs the successful update.
-     *     - Sends a local broadcast to notify other components of the background change.
-     *     - Finishes the activity.
+     * - Logs the successful update.
+     * - Sends a local broadcast to notify other components of the background change.
+     * - Finishes the activity.
      * 12. If saving the playlist fails, logs the error and finishes the activity.
      * 13. Handles potential {@link IOException} during image decoding or file writing, and {@link OutOfMemoryError}
-     *     during image processing, by logging the error, showing a toast message, and finishing the activity.
+     * during image processing, by logging the error, showing a toast message, and finishing the activity.
      * 14. In a {@code finally} block, ensures that both the original and scaled bitmaps are recycled if they were created
-     *     and are not already recycled, to free up memory.
-     *
+     * and are not already recycled, to free up memory.
      */
     private void handleCroppedImage(Uri croppedUri) {
         if (playlist == null || playlist.getPreset() == null || playlist.getName() == null) {
@@ -204,6 +203,9 @@ public class ChangeBackgroundActivity extends AppCompatActivity {
                 long finalCompressedFileSizeBytes = targetFile.length();
                 Logger.d(TAG, "Scaled image saved successfully to: " + targetFile.getAbsolutePath() + " with size " + formatFileSize(finalCompressedFileSizeBytes));
                 if (playlist != null) {
+                    //by default we set it to outline and white color
+                    playlist.setTextOutline(true);
+                    playlist.setTextColor(1);
                     playlist.setBackgroundImage(targetFile.getAbsolutePath());
                     playlistService.save(playlist,
                             updated -> {

@@ -33,6 +33,7 @@ public class Utils {
     }
 
     public static final String POSITION = "position";
+    public static final String SONG_ID = "song_id";
     public static final String SONG = "song";
     public static final String PLAYLIST = "playlist";
     public static final String PRESET = "preset";
