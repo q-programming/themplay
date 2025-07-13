@@ -7,8 +7,8 @@ import static pl.qprogramming.themplay.util.Utils.POSITION;
 import static pl.qprogramming.themplay.util.Utils.WIDTH;
 import static pl.qprogramming.themplay.util.Utils.applyPlaylistStyle;
 import static pl.qprogramming.themplay.util.Utils.getThemeColor;
-import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.loadColorsArray;
+import static pl.qprogramming.themplay.util.Utils.retrieveImageForPlaylist;
 
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
@@ -17,11 +17,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.util.Base64;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -65,6 +62,8 @@ public class PlaylistThemeFragment extends Fragment {
     private ImageView inactiveBackground;
     private TextView inactiveName;
     private ImageView inactiveMenu;
+
+    private SwitchMaterial outlineSwitch;
 
     private int activeColor;
     private int[] colorArray;
@@ -141,6 +140,8 @@ public class PlaylistThemeFragment extends Fragment {
         });
         view.findViewById(R.id.remove_background).setOnClickListener(v -> {
             playlist.setBackgroundImage(null);
+            playlist.setTextOutline(false);
+            playlist.setTextColor(0);
             playlistService.save(playlist, updated -> {
                 playlist = updated;
                 updatePreview();
@@ -171,10 +172,11 @@ public class PlaylistThemeFragment extends Fragment {
             builder.show();
         });
         val switchBtn = (SwitchMaterial) view.findViewById(R.id.toggle_text_outline);
-        if (playlist.isTextOutline()) {
-            switchBtn.toggle();
-        }
         switchBtn.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (playlistService == null || !serviceIsBound) {
+                Logger.w(TAG, "OutlineSwitch changed but service is not yet bound. Ignoring.");
+                return;
+            }
             playlist.setTextOutline(isChecked);
             playlistService.save(playlist, updated -> {
                 playlist = updated;
@@ -209,6 +211,7 @@ public class PlaylistThemeFragment extends Fragment {
         inactiveName = inactiveView.findViewById(R.id.playlist_name);
         inactiveBackground = inactiveView.findViewById(R.id.card_background);
         inactiveMenu = inactiveView.findViewById(R.id.playlist_menu_btn);
+        outlineSwitch = view.findViewById(R.id.toggle_text_outline);
     }
 
     private void updatePreview() {
@@ -223,15 +226,18 @@ public class PlaylistThemeFragment extends Fragment {
         applyPlaylistStyle(textColor, activeName, playlist.isTextOutline());
         applyPlaylistStyle(textColor, activeSong, playlist.isTextOutline());
         val removeBtn = mView.findViewById(R.id.remove_background);
-        if (!isEmpty(playlist.getBackgroundImage())) {
-            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
-            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            activeBackground.setImageBitmap(decodedImage);
+        val decodedBitmap = retrieveImageForPlaylist(playlist);
+        if (decodedBitmap != null) {
+            activeBackground.setImageBitmap(decodedBitmap);
             activeBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
             removeBtn.setVisibility(View.VISIBLE);
+            inactiveBackground.setImageBitmap(decodedBitmap);
+            inactiveBackground.setAlpha(0.5f);
+            inactiveBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
         } else {
             removeBtn.setVisibility(View.GONE);
             activeBackground.setImageBitmap(null);
+            inactiveBackground.setImageBitmap(null);
         }
         activeIndicator.setVisibility(View.VISIBLE);
         activeIndicator.setBackgroundColor(activeColor);
@@ -244,16 +250,14 @@ public class PlaylistThemeFragment extends Fragment {
                 DrawableCompat.wrap(inactiveMenu.getDrawable()),
                 textColor
         );
-        if (!isEmpty(playlist.getBackgroundImage())) {
-            byte[] decodedString = Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT);
-            Bitmap decodedImage = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
-            inactiveBackground.setImageBitmap(decodedImage);
-            inactiveBackground.setAlpha(0.5f);
-            inactiveBackground.setScaleType(ImageView.ScaleType.CENTER_CROP);
-
-        } else {
-            inactiveBackground.setImageBitmap(null);
+        if (outlineSwitch == null || playlist == null) {
+            Logger.w(TAG, "updatePreview called with null switchBtn or playlist.");
+            return;
         }
+        if (outlineSwitch.isChecked() != playlist.isTextOutline()) {
+            outlineSwitch.setChecked(playlist.isTextOutline());
+        }
+
     }
 
     private void updateListAndGoBack() {

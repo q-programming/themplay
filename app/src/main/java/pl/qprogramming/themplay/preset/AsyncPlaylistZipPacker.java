@@ -102,16 +102,66 @@ public class AsyncPlaylistZipPacker extends AsyncTaskExecutorService<Playlist, V
     }
 
     /**
-     * If playlists has a background , save it to file
+     * Saves the background image of a playlist to the ZIP archive.
+     * <p>
+     * The method first checks if the playlist has background image data. If not, it logs a message and returns.
+     * Otherwise, it creates a ZIP entry for the background image, named "playlistName/background.jpg".
+     * <p>
+     * It then attempts to read the image data from a file path. If the {@code backgroundImageData}
+     * string points to an existing file, the file's content is read and written to the ZIP stream.
+     * <p>
+     * If reading from the file path fails or is not applicable (e.g., the path is invalid or the data
+     * is not a file path), the method attempts to decode the {@code backgroundImageData} as a Base64
+     * encoded string. If successful, the decoded bytes are written to the ZIP stream.
+     * <p>
+     * If both attempts (file path and Base64 decoding) fail, or if the data is not valid for either,
+     * appropriate log messages are generated.
+     * <p>
+     * Finally, the current ZIP entry is closed.
+     *
+     * @param zip      The ZipOutputStream to which the background image will be written.
+     * @param playlist The Playlist object containing the background image data.
+     * @throws IOException If an I/O error occurs while writing to the ZIP stream.
      */
     private void saveBackgroundToZip(ZipOutputStream zip, Playlist playlist) throws IOException {
-        if (playlist.getBackgroundImage() != null) {
-            val bgEntry = new ZipEntry(playlist.getName() + "/" + BACKGROUND);
-            zip.putNextEntry(bgEntry);
-            zip.write(Base64.decode(playlist.getBackgroundImage(), Base64.DEFAULT));
-            zip.closeEntry();
+        String backgroundImageData = playlist.getBackgroundImage();
+        if (backgroundImageData == null || backgroundImageData.isEmpty()) {
+            Logger.d(TAG, "No background image data for playlist: " + playlist.getName());
+            return;
         }
+        String entryName = playlist.getName() + "/" + BACKGROUND;
+        ZipEntry bgEntry = new ZipEntry(entryName);
+        zip.putNextEntry(bgEntry);
+        boolean success = false;
+        File imageFile = new File(backgroundImageData);
+        if (imageFile.exists() && imageFile.isFile()) {
+            Logger.d(TAG, "Attempting to save background from file path: " + backgroundImageData);
+            try (FileInputStream fis = new FileInputStream(imageFile)) {
+                byte[] buffer = new byte[1024];
+                int length;
+                while ((length = fis.read(buffer)) > 0) {
+                    zip.write(buffer, 0, length);
+                }
+                success = true;
+                Logger.d(TAG, "Successfully wrote background from file path to zip for: " + playlist.getName());
+            } catch (IOException | SecurityException e) {
+                Logger.e(TAG, "Error while reading image file for zipping: " + backgroundImageData, e);
+            }
+        }
+        if (!success) {
+            Logger.d(TAG, "File path attempt failed or skipped, attempting to decode as Base64 for: " + playlist.getName());
+            try {
+                byte[] imageBytes = Base64.decode(backgroundImageData, Base64.DEFAULT);
+                zip.write(imageBytes);
+                Logger.d(TAG, "Successfully wrote background from Base64 to zip for: " + playlist.getName());
+            } catch (IllegalArgumentException e) {
+                Logger.w(TAG, "Data for " + playlist.getName() + " was not a valid file path and not valid Base64: " + e.getMessage());
+            }
+        }
+        zip.closeEntry();
     }
+
+
 
     /**
      * Load file based on it's song uri and add it to zip file

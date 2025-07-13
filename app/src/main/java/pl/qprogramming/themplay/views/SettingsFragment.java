@@ -42,6 +42,35 @@ import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.logger.Logger;
 import pl.qprogramming.themplay.settings.Property;
 
+/**
+ * A {@link PreferenceFragmentCompat} that displays the application's settings.
+ *
+ * <p>This fragment allows users to configure various aspects of the application, including:
+ * <ul>
+ *     <li>General settings like fade duration.</li>
+ *     <li>Debug options, which can be unlocked by tapping the app version multiple times.
+ *         These include enabling debug logs and downloading log files.</li>
+ *     <li>Toggling dark mode.</li>
+ *     <li>Keeping the screen on.</li>
+ * </ul>
+ *
+ * <p>Key features include:
+ * <ul>
+ *     <li><b>Dynamic Preference Initialization:</b> Loads preferences from an XML resource
+ *       and initializes UI elements and their listeners.</li>
+ *     <li><b>Debug Mode Activation:</b> Implements a tap-to-unlock mechanism for accessing
+ *       developer/debug settings.</li>
+ *     <li><b>Log Management:</b> Provides functionality to download application logs as a ZIP file.
+ *       This uses the Storage Access Framework (SAF) for saving the file.</li>
+ *     <li><b>Input Validation:</b> Validates user input for settings like fade duration.</li>
+ *     <li><b>Navigation:</b> Handles back navigation from the settings screen.</li>
+ *     <li><b>Lifecycle Management:</b> Applies certain settings (like dark mode and keep screen on)
+ *       when the fragment is stopped.</li>
+ * </ul>
+ *
+ * <p>It utilizes {@link SharedPreferences} to persist settings and {@link ActivityResultLauncher}
+ * for handling the result of the file save operation for log downloads.
+ */
 public class SettingsFragment extends PreferenceFragmentCompat {
     public static final String TAG = SettingsFragment.class.getSimpleName();
     public static final String KEY_APP_VERSION = "app_version";
@@ -133,11 +162,9 @@ public class SettingsFragment extends PreferenceFragmentCompat {
             String versionSummary;
             String buildTimeStr = "";
             val version = pm.getPackageInfo(packageName, 0).versionName;
-            long buildTimestamp = pl.qprogramming.themplay.BuildConfig.BUILD_TIMESTAMP;if (buildTimestamp > 0) {
-                // Format it into a human-readable string
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
-                buildTimeStr = sdf.format(new Date(buildTimestamp));
-            }
+            long buildTimestamp = pl.qprogramming.themplay.BuildConfig.BUILD_TIMESTAMP;
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+            buildTimeStr = sdf.format(new Date(buildTimestamp));
             if (buildTimeStr.isEmpty()) {
                 versionSummary = version;
             } else {

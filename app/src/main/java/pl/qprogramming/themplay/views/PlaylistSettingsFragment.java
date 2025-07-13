@@ -63,8 +63,32 @@ import pl.qprogramming.themplay.playlist.PlaylistService;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 
 /**
- * A simple {@link Fragment} subclass.
- * create an instance of this fragment.
+ * Fragment responsible for displaying and managing playlist settings.
+ * This includes renaming the playlist, adding/removing songs, and reordering songs.
+ * It interacts with {@link PlaylistService} to persist changes and uses a
+ * {@link SongRecyclerViewAdapter} to display the list of songs.
+ * <p>
+ * The fragment handles:
+ * <ul>
+ *     <li>Displaying the current playlist's name and songs.</li>
+ *     <li>Allowing the user to edit the playlist name.</li>
+ *     <li>Providing options to add new songs from the device's storage.</li>
+ *     <li>Enabling users to select and remove songs from the playlist.</li>
+ *     <li>Allowing users to reorder songs within the playlist via drag-and-drop.</li>
+ *     <li>Listening for local broadcasts to update the UI based on events like song selection changes.</li>
+ * </ul>
+ * <p>
+ * It requires a {@link Playlist} object to be passed in its constructor to know which playlist to manage.
+ * If no playlist is provided, the fragment will pop itself from the back stack.
+ * <p>
+ * Key components used:
+ * <ul>
+ *     <li>{@link RecyclerView} with {@link SongRecyclerViewAdapter} for displaying songs.</li>
+ *     <li>{@link ItemTouchHelper} for drag-and-drop reordering of songs.</li>
+ *     <li>{@link ActivityResultLauncher} for handling the result of the file picker intent.</li>
+ *     <li>{@link LocalBroadcastManager} for receiving updates about song selection.</li>
+ *     <li>{@link ServiceConnection} to bind to the {@link PlaylistService}.</li>
+ * </ul>
  */
 public class PlaylistSettingsFragment extends Fragment {
     private static final String TAG = PlaylistSettingsFragment.class.getSimpleName();
@@ -158,7 +182,7 @@ public class PlaylistSettingsFragment extends Fragment {
     }
 
     private void startEdit() {
-        adapter.setMultipleMode(true);
+        adapter.setEditMode(true);
         removeBtn.setVisibility(View.VISIBLE);
         removeBtn.setEnabled(false);
         readyBtn.setVisibility(View.VISIBLE);
@@ -167,7 +191,7 @@ public class PlaylistSettingsFragment extends Fragment {
     }
 
     private void stopEdit() {
-        adapter.setMultipleMode(false);
+        adapter.setEditMode(false);
         removeBtn.setVisibility(View.GONE);
         readyBtn.setVisibility(View.GONE);
         addBtn.setVisibility(View.VISIBLE);
@@ -357,7 +381,7 @@ public class PlaylistSettingsFragment extends Fragment {
             updateBtn.setVisibility(View.VISIBLE);
         }
         adapter.updateSongs(songs);
-        adapter.setMultipleMode(false);
+        adapter.setEditMode(false);
         if (notify) {
             adapter.notifyDataSetChanged();
         }

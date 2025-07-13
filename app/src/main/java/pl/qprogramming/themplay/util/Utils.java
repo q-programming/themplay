@@ -1,6 +1,9 @@
 package pl.qprogramming.themplay.util;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.util.Base64;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.TextView;
@@ -8,6 +11,7 @@ import android.widget.TextView;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,12 +33,15 @@ public class Utils {
     }
 
     public static final String POSITION = "position";
+    public static final String SONG_ID = "song_id";
     public static final String SONG = "song";
     public static final String PLAYLIST = "playlist";
     public static final String PRESET = "preset";
     public static final String ARGS = "args";
     public static final String WIDTH = "width";
     public static final String HEIGHT = "height";
+    public static final String IMAGES_DIR_NAME = "images";
+
     public static final String TAG = Utils.class.getSimpleName();
 
 
@@ -230,4 +237,76 @@ public class Utils {
         return Integer.parseInt(numericPart.toString());
     }
 
+    /**
+     * Retrieves a Bitmap image for the given playlist.
+     * The method first attempts to interpret the playlist's background image data
+     * as a file path and load the image from the file system.
+     * If this fails (e.g., the path is invalid, file doesn't exist, or it's not an image),
+     * it then falls back to attempting to decode the data as a Base64 encoded string.
+     *
+     * @param playlist The playlist for which to retrieve the background image.
+     *                 The {@link Playlist#getBackgroundImage()} method is expected
+     *                 to return either a file path or a Base64 encoded image string.
+     * @return A {@link Bitmap} object representing the playlist's background image if
+     * successfully loaded or decoded. Returns {@code null} if the background
+     * image data is empty, the file does not exist or cannot be decoded,
+     * the Base64 string is invalid or cannot be decoded,
+     * or if any other error occurs during the process (e.g., OutOfMemoryError).
+     * Logs appropriate messages for various success and failure scenarios.
+     */
+    public static Bitmap retrieveImageForPlaylist(Playlist playlist) {
+        String backgroundImageData = playlist.getBackgroundImage();
+        if (isEmpty(backgroundImageData)) {
+            Logger.d(TAG, "Playlist " + playlist.getName() + " has no background image data.");
+            return null;
+        }
+        Bitmap loadedBitmap = null;
+        if (backgroundImageData.startsWith(File.separator) || backgroundImageData.startsWith("file:")) {
+            Logger.d(TAG, "Attempting to load backgroundImage as File Path for: " + playlist.getName() + ", Path: " + backgroundImageData);
+            File imageFile = new File(backgroundImageData);
+            if (imageFile.exists() && imageFile.isFile()) {
+                try {
+                    loadedBitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+                    if (loadedBitmap == null) {
+                        Logger.w(TAG, "File path decode resulted in null bitmap for: " + backgroundImageData + " (Playlist: " + playlist.getName() + ")");
+                    }
+                } catch (OutOfMemoryError oom) {
+                    Logger.e(TAG, "OutOfMemoryError decoding image file: " + backgroundImageData + " (Playlist: " + playlist.getName() + ")", oom);
+                } catch (Exception e) {
+                    Logger.e(TAG, "Generic error decoding image file: " + backgroundImageData + " (Playlist: " + playlist.getName() + ")", e);
+                }
+            }
+        }
+        if (loadedBitmap == null) {
+            loadedBitmap = loadBase64Image(playlist, backgroundImageData);
+        }
+        return loadedBitmap;
+    }
+
+    /**
+     * Loads a Base64 encoded image from a string.
+     * @param playlist Plalist for which to load the image
+     * @param backgroundImageData  Potentially Base64 encoded image string
+     * @deprecated This method will be soon removed after couple versions and there won't be anu bugs reported
+     *
+     */
+    @Deprecated(forRemoval = true, since = "app version 14")
+    private static Bitmap loadBase64Image(Playlist playlist, String backgroundImageData) {
+        Bitmap loadedBitmap = null;
+        Logger.d(TAG, "Attempting to decode backgroundImage as Base64 as file was not found or was invalid for: " + playlist.getName() + (backgroundImageData.startsWith(File.separator) ? " (fallback from path attempt)" : ""));
+        try {
+            byte[] decodedString = Base64.decode(backgroundImageData, Base64.DEFAULT);
+            loadedBitmap = BitmapFactory.decodeByteArray(decodedString, 0, decodedString.length);
+            if (loadedBitmap == null) {
+                Logger.d(TAG, "Base64 data decoded, but BitmapFactory returned null for: " + playlist.getName());
+            }
+        } catch (IllegalArgumentException e) {
+            Logger.w(TAG, "Not valid Base64 (IllegalArgumentException for " + playlist.getName() + "). Path attempt also failed or was skipped. Msg: " + e.getMessage());
+        } catch (OutOfMemoryError oom) {
+            Logger.e(TAG, "OutOfMemoryError during Base64 decode for: " + playlist.getName(), oom);
+        } catch (Exception e) {
+            Logger.e(TAG, "Generic error during Base64 decode attempt for: " + playlist.getName(), e);
+        }
+        return loadedBitmap;
+    }
 }

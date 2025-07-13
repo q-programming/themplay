@@ -9,7 +9,7 @@ import static pl.qprogramming.themplay.settings.Property.LAST_LAUNCH_VERSION;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.PRESET;
-import static pl.qprogramming.themplay.util.Utils.SONG;
+import static pl.qprogramming.themplay.util.Utils.SONG_ID;
 import static pl.qprogramming.themplay.util.Utils.isEmpty;
 import static pl.qprogramming.themplay.util.Utils.navigateToFragment;
 
@@ -41,6 +41,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.view.WindowCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.media3.common.util.UnstableApi;
 import androidx.preference.PreferenceManager;
@@ -88,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(),false);
         setContentView(R.layout.activity_main);
         setActiveColor();
         setupPreferences();
@@ -311,6 +313,11 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS.getCode());
         filter.addAction(EventType.PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING.getCode());
+        //player
+        filter.addAction(EventType.PLAYER_PLAYING.getCode());
+        filter.addAction(EventType.PLAYER_STOPPED.getCode());
+        filter.addAction(EventType.PLAYER_PAUSED.getCode());
+
         LocalBroadcastManager.getInstance(this).registerReceiver(receiver, filter);
     }
 
@@ -615,7 +622,6 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case PRESET_ACTIVATED:
                     playlistService.resetActiveFromPreset();
-                    renderPlayButton();
                     break;
                 case PRESET_REMOVED:
                     Optional.ofNullable(args.getSerializable(PRESET))
@@ -624,13 +630,11 @@ public class MainActivity extends AppCompatActivity {
                                 playlistService.removePreset(preset.getName());
                             });
                     break;
-                case PLAYBACK_NOTIFICATION_PLAY:
-                case PLAYLIST_NOTIFICATION_ACTIVE:
-//                case PLAYLIST_NOTIFICATION_NEW_ACTIVE:
+                case PLAYER_PLAYING:
                     renderPauseButton();
                     break;
-                case PLAYBACK_NOTIFICATION_STOP:
-                case PLAYBACK_NOTIFICATION_PAUSE:
+                case PLAYER_PAUSED:
+                case PLAYER_STOPPED:
                     renderPlayButton();
                     break;
                 case PLAYLIST_NOTIFICATION_PLAY_NO_SONGS:
@@ -659,13 +663,12 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             }));
 
-                    //TODO force!
                     break;
                 case PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND:
                     Optional.ofNullable(args.getSerializable(PLAYLIST))
                             .ifPresent((object -> {
                                 val playlist = (Playlist) object;
-                                val song = (Song) args.getSerializable(SONG);
+                                val song = (Song) args.getSerializable(SONG_ID);
                                 playlistService.removeSongsFromPlaylist(playlist.getId(), Collections.singletonList(song),
                                         updated -> Logger.w(TAG, "Song deleted from playlist as it was not found: " + playlist.getName()),
                                         throwable -> Logger.e(TAG, "Error while deleting not found song from playlist" + song.getFilename() + " from playlist: " + playlist.getName(), throwable));

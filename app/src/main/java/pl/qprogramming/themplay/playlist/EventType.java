@@ -20,6 +20,7 @@ public enum EventType {
     PLAYLIST_NOTIFICATION_ACTIVE("q-programming.themplay.playlist.active"),
     PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING("q-programming.themplay.playlist.is.active.playing"),
     PLAYLIST_NOTIFICATION_RECREATE_LIST("q-programming.themplay.playlist.recreate"),
+    PLAYLIST_NOTIFICATION_RECREATED_LIST("q-programming.themplay.playlist.recreated"),
     PLAYLIST_NOTIFICATION_NEW_ACTIVE("q-programming.themplay.playlist.newActive"),
     PLAYLIST_NOTIFICATION_PLAY("q-programming.themplay.playlist.play"),
     PLAYLIST_NOTIFICATION_PLAY_NO_SONGS("q-programming.themplay.playlist.play.nosongs"),
@@ -33,6 +34,9 @@ public enum EventType {
     PLAYBACK_NOTIFICATION_NEXT("q-programming.themplay.player.next"),
     PLAYBACK_NOTIFICATION_PREV("q-programming.themplay.player.prev"),
     PLAYBACK_NOTIFICATION_STOP("q-programming.themplay.player.stop"),
+    PLAYER_PLAYING("q-programming.themplay.player.playing"),
+    PLAYER_PAUSED("q-programming.themplay.player.paused"),
+    PLAYER_STOPPED("q-programming.themplay.player.stopped"),
     PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND("q-programming.themplay.player.delete.song"),
     PRESET_ACTIVATED("q-programming.themplay.preset.activated"),
     PRESET_REMOVED("q-programming.themplay.preset.removed"),
@@ -42,6 +46,7 @@ public enum EventType {
     PLAYER_INIT_ACTION("q-programming.themplay.player.init"),
     ACTION_HIDE_IDLE_NOTIFICATION("q-programming.themplay.action.hide.idle.notification"),
     ACTION_SHOW_IDLE_NOTIFICATION("q-programming.themplay.action.show.idle.notification"),
+    ACTION_PLAY_THIS_SONG("q-programming.themplay.action.song.this"),
     UNKNOWN("q-programming.themplay.n/a");
 
     private static final Map<String, EventType> BY_CODE = new HashMap<>();

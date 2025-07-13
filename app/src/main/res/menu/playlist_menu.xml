@@ -1,5 +1,8 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
+        android:id="@+id/viewPlaylist"
+        android:title="@string/playlist_view_playlist" />
+    <item
         android:id="@+id/editPlaylist"
         android:title="@string/playlist_edit_playlist" />
     <item

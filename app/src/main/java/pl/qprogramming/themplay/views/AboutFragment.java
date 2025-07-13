@@ -21,7 +21,9 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import java.text.MessageFormat;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.Locale;
 
 import lombok.val;
@@ -30,7 +32,19 @@ import pl.qprogramming.themplay.R;
 import pl.qprogramming.themplay.settings.Property;
 
 /**
- * About fragment
+ * The AboutFragment class is responsible for displaying information about the application.
+ * It includes details such as the app version, build time, and a help section loaded from
+ * an HTML file. The fragment supports multiple languages for the help content and adjusts
+ * its appearance based on the dark mode setting.
+ *
+ * <p>Key functionalities include:
+ * <ul>
+ *     <li>Displaying the application version and build timestamp.</li>
+ *     <li>Loading and rendering localized help content in a WebView.</li>
+ *     <li>Handling navigation back to the previous screen or a default playlist view.</li>
+ *     <li>Adapting the text color of the help content based on the dark mode preference.</li>
+ * </ul>
+ * </p>
  */
 public class AboutFragment extends Fragment {
 
@@ -65,7 +79,18 @@ public class AboutFragment extends Fragment {
                     }
                 });
         val versionTxt = (TextView) requireView().findViewById(R.id.version);
-        versionTxt.setText(String.format("v%s", BuildConfig.VERSION_NAME));
+        String versionSummary;
+        String buildTimeStr = "";
+        val version = BuildConfig.VERSION_NAME;
+        long buildTimestamp = BuildConfig.BUILD_TIMESTAMP;
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+        buildTimeStr = sdf.format(new Date(buildTimestamp));
+        if (buildTimeStr.isEmpty()) {
+            versionSummary = version;
+        } else {
+            versionSummary = version + " \n(" + buildTimeStr + ")";
+        }
+        versionTxt.setText(String.format("v%s", versionSummary));
         val mWebView = (WebView) view.findViewById(R.id.help_content);
         mWebView.setBackgroundColor(Color.TRANSPARENT);
         val webSettings = mWebView.getSettings();

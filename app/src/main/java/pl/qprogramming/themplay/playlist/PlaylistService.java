@@ -21,6 +21,7 @@ import androidx.annotation.Nullable;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -57,6 +58,32 @@ import pl.qprogramming.themplay.repository.SongRepository;
 import pl.qprogramming.themplay.settings.Property;
 import pl.qprogramming.themplay.util.RxSchedulers;
 
+/**
+ * Service responsible for managing playlists, including their creation, modification,
+ * deletion, and playback state. It interacts with {@link PlaylistRepository},
+ * {@link SongRepository}, and {@link PresetRepository} to persist and retrieve data.
+ * <p>
+ * This service operates in the background and uses RxJava for asynchronous operations.
+ * It provides methods to:
+ * <ul>
+ *     <li>Retrieve playlists by preset.</li>
+ *     <li>Find specific playlists by ID or active status.</li>
+ *     <li>Load songs associated with a playlist.</li>
+ *     <li>Save, update, and add new playlists.</li>
+ *     <li>Add and remove songs from playlists.</li>
+ *     <li>Update song positions within a playlist and its playback order.</li>
+ *     <li>Manage presets (creation and deletion, including associated playlists).</li>
+ *     <li>Clone (paste) existing playlists.</li>
+ *     <li>Set a playlist as active and manage its playback preparation.</li>
+ *     <li>Update individual song details.</li>
+ * </ul>
+ * <p>
+ * The service uses {@link LocalBroadcastManager} to notify other components of playlist-related
+ * events (e.g., when a playlist is added, deleted, or set as active).
+ * It also ensures that only one playlist can be active at any given time for a preset.
+ * <p>
+ * Client components can bind to this service to directly call its public methods.
+ */
 public class PlaylistService extends Service {
     private final CompositeDisposable disposables = new CompositeDisposable();
     private static final String TAG = PlaylistService.class.getSimpleName();
@@ -219,6 +246,11 @@ public class PlaylistService extends Service {
                 .map(songs -> {
                     Logger.d(TAG, "Fetched " + songs.size() + " songs for playlist: " + playlist.getName());
                     playlist.setSongs(songs);
+                    if (playlist.getCurrentSongId() != null) {
+                        val currentSong = songs.stream().filter(song -> song.getId().equals(playlist.getCurrentSongId())).findFirst().orElse(null);
+                        playlist.setCurrentSong(currentSong);
+                        playlist.setCurrentSongTitle(currentSong != null ? currentSong.getDisplayName() : null);
+                    }
                     return playlist;
                 });
     }
@@ -252,7 +284,7 @@ public class PlaylistService extends Service {
 
     /**
      * Save playlist to database
-     * Fire forget mode
+     * Fire forget mode . Should not be used for full update operation
      *
      * @param playlist playlist to be saved
      */
@@ -383,15 +415,16 @@ public class PlaylistService extends Service {
                             return songRepository.getSongCountForSpecificPlaylist(playlistId)
                                     .subscribeOn(Schedulers.io())
                                     .flatMap(count -> {
-                                        // Update the in-memory playlist object
+                                        // Update the in-memory playlist object, clear any predefined playback order
                                         playlist.setSongCount(count);
+                                        playlist.setPlaybackOrderIds(null);
                                         if (playlist.getSongs() == null) {
                                             playlist.setSongs(new ArrayList<>());
                                         }
                                         playlist.getSongs().addAll(songsToInsert);
                                         playlist.setUpdatedAt(new Date());
                                         return playlistRepository
-                                                .updateSongCountForPlaylist(playlistId, count)
+                                                .updateCountAndResetPlaybackOrder(playlistId, count)
                                                 .subscribeOn(Schedulers.io())
                                                 .toSingleDefault(playlist);
                                     });
@@ -473,10 +506,13 @@ public class PlaylistService extends Service {
                     }
                     currentPlaylistState.setSongs(songsRemainingInPlaylist);
                     currentPlaylistState.setSongCount(songsRemainingInPlaylist.size());
+                    currentPlaylistState.setPlaybackOrderIds(null);
                     currentPlaylistState.setUpdatedAt(new Date());
                     Long currentSongId = currentPlaylistState.getCurrentSongId();
                     if (currentSongId != null && idsOfSongsMarkedForRemoval.contains(currentSongId)) {
                         currentPlaylistState.setCurrentSongId(null);
+                        currentPlaylistState.setCurrentSongTitle(null);
+
                     }
                     Completable deleteDbSongsCompletable = songRepository.deleteSongsByIds(idsOfSongsMarkedForRemoval);
                     Completable updateDbSongsCompletable = songRepository.updateAll(songsRemainingInPlaylist);
@@ -497,6 +533,46 @@ public class PlaylistService extends Service {
                         .subscribe(
                                 onSuccessCallback::accept,
                                 onErrorCallback::accept
+                        )
+        );
+    }
+
+    /**
+     * Updates the playback order of songs within a given playlist's active playback queue.
+     * It reorders `playlist.getPlaylist()` to match the sequence of `songsInNewOrder`,
+     * updates the `playbackOrderIds` in the database, and notifies listeners.
+     *
+     * @param playlist        The playlist whose playback order is to be updated.
+     * @param songsInNewOrder A list of Song objects representing the new desired playback sequence.
+     */
+    public void updateSongsPlaylistPositions(Playlist playlist, List<Song> songsInNewOrder) {
+        if (playlist == null || songsInNewOrder == null) {
+            Logger.w(TAG, "Cannot update song positions: playlist or songsInNewOrder is null.");
+            return;
+        }
+        List<Song> originalSongs = playlist.getPlaylist();
+        List<Song> reorderedSongs = songsInNewOrder.stream()
+                .map(newOrderSong -> originalSongs.stream()
+                        .filter(originalSong -> originalSong.getId().equals(newOrderSong.getId()))
+                        .findFirst()
+                        .orElse(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        playlist.getPlaylist().clear();
+        playlist.getPlaylist().addAll(reorderedSongs);
+        playlist.setPlaybackOrderFromSongs();
+        playlist.setUpdatedAt(new Date());
+        Logger.d(TAG, "Playlist " + playlist.getName() + " reordered. New playbackOrderIds: " + playlist.getPlaybackOrderIds());
+        disposables.add(
+                playlistRepository.update(playlist)
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                                () -> {
+                                    Logger.i(TAG, "Successfully updated song playback order for playlist: " + playlist.getName());
+                                    populateAndSend(EventType.PLAYLIST_NOTIFICATION_RECREATED_LIST, playlist);
+                                },
+                                throwable -> Logger.e(TAG, "Error updating song playback order for playlist: " + playlist.getName(), throwable)
                         )
         );
     }
@@ -731,8 +807,8 @@ public class PlaylistService extends Service {
                     } else {
                         Logger.d(TAG, "Deactivating current active playlist: " + currentlyActivePlaylist.getName());
                         currentlyActivePlaylist.setActive(false);
-                        return playlistRepository.update(currentlyActivePlaylist) // Completable
-                                .andThen(playlistRepository.findOneById(playlistToActivateId)); // Returns Maybe<Playlist>
+                        return playlistRepository.update(currentlyActivePlaylist)
+                                .andThen(playlistRepository.findOneById(playlistToActivateId));
                     }
                 })
                 .switchIfEmpty(Single.defer(() -> {
@@ -832,72 +908,143 @@ public class PlaylistService extends Service {
             return Single.error(new IllegalArgumentException("Playlist cannot be null"));
         }
         try {
-            val sp = getDefaultSharedPreferences(this);
-            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
-            createPlaylist(playlist, shuffle);
-            var currentSongId = playlist.getCurrentSongId();
-            List<Song> playbackOrder = playlist.getPlaylist();
-            List<Song> masterSongs = playlist.getSongs();
-            if (isEmpty(masterSongs)) {
-                Logger.d(TAG, "Master song collection is empty for playlist: " + playlist.getName());
+            preparePlaylistForPlayback(playlist, false);
+            if (playlist.getPlaylist() == null || playlist.getPlaylist().isEmpty()) {
+                String playlistName = (playlist.getName() != null) ? playlist.getName() : "unnamed playlist";
+                Logger.d(TAG, "Playback list is null or empty after preparation for: " + playlistName);
                 if (notify) {
                     populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
                 }
                 LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
                 return Single.just(playlist);
             }
-            if (currentSongId == null && isEmpty(playbackOrder)) {
-                Logger.d(TAG, "Playback order is empty but master collection has songs - regenerating playlist");
-                createPlaylist(playlist, shuffle);
-                playbackOrder = playlist.getPlaylist();
-                if (isEmpty(playbackOrder)) {
-                    Logger.e(TAG, "Failed to generate playback order from master collection");
-                    if (notify) {
-                        populateAndSend(EventType.PLAYLIST_NOTIFICATION_PLAY_NO_SONGS, playlist);
-                    }
-                    return Single.just(playlist);
-                }
-            }
-            if (currentSongId == null && !isEmpty(playbackOrder)) {
-                Song currentSong = playbackOrder.stream()
+
+            List<Song> currentPlaybackOrder = playlist.getPlaylist();
+            Long currentSongId = playlist.getCurrentSongId();
+
+            if (currentSongId == null && !isEmpty(currentPlaybackOrder)) {
+                Song currentSong = currentPlaybackOrder.stream()
                         .filter(song -> song != null && song.getId() != null)
                         .findFirst()
                         .orElse(null);
-
                 if (currentSong != null) {
                     playlist.setCurrentSongId(currentSong.getId());
+                    playlist.setCurrentSongTitle(currentSong.getDisplayName());
                     playlist.setCurrentSong(currentSong);
                     Logger.d(TAG, "Setting current song to first valid song in playback order: " + currentSong.getFilename());
                 } else {
                     Logger.e(TAG, "No valid songs found in playback order for playlist: " + playlist.getName());
                 }
-            } else if (currentSongId != null && !isEmpty(playbackOrder)) {
-                Optional<Song> foundSong = playbackOrder.stream()
+            } else if (currentSongId != null && !isEmpty(currentPlaybackOrder)) {
+                Optional<Song> foundSong = currentPlaybackOrder.stream()
                         .filter(song -> song != null && song.getId() != null && song.getId().equals(currentSongId))
                         .findFirst();
-
                 if (foundSong.isPresent()) {
                     playlist.setCurrentSong(foundSong.get());
                     Logger.d(TAG, "Found and set current song: " + foundSong.get().getFilename());
                 } else {
-                    Song fallbackSong = playbackOrder.stream()
+                    Song fallbackSong = currentPlaybackOrder.stream()
                             .filter(song -> song != null && song.getId() != null)
                             .findFirst()
                             .orElse(null);
-
                     if (fallbackSong != null) {
                         Logger.d(TAG, "Song with ID " + currentSongId + " not found in playback order for playlist " + playlist.getName() + ". Using first valid song: " + fallbackSong.getFilename());
+                        playlist.setCurrentSongId(fallbackSong.getId());
                         playlist.setCurrentSong(fallbackSong);
+                        playlist.setCurrentSongTitle(fallbackSong.getDisplayName());
                     } else {
                         Logger.e(TAG, "No valid fallback songs found in playback order for playlist: " + playlist.getName());
+                        playlist.setCurrentSongId(null);
+                        playlist.setCurrentSongTitle(null);
+                        playlist.setCurrentSong(null);
                     }
                 }
+            } else if (isEmpty(currentPlaybackOrder)) {
+                Logger.w(TAG, "Current playback order is empty for playlist: " + playlist.getName() + ". Clearing current song.");
+                playlist.setCurrentSongId(null);
+                playlist.setCurrentSongTitle(null);
+                playlist.setCurrentSong(null);
             }
+
             return Single.just(playlist);
         } catch (Exception e) {
-            Logger.e(TAG, "Error building playlist: " + playlist.getName(), e);
+            String playlistNameException = playlist.getName() != null ? playlist.getName() : "unknown playlist";
+            Logger.e(TAG, "Error building playlist: " + playlistNameException, e);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(new Intent(EventType.OPERATION_FINISHED.getCode()));
             return Single.error(e);
         }
+    }
+
+    /**
+     * Prepares a playlist for playback. It first attempts to restore the song order
+     * from the persisted 'playbackOrderIds'. If no valid saved order is found,
+     * or if the saved order results in an empty list of playable songs,
+     * it generates a new playback order based on the playlist's master songs
+     * and the current shuffle preference.
+     * <p>
+     * This method MODIFIES the passed-in playlist object by:
+     * 1. Setting its internal playback list (playlist.setPlaylist()).
+     * 2. If a new order is generated, it also updates the playlist's
+     * 'playbackOrderIds' string to reflect this new order.
+     *
+     * @param playlist The Playlist object to prepare. It's modified directly.
+     * @return The modified Playlist object.
+     */
+    public Playlist preparePlaylistForPlayback(Playlist playlist, boolean newPlaylist) {
+        if (playlist == null) {
+            Logger.e(TAG, "Input playlist is null. Cannot prepare for playback.");
+            return null;
+        }
+        List<Song> masterSongs = playlist.getSongs();
+        if (masterSongs == null) {
+            masterSongs = new ArrayList<>();
+        }
+        List<Song> finalPlaybackOrder = new ArrayList<>();
+        List<Long> savedSongIdsOrder = playlist.getPlaybackOrder();
+        if (!newPlaylist && !savedSongIdsOrder.isEmpty() && !masterSongs.isEmpty()) {
+            List<Song> relevantMasterSongs = masterSongs.stream()
+                    .filter(song -> song != null && song.getId() != null && savedSongIdsOrder.contains(song.getId()))
+                    .sorted((song1, song2) -> {
+                        Integer index1 = savedSongIdsOrder.indexOf(song1.getId());
+                        Integer index2 = savedSongIdsOrder.indexOf(song2.getId());
+                        return index1.compareTo(index2);
+                    }).collect(Collectors.toList());
+            finalPlaybackOrder.addAll(relevantMasterSongs);
+            if (!finalPlaybackOrder.isEmpty()) {
+                Logger.d(TAG, "Successfully restored playback order using sorting for: " + playlist.getName() + " with " + finalPlaybackOrder.size() + " songs.");
+            }
+        }
+        //no playlist , generate new
+        if (finalPlaybackOrder.isEmpty()) {
+            Logger.d(TAG, (savedSongIdsOrder.isEmpty() ? "No saved order found" : "Saved order resulted in empty list") + " for '" + playlist.getName() + "'. Generating new playlist order.");
+            if (masterSongs.isEmpty()) {
+                Logger.d(TAG, "Master song collection is empty for playlist: " + playlist.getName() + ". Cannot generate new order.");
+                playlist.setPlaylist(new ArrayList<>());
+                playlist.setPlaybackOrderFromSongs();
+                return playlist;
+            }
+            val sp = getDefaultSharedPreferences(this);
+            val shuffle = sp.getBoolean(Property.SHUFFLE_MODE, true);
+            createPlaylist(playlist, shuffle);
+            finalPlaybackOrder = playlist.getPlaylist();
+            if (finalPlaybackOrder == null) {
+                finalPlaybackOrder = new ArrayList<>();
+            }
+            playlist.setPlaybackOrderFromSongs();
+            Logger.d(TAG, "Generated new playlist order for: " + playlist.getName() +
+                    " with " + finalPlaybackOrder.size() +
+                    " songs, shuffle: " + shuffle +
+                    ", new order IDs: " + playlist.getPlaybackOrderIds());
+            //fire forget quick update of playlist
+            disposables.add(playlistRepository.update(playlist)
+                    .subscribeOn(Schedulers.io())
+                    .subscribe(() -> {
+                        Logger.d(TAG, "Playlist updated successfully with new playlist order.");
+                    }));
+        }
+        playlist.setPlaylist(new ArrayList<>(finalPlaybackOrder));
+        playlist.getPlaylist().removeAll(Collections.singleton(null));
+        return playlist;
     }
 
     public void resetActiveFromPreset() {
@@ -1014,6 +1161,6 @@ public class PlaylistService extends Service {
         args.putSerializable(PLAYLIST, playlist);
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
-        Logger.d(TAG, "Playlist notification " + type.getCode() + " sent: " + playlist.getName());
+        Logger.d(TAG, "[EVENT] Playlist notification " + type + " sent: " + playlist.getName());
     }
 }
