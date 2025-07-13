@@ -3,32 +3,32 @@ plugins {
 }
 
 android {
-    compileSdk 35
+    compileSdk = 36
     defaultConfig {
-        applicationId "pl.qprogramming.themplay"
+        applicationId = "pl.qprogramming.themplay"
         minSdkVersion 30
-        targetSdkVersion 35
-        versionCode 17
-        versionName "1.0.0"
-        buildConfigField("long","BUILD_TIMESTAMP",System.currentTimeMillis() + "L")
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        targetSdkVersion 36
+        versionCode = 18
+        versionName = "1.0.0"
+        buildConfigField("long", "BUILD_TIMESTAMP", System.currentTimeMillis() + "L")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            minifyEnabled = true
+            proguardFiles(getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro')
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     testOptions {
         unitTests {
-            includeAndroidResources true
+            includeAndroidResources = true
         }
     }
-    namespace 'pl.qprogramming.themplay'
+    namespace = 'pl.qprogramming.themplay'
 }
 tasks.withType(Test) {
     jvmArgs '-noverify'

@@ -826,6 +826,7 @@ public class Player extends Service {
         mainVolumeProcessor = null;
         nextVolumeProcessor = null;
         mNotificationManager.removeNotification();
+        stopSelf();
     }
 
     /**
