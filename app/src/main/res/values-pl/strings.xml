@@ -4,6 +4,7 @@
     <string name="app_name_ready">Themplay jest gotowy</string>
     <string name="app_version">Wersja aplikacji</string>
     <string name="app_upgraded">Aplikacja została zaktualizowana do wersji {0}. Sprawdź co nowego.</string>
+    <string name="app_crashed">Aplikacja nieoczekiwanie się zatrzymała. Utworzono log. Skontaktuj się proszę z deweloperem</string>
     <string name="item_menu">Menu pozycji</string>
     <string name="song_name">Nazwa piosenki</string>
     <string name="settings">Ustawienia</string>
@@ -100,5 +101,8 @@
     <string name="settings_enable_debug">Włącz logi debug</string>
     <string name="settings_developer_mode_hidden">Tryb developerski ukryty. Tapnij numer wersji 5 razy aby go odblokować.</string>
     <string name="settings_log_download">Pobierz logi aplikacji</string>
+    <string name="settings_log_downloaded">Pobrano logi aplikacji</string>
+    <string name="settings_log_no_logs">Brak logów do pobrania</string>
+    <string name="settings_log_no_dir">Nie można użyć wybranego katalogu, proszę użyć innego</string>
     <string name="settings_enable_debug_info">Kiedy włączone, logi debug zostaną zapisane do pliku\nAndroid/data/pl.qprogramming.themplay/files/logs/app_debug_log.txt.\nPowinno być tylko używane przy próbie rozwiązania problemu razem z deweloperem</string>
 </resources>

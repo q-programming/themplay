@@ -3,9 +3,8 @@ package pl.qprogramming.themplay;
 import static pl.qprogramming.themplay.settings.Property.LOGS_DIRECTORY_NAME;
 
 import android.app.Application;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
+import android.widget.Toast;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -40,10 +39,8 @@ public class ThemplayApplication extends Application {
             String stackTraceString = sw.toString();
             saveCrashLogToFile(this, stackTraceString);
             Logger.e(TAG, "UNCAUGHT EXCEPTION on thread " + thread.getName() + ": ", e);
-            // Add it to the clip board and close the app
-            val clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            val clip = ClipData.newPlainText("Stack trace", sw.toString());
-            clipboard.setPrimaryClip(clip);
+            String toastMessage = getString(R.string.app_crashed);
+            Toast.makeText(getApplicationContext(), toastMessage, Toast.LENGTH_LONG).show();
             System.exit(1);
         });
     }

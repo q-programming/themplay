@@ -283,13 +283,13 @@ public class SettingsFragment extends PreferenceFragmentCompat {
                     val logsDir = context.getExternalFilesDir(LOGS_DIRECTORY_NAME);
                     if (logsDir == null || !logsDir.exists() || !logsDir.isDirectory()) {
                         Logger.e(TAG, "Unable to access to logs directory");
-                        Toast.makeText(context, "External files directory is null.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, getString(R.string.settings_log_no_dir), Toast.LENGTH_SHORT).show();
                         return;
                     }
                     val logFiles = logsDir.listFiles();
                     if (logFiles == null || logFiles.length == 0) {
                         Logger.i(TAG, "No log files found in " + logsDir.getAbsolutePath());
-                        Toast.makeText(context, "No logs files", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(context, getString(R.string.settings_log_no_logs), Toast.LENGTH_SHORT).show();
                         return;
                     }
                     try {
@@ -330,9 +330,9 @@ public class SettingsFragment extends PreferenceFragmentCompat {
                             zipOutputStream.finish();
                             Logger.d(TAG, "Successfully zipped " + filesZippedCount + " log files.");
                             if (filesZippedCount > 0) {
-                                Toast.makeText(context, "Files successfully zipped", Toast.LENGTH_LONG).show();
+                                Toast.makeText(context, getString(R.string.settings_log_downloaded), Toast.LENGTH_LONG).show();
                             } else {
-                                Toast.makeText(context, "No logs to be ziped", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(context, getString(R.string.settings_log_no_logs), Toast.LENGTH_SHORT).show();
                             }
                         }
                     } catch (FileNotFoundException e) {
