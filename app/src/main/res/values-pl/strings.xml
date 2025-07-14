@@ -13,6 +13,7 @@
     <string name="presets">Zestawy</string>
     <string name="presets_add">Dodaj nowy zestaw</string>
     <string name="presets_name">Unikalna nazwa zestawu</string>
+    <string name="presets_name_update_hint">Uwaga, jeżeli zestaw jest aktywny i gra, muzyka zostanie zatrzymana</string>
     <string name="presets_click_to_create">Kliknij tutaj aby stworzyć lub wybrać zestaw</string>
     <string name="presets_add_atLeastOneChar">Nazwa twojego zestawu musi mieć przynajmniej jeden znak!</string>
     <string name="presets_create_first">Przed stworzeniem playlisty nalezy aktywować zestaw</string>
@@ -23,6 +24,8 @@
     <string name="presets_saved">Zawartość zestawu została zapisana do pliku \"{0}\" </string>
     <string name="presets_saved_errors">Zawartość zestawu została zapisana do pliku \"{0}\", ale wystąpiły błedy. Proszę sprawdzić plik z logami {1}</string>
     <string name="preset_delete">Usuń zestaw</string>
+    <string name="preset_export">Eksportuj zestaw</string>
+    <string name="preset_update">Edytuj nazwę zestawu</string>
     <string name="preset_delete_confirm">Czy na pewno chcesz usunąć zestaw \"{0}\"?\nWszystkie jego playlisty zostaną również usunięte.\nTej operacji nie da się cofnąć</string>
     <string name="playlist_name">Nazwa playlisty</string>
     <string name="playlist_add_new_playlist">Dodaj nową playlistę</string>
@@ -78,6 +81,7 @@
     <string name="back_arrow">strzałka w tył</string>
     <string name="cancel">Anuluj</string>
     <string name="create">Stwórz</string>
+    <string name="update">Edytuj</string>
     <string name="delete">Usuń</string>
     <string name="settings_all">Ustawienia aplikacji</string>
     <string name="settings_darkmode">Ciemny motyw</string>

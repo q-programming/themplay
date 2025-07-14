@@ -41,6 +41,7 @@ public enum EventType {
     PRESET_ACTIVATED("q-programming.themplay.preset.activated"),
     PRESET_REMOVED("q-programming.themplay.preset.removed"),
     PRESET_SAVE("q-programming.themplay.preset.save"),
+    PRESET_UPDATE("q-programming.themplay.preset.update"),
     OPERATION_STARTED("q-programming.themplay.operation.started"),
     OPERATION_FINISHED("q-programming.themplay.operation.finished"),
     PLAYER_INIT_ACTION("q-programming.themplay.player.init"),

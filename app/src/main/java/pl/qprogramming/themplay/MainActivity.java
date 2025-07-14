@@ -308,6 +308,7 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_PAUSE.getCode());
         filter.addAction(EventType.PRESET_ACTIVATED.getCode());
         filter.addAction(EventType.PRESET_REMOVED.getCode());
+        filter.addAction(EventType.PRESET_UPDATE.getCode());
         filter.addAction(EventType.OPERATION_STARTED.getCode());
         filter.addAction(EventType.OPERATION_FINISHED.getCode());
         filter.addAction(EventType.PLAYBACK_NOTIFICATION_DELETE_NOT_FOUND.getCode());
@@ -628,6 +629,13 @@ public class MainActivity extends AppCompatActivity {
                             .ifPresent(object -> {
                                 val preset = (Preset) object;
                                 playlistService.removePreset(preset.getName());
+                            });
+                    break;
+                case PRESET_UPDATE:
+                    Optional.ofNullable(args.getSerializable(PRESET))
+                            .ifPresent(object -> {
+                                val preset = (Preset) object;
+                                playlistService.updatePreset(preset);
                             });
                     break;
                 case PLAYER_PLAYING:

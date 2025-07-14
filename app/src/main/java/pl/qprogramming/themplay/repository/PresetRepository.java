@@ -9,6 +9,7 @@ import androidx.room.Update;
 import java.util.List;
 
 import io.reactivex.Completable;
+import io.reactivex.Maybe;
 import io.reactivex.Single;
 import pl.qprogramming.themplay.domain.Preset;
 
@@ -67,6 +68,12 @@ public interface PresetRepository {
      */
     @Query("SELECT * FROM " + Preset.PRESET_TABLE_NAME + " ORDER BY " + Preset.NAME + " ASC")
     Single<List<Preset>> findAll();
+
+    @Query("SELECT * FROM " + Preset.PRESET_TABLE_NAME + " WHERE " + Preset.COLUMN_ID + " = :id")
+    Maybe<Preset> findOneById(Long id);
+
+    @Query("SELECT * FROM " + Preset.PRESET_TABLE_NAME + " WHERE " + Preset.NAME + " = :name" + " AND " + Preset.COLUMN_ID + " != :id")
+    Maybe<Preset> findByNameAndIdNotEqual(String name, Long id);
 
 
 }

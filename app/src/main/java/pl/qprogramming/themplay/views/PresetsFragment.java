@@ -165,7 +165,7 @@ public class PresetsFragment extends Fragment {
             if (throwable instanceof PresetAlreadyExistsException) {
                 val msg = MessageFormat.format(getString(R.string.presets_already_exists), presetName);
                 Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
-            }else{
+            } else {
                 Logger.e(TAG, "Error creating preset: " + presetName, throwable
                 );
             }
@@ -226,7 +226,9 @@ public class PresetsFragment extends Fragment {
                             });
                     break;
                 case PRESET_ACTIVATED:
-                    adapter.notifyDataSetChanged();
+                    playlistService.getAllPresets(presetsList -> {
+                        adapter.setPresets(presetsList);
+                    }, throwable -> Logger.e(TAG, "Error getting presets", throwable));
                     break;
             }
         }

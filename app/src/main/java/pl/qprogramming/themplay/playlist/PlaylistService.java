@@ -3,6 +3,7 @@ package pl.qprogramming.themplay.playlist;
 import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_IS_ACTIVE_PLAYING;
 import static pl.qprogramming.themplay.playlist.EventType.PLAYLIST_NOTIFICATION_NEW_ACTIVE;
+import static pl.qprogramming.themplay.playlist.EventType.PRESET_ACTIVATED;
 import static pl.qprogramming.themplay.settings.Property.COPY_PLAYLIST;
 import static pl.qprogramming.themplay.util.Utils.ARGS;
 import static pl.qprogramming.themplay.util.Utils.PLAYLIST;
@@ -29,6 +30,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -52,6 +54,7 @@ import pl.qprogramming.themplay.playlist.exceptions.OperationSkippedException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNameExistsException;
 import pl.qprogramming.themplay.playlist.exceptions.PlaylistNotFoundException;
 import pl.qprogramming.themplay.preset.exceptions.PresetAlreadyExistsException;
+import pl.qprogramming.themplay.preset.exceptions.PresetNotFoundException;
 import pl.qprogramming.themplay.repository.PlaylistRepository;
 import pl.qprogramming.themplay.repository.PresetRepository;
 import pl.qprogramming.themplay.repository.SongRepository;
@@ -602,6 +605,89 @@ public class PlaylistService extends Service {
                         throwable -> Logger.e(TAG, "Error removing all playlists and preset: " + presetName, throwable))
         );
     }
+
+
+    public void updatePreset(Preset presetToUpdate) {
+        String newPresetName = presetToUpdate.getName().trim();
+        val originalName = new AtomicReference<String>();
+        disposables.add(
+                presetRepository.findOneById(presetToUpdate.getId())
+                        .switchIfEmpty(Single.error(new PresetNotFoundException("Preset with ID " + presetToUpdate.getId() + " not found for update.")))
+                        .flatMap(dbPreset -> {
+                            if (dbPreset.getName().equals(newPresetName)) {
+                                Logger.i(TAG, "Preset name has not changed. No update performed for: " + newPresetName);
+                                return Single.just(dbPreset);
+                            }
+                            return presetRepository.findByNameAndIdNotEqual(newPresetName, dbPreset.getId())
+                                    .isEmpty()
+                                    .flatMap(isEmpty -> {
+                                        if (!isEmpty) {
+                                            return Single.error(new PresetAlreadyExistsException("Preset name '" + newPresetName + "' is already taken."));
+                                        }
+                                        originalName.set(dbPreset.getName());
+                                        dbPreset.setName(presetToUpdate.getName());
+                                        return presetRepository.update(dbPreset)
+                                                .andThen(
+                                                        playlistRepository.findAllByPreset(originalName.get())
+                                                                .flatMapCompletable(playlistsToUpdate -> {
+                                                                    if (playlistsToUpdate.isEmpty()) {
+                                                                        return Completable.complete();
+                                                                    }
+                                                                    for (Playlist playlist : playlistsToUpdate) {
+                                                                        playlist.setPreset(newPresetName);
+                                                                    }
+                                                                    return playlistRepository.updateAll(playlistsToUpdate);
+                                                                })
+                                                )
+                                                .toSingleDefault(dbPreset);
+                                    });
+                        })
+                        .subscribeOn(Schedulers.io())
+                        .observeOn(AndroidSchedulers.mainThread())
+                        .subscribe(
+                                updatedPreset -> {
+                                    notifyIfPresetWasActive(originalName.get(), updatedPreset);
+                                    Logger.i(TAG, "Successfully processed update for preset: " + newPresetName);
+                                },
+                                throwable -> {
+                                    String errorMessage;
+                                    if (throwable instanceof PresetAlreadyExistsException) {
+                                        Logger.w(TAG, throwable.getMessage());
+                                        errorMessage = throwable.getMessage();
+                                    } else if (throwable instanceof PresetNotFoundException) {
+                                        Logger.e(TAG, throwable.getMessage());
+                                        errorMessage = throwable.getMessage();
+                                    } else if (throwable instanceof IllegalArgumentException) {
+                                        Logger.e(TAG, "Error updating preset: " + throwable.getMessage());
+                                        errorMessage = "Invalid data for preset update.";
+                                    } else {
+                                        Logger.e(TAG, "Error updating preset: " + newPresetName, throwable);
+                                        errorMessage = "An unexpected error occurred while updating the preset.";
+                                    }
+                                    Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show();
+                                }
+                        )
+        );
+    }
+
+    /**
+     * If current preset is active , notify about it by updating properties and sending broadcast
+     *
+     * @param updatedPreset original preset which was updated
+     */
+    private void notifyIfPresetWasActive(String originalName, Preset updatedPreset) {
+        val sp = getDefaultSharedPreferences(this);
+        val currentPreset = sp.getString(Property.CURRENT_PRESET, null);
+        if (currentPreset != null && currentPreset.equals(originalName)) {
+            Logger.d(TAG, "[EVENT] Playlist service preset made active after rename");
+            val spEdit = sp.edit();
+            spEdit.putString(Property.CURRENT_PRESET, updatedPreset.getName());
+            spEdit.apply();
+            Intent intent = new Intent(PRESET_ACTIVATED.getCode());
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+        }
+    }
+
 
     /**
      * Removes playlist from database , reindex remaining playlists positions and notifies about removal

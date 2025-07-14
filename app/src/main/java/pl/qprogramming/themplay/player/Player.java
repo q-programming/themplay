@@ -504,7 +504,7 @@ public class Player extends Service {
                     ExoPlayerManager.safeReleasePlayer(nextPlayer);
                     nextPlayer = null;
                 }
-                populateAndSend(PLAYER_STOPPED, activePlaylist.getPosition());
+                populateAndSend(PLAYER_STOPPED, activePlaylist != null ? activePlaylist.getPosition() : -1);
             }
             stopProgressUpdates();
             isPlayRequested = false;
@@ -566,7 +566,7 @@ public class Player extends Service {
         crossfadeController.startFadeOut(player, mainVolumeProcessor, getDuration(), () -> {
             mainVolumeProcessor = null;
             isFadeStopRequested = false;
-            populateAndSend(PLAYER_STOPPED, activePlaylist.getPosition());
+            populateAndSend(PLAYER_STOPPED, activePlaylist != null ? activePlaylist.getPosition() : -1);
             onPlayerStopped.run();
         });
     }
@@ -1061,7 +1061,7 @@ public class Player extends Service {
         Intent intent = new Intent(type.getCode());
         val args = new Bundle();
         args.putSerializable(Utils.POSITION, position);
-        args.putSerializable(Utils.SONG, activePlaylist.getCurrentSongId());
+        args.putSerializable(Utils.SONG, activePlaylist != null ? activePlaylist.getCurrentSongId() : null);
         intent.putExtra(ARGS, args);
         LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
     }
