@@ -49,8 +49,10 @@ import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Queue;
 import java.util.stream.Collectors;
 
 import lombok.val;
@@ -104,6 +106,8 @@ public class PlaylistSettingsFragment extends Fragment {
     private Button removeBtn;
     private Button readyBtn;
     private Button updateBtn;
+    private final Queue<List<Uri>> pendingSongUrisQueue = new LinkedList<>();
+    private boolean isProcessingPendingUris = false;
 
     public static PlaylistSettingsFragment newInstance(Playlist playlist) {
         PlaylistSettingsFragment fragment = new PlaylistSettingsFragment();
@@ -121,8 +125,8 @@ public class PlaylistSettingsFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if(getArguments()!=null){
-            Logger.d(TAG,"Restoring playlist from arguments");
+        if (getArguments() != null) {
+            Logger.d(TAG, "Restoring playlist from arguments");
             currentPlaylist = (Playlist) getArguments().getSerializable(PLAYLIST);
         }
     }
@@ -273,11 +277,43 @@ public class PlaylistSettingsFragment extends Fragment {
                             uris.add(uri);
                         }
                     }
-                    processSelectedSongUris(uris);
+                    if (playlistService != null) {
+                        processSelectedSongUris(uris);
+                    } else {
+                        Logger.d(TAG, "Service not yet bound. Queueing selected URIs.");
+                        synchronized (pendingSongUrisQueue) {
+                            pendingSongUrisQueue.offer(uris);
+                        }
+                    }
 
                 }
             }
     );
+
+    /**
+     * Processes any URIs that were queued while the service was not yet available.
+     */
+    private void processPendingSongUris() {
+        synchronized (pendingSongUrisQueue) {
+            if (isProcessingPendingUris) {
+                Logger.d(TAG, "Already processing pending URIs, skipping this call.");
+                return;
+            }
+            if (!pendingSongUrisQueue.isEmpty() && serviceIsBound && playlistService != null) {
+                isProcessingPendingUris = true;
+                Logger.d(TAG, "Processing " + pendingSongUrisQueue.size() + " sets of pending URIs...");
+                while (!pendingSongUrisQueue.isEmpty()) {
+                    List<Uri> urisToProcess = pendingSongUrisQueue.poll();
+                    if (urisToProcess != null && !urisToProcess.isEmpty()) {
+                        processSelectedSongUris(urisToProcess);
+                    }
+                }
+                isProcessingPendingUris = false;
+            } else {
+                Logger.d(TAG, "No pending URIs to process or service/fragment not ready.");
+            }
+        }
+    }
 
     /**
      * Process selected song URIs.
@@ -387,7 +423,7 @@ public class PlaylistSettingsFragment extends Fragment {
         Logger.d(TAG, "Rendering song list with " + songs.size() + " songs. Multiple selection: " + multiple);
         if (playlist.getSongs().isEmpty()) {
             updateBtn.setVisibility(View.GONE);
-        }else{
+        } else {
             updateBtn.setVisibility(View.VISIBLE);
         }
         adapter.updateSongs(songs);
@@ -465,6 +501,7 @@ public class PlaylistSettingsFragment extends Fragment {
             Logger.d(TAG, "Connected service within PlaylistSettingsFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
+            processPendingSongUris();
             playlistService.loadSongs(currentPlaylist, playlistWithSongs -> {
                 currentPlaylist = playlistWithSongs;
                 headerTitleTextView.setText(currentPlaylist.getName());
