@@ -214,7 +214,7 @@ public class PlaylistItemRecyclerViewAdapter extends RecyclerView.Adapter<Playli
                     Logger.d(TAG, "Editing playlist " + playlist.getName());
                     navigateToFragment(
                             fmanager,
-                            new PlaylistSettingsFragment(playlist),
+                            PlaylistSettingsFragment.newInstance(playlist),
                             playlist.getName() + playlist.getId());
                 } else if (itemId == R.id.deletePlaylist) {
                     Logger.d(TAG, "Deleting playlist " + playlist.getName());

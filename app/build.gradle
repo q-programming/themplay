@@ -8,7 +8,7 @@ android {
         applicationId = "pl.qprogramming.themplay"
         minSdkVersion 30
         targetSdkVersion 36
-        versionCode = 18
+        versionCode = 19
         versionName = "1.0.0"
         buildConfigField("long", "BUILD_TIMESTAMP", System.currentTimeMillis() + "L")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

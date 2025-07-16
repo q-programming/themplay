@@ -105,17 +105,26 @@ public class PlaylistSettingsFragment extends Fragment {
     private Button readyBtn;
     private Button updateBtn;
 
+    public static PlaylistSettingsFragment newInstance(Playlist playlist) {
+        PlaylistSettingsFragment fragment = new PlaylistSettingsFragment();
+        Bundle args = new Bundle();
+        args.putSerializable(PLAYLIST, playlist);
+        fragment.setArguments(args);
+        return fragment;
+    }
+
     public PlaylistSettingsFragment() {
         // Required empty public constructor
     }
 
-    public PlaylistSettingsFragment(Playlist currentPlaylist) {
-        this.currentPlaylist = currentPlaylist;
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if(getArguments()!=null){
+            Logger.d(TAG,"Restoring playlist from arguments");
+            currentPlaylist = (Playlist) getArguments().getSerializable(PLAYLIST);
+        }
     }
 
     @Override
@@ -138,6 +147,7 @@ public class PlaylistSettingsFragment extends Fragment {
         val playlistServiceIntent = new Intent(context, PlaylistService.class);
         context.bindService(playlistServiceIntent, mConnection, Context.BIND_AUTO_CREATE);
         if (currentPlaylist == null) {
+            Logger.w(TAG, "No playlist provided, popping back stack.");
             requireActivity().getSupportFragmentManager().popBackStack();
         } else {
             initializeViews(view);
@@ -368,7 +378,7 @@ public class PlaylistSettingsFragment extends Fragment {
     }
 
     private void updateAndRenderSongList(boolean notify, Playlist playlist) {
-        if (!isAdded() || playlist == null) {
+        if (playlist == null) {
             Logger.w(TAG, "Cannot update/render song list, fragment not added, playlist null, or listView null.");
             return;
         }
@@ -452,7 +462,7 @@ public class PlaylistSettingsFragment extends Fragment {
     private final ServiceConnection mConnection = new ServiceConnection() {
         @SuppressLint("CheckResult")
         public void onServiceConnected(ComponentName className, IBinder service) {
-            Logger.d(TAG, "Connected service within PlaylistFragment ");
+            Logger.d(TAG, "Connected service within PlaylistSettingsFragment ");
             playlistService = ((PlaylistService.LocalBinder) service).getService();
             serviceIsBound = true;
             playlistService.loadSongs(currentPlaylist, playlistWithSongs -> {

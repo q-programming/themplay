@@ -97,7 +97,11 @@ public class MainActivity extends AppCompatActivity {
         setupLoader();
         setupMediaControls();
         checkPermissions();
-        onLaunch();
+        if (savedInstanceState == null) {
+            onLaunch();
+        } else {
+            Logger.d(TAG, "Activity re-created, skipping onLaunch() to preserve Fragment state.");
+        }
     }
 
     private void onLaunch() {
@@ -480,7 +484,7 @@ public class MainActivity extends AppCompatActivity {
                         playlistService.addPlaylist(playlist,
                                 newPlaylist -> {
                                     navigateToFragment(getSupportFragmentManager(),
-                                            new PlaylistSettingsFragment(playlist),
+                                            PlaylistSettingsFragment.newInstance(playlist),
                                             playlist.getName() + playlist.getId());
                                     val msg = MessageFormat.format(getString(R.string.playlist_add_created), playlist.getName());
                                     Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_LONG).show();
